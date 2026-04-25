@@ -7,11 +7,13 @@ import { Container } from "@/components/ui/container";
 import { ButtonLink } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { PulseBadge } from "@/components/ui/pulse-badge";
 import { useContent } from "@/components/providers/content-provider";
 import { cn } from "@/lib/cn";
 
 export function Navbar() {
   const { t, brand } = useContent();
+  const status = t.statusBadge;
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -30,94 +32,125 @@ export function Navbar() {
   }, [open]);
 
   return (
-    <header
-      className={cn(
-        "fixed top-0 inset-x-0 z-50 transition-all duration-500",
-        scrolled
-          ? "bg-white/85 backdrop-blur-xl border-b border-warm-line/60"
-          : "bg-transparent border-b border-transparent"
-      )}
-    >
-      <Container size="wide">
-        <nav className="flex h-20 items-center justify-between">
-          <a href="#top" className="flex items-center gap-2" aria-label={brand.name}>
-            <Logo />
-          </a>
-
-          <ul className="hidden lg:flex items-center gap-8">
-            {t.nav.map((item) => (
-              <li key={item.href}>
-                <a
-                  href={item.href}
-                  className="relative text-sm text-navy-soft hover:text-navy transition-colors duration-300 group"
-                >
-                  {item.label}
-                  <span className="absolute -bottom-1 left-0 h-px w-0 bg-gold transition-all duration-300 group-hover:w-full" />
-                </a>
-              </li>
-            ))}
-          </ul>
-
-          <div className="hidden lg:flex items-center gap-5">
-            <LanguageSwitcher />
-            <ButtonLink href="#contact" size="md" withArrow>
-              {t.navCtaLabel}
-            </ButtonLink>
-          </div>
-
-          <div className="lg:hidden flex items-center gap-3">
-            <LanguageSwitcher />
-            <button
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-navy/10 text-navy"
-              aria-label={open ? t.closeMenuLabel : t.openMenuLabel}
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
-            >
-              {open ? <X className="size-5" /> : <Menu className="size-5" />}
-            </button>
-          </div>
-        </nav>
-      </Container>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            key="mobile-nav"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="lg:hidden border-t border-warm-line/60 bg-white/95 backdrop-blur-xl"
-          >
-            <Container size="wide">
-              <ul className="flex flex-col py-4">
-                {t.nav.map((item) => (
-                  <li key={item.href}>
-                    <a
-                      href={item.href}
-                      onClick={() => setOpen(false)}
-                      className="block py-3 text-base text-navy border-b border-warm-line/60 last:border-b-0"
-                    >
-                      {item.label}
-                    </a>
-                  </li>
-                ))}
-                <li className="pt-5 pb-3">
-                  <ButtonLink
-                    href="#contact"
-                    size="md"
-                    withArrow
-                    className="w-full"
-                    onClick={() => setOpen(false)}
-                  >
-                    {t.navCtaLabel}
-                  </ButtonLink>
-                </li>
-              </ul>
-            </Container>
-          </motion.div>
+    <>
+      {/* Top status strip — only visible at very top */}
+      <div
+        className={cn(
+          "fixed top-0 inset-x-0 z-[60] bg-navy-deep text-white text-[0.65rem] uppercase tracking-[0.22em] transition-all duration-500 overflow-hidden",
+          scrolled ? "max-h-0 opacity-0" : "max-h-10 opacity-100"
         )}
-      </AnimatePresence>
-    </header>
+      >
+        <Container size="wide">
+          <div className="flex items-center justify-between gap-4 h-9">
+            <span className="flex items-center gap-2 text-white/70">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 pulse-dot-green" aria-hidden />
+              <span>{status.live}</span>
+              <span className="hidden sm:inline opacity-60"> · {status.label}</span>
+            </span>
+            <span className="hidden md:flex items-center gap-2 text-white/55 font-mono normal-case tracking-normal">
+              <span>{brand.address.street}</span>
+              <span>·</span>
+              <span>Lisboa</span>
+            </span>
+          </div>
+        </Container>
+      </div>
+
+      <header
+        className={cn(
+          "fixed inset-x-0 z-50 transition-all duration-500",
+          scrolled
+            ? "top-0 bg-navy/90 backdrop-blur-xl border-b border-white/10"
+            : "top-9 bg-transparent border-b border-transparent"
+        )}
+      >
+        <Container size="wide">
+          <nav className="flex h-16 lg:h-18 items-center justify-between">
+            <a href="#top" className="flex items-center gap-2" aria-label={brand.name}>
+              <Logo tone="cream" />
+            </a>
+
+            <ul className="hidden lg:flex items-center gap-7">
+              {t.nav.map((item) => (
+                <li key={item.href}>
+                  <a
+                    href={item.href}
+                    className="relative text-sm text-white/70 hover:text-white transition-colors duration-300 group"
+                  >
+                    {item.label}
+                    <span className="absolute -bottom-1 left-0 h-px w-0 bg-gold transition-all duration-300 group-hover:w-full" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+
+            <div className="hidden lg:flex items-center gap-5">
+              <LanguageSwitcher tone="cream" />
+              <ButtonLink href="#contact" size="md" variant="gold" withArrow>
+                {t.navCtaLabel}
+              </ButtonLink>
+            </div>
+
+            <div className="lg:hidden flex items-center gap-3">
+              <LanguageSwitcher tone="cream" />
+              <button
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 text-white"
+                aria-label={open ? t.closeMenuLabel : t.openMenuLabel}
+                aria-expanded={open}
+                onClick={() => setOpen((v) => !v)}
+              >
+                {open ? <X className="size-5" /> : <Menu className="size-5" />}
+              </button>
+            </div>
+          </nav>
+        </Container>
+
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              key="mobile-nav"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="lg:hidden border-t border-white/10 bg-navy/95 backdrop-blur-xl"
+            >
+              <Container size="wide">
+                <div className="py-4">
+                  <PulseBadge tone="green" className="mb-3 text-[0.6rem]">
+                    {status.live}
+                  </PulseBadge>
+                  <ul className="flex flex-col">
+                    {t.nav.map((item) => (
+                      <li key={item.href}>
+                        <a
+                          href={item.href}
+                          onClick={() => setOpen(false)}
+                          className="block py-3 text-base text-white border-b border-white/10 last:border-b-0"
+                        >
+                          {item.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="pt-5">
+                    <ButtonLink
+                      href="#contact"
+                      size="md"
+                      variant="gold"
+                      withArrow
+                      className="w-full"
+                      onClick={() => setOpen(false)}
+                    >
+                      {t.navCtaLabel}
+                    </ButtonLink>
+                  </div>
+                </div>
+              </Container>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </header>
+    </>
   );
 }

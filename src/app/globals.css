@@ -30,7 +30,6 @@
   --color-plum: #081F66;
 
   /* ------ Fonts ------ */
-  /* --font-serif is injected by Next.js on <html>; fallbacks defined here for contexts where it isn't */
   --font-serif: Georgia, "Times New Roman", serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
 
@@ -100,7 +99,18 @@ html {
   mix-blend-mode: multiply;
 }
 
-/* Apple-like glass surface — tinted darker so text stays legible over busy backgrounds (globe, particles) */
+/* Heavier grain for navy backgrounds */
+.has-grain-dark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.08;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/></svg>");
+  mix-blend-mode: overlay;
+}
+
+/* Apple-like glass surface */
 .glass-card {
   background-color: rgba(8, 16, 40, 0.55);
   background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03));
@@ -119,6 +129,16 @@ html {
   border-color: rgba(208, 161, 43, 0.40);
 }
 
+/* Light glass card variant for cream sections */
+.glass-card-light {
+  background-color: rgba(255, 255, 255, 0.55);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.55));
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(208, 161, 43, 0.18);
+  box-shadow: 0 8px 28px rgba(14, 42, 71, 0.08);
+}
+
 /* Floating smoke particles (used by FAQ) */
 @keyframes float-up {
   0% {
@@ -131,6 +151,106 @@ html {
     transform: translateY(-110vh) translateX(var(--particle-drift, 20px)) scale(1.35);
     opacity: 0;
   }
+}
+
+/* Marquee — horizontal infinite scroll */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes marquee-reverse {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+
+.animate-marquee {
+  animation: marquee var(--marquee-duration, 35s) linear infinite;
+}
+
+.animate-marquee-reverse {
+  animation: marquee-reverse var(--marquee-duration, 35s) linear infinite;
+}
+
+.animate-marquee:hover,
+.animate-marquee-reverse:hover {
+  animation-play-state: paused;
+}
+
+/* Pulse dot for "live" badges */
+@keyframes pulse-dot {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(208, 161, 43, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(208, 161, 43, 0);
+  }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-dot-green {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(74, 222, 128, 0);
+  }
+}
+
+.pulse-dot-green {
+  animation: pulse-dot-green 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Subtle floating bob for chips around photos */
+@keyframes float-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.float-bob {
+  animation: float-bob var(--bob-duration, 5s) ease-in-out infinite;
+  animation-delay: var(--bob-delay, 0s);
+}
+
+/* Decorative grid lines bg (editorial feel) */
+.grid-lines-cream {
+  background-image:
+    linear-gradient(to right, rgba(14, 42, 71, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(14, 42, 71, 0.04) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+.grid-lines-navy {
+  background-image:
+    linear-gradient(to right, rgba(208, 161, 43, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+/* Editorial number — large outlined serif */
+.editorial-number {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 300;
+  -webkit-text-stroke: 1px currentColor;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.04em;
+  line-height: 0.85;
+}
+
+/* Tilt utility for floating chips */
+.tilt-l { transform: rotate(-2.5deg); }
+.tilt-r { transform: rotate(2deg); }
+
+/* Soft inner glow for cards on dark bg */
+.dark-card-glow {
+  background:
+    radial-gradient(circle at 30% 0%, rgba(208, 161, 43, 0.10), transparent 55%),
+    rgba(14, 42, 71, 0.55);
+  border: 1px solid rgba(208, 161, 43, 0.18);
 }
 
 @media (prefers-reduced-motion: reduce) {

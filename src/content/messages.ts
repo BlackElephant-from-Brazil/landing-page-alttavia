@@ -19,193 +19,269 @@ export const messages = {
     metaDescription:
       "Licensed Portuguese lawyers issue your NIF with fiscal representation and open your Portuguese bank account remotely. Two documents your D7 or D8 visa needs. Over 800 cases handled.",
 
-    navCtaLabel: "Start my application",
+    navCtaLabel: "Book a free call",
     nav: [
+      { href: "#versus", label: "The difference" },
       { href: "#services", label: "Services" },
-      { href: "#why", label: "Why us" },
-      { href: "#about", label: "About" },
+      { href: "#process", label: "Process" },
+      { href: "#founder", label: "Founder" },
       { href: "#faq", label: "FAQ" },
       { href: "#contact", label: "Contact" },
     ],
 
+    statusBadge: {
+      live: "Accepting cases",
+      label: "April 2026 intake open",
+    },
+
     hero: {
-      eyebrow: "Portuguese lawyers. No middleman.",
-      titleBefore: "The same",
-      titleHighlight: "lawyers",
-      titleAfter: " other firms hire.",
-      subtitle:
-        "Your Portuguese NIF and bank account, opened without you leaving home. The two documents your D7 or D8 visa needs. Handled by us, over 800 times.",
-      ctaPrimary: "Request my NIF",
-      ctaSecondary: "Open my bank account",
-      cardTitle: "Patrícia Viana",
-      cardRole: "OA Portugal · OAB Brasil",
-      cardDesc:
-        "Your case is handled by a licensed attorney, start to finish.",
-      stats: [
-        { number: "800+", label: "cases handled" },
-        { number: "100%", label: "attorney-led" },
-        { number: "100%", label: "remote" },
+      issueLabel: "Issue 02",
+      issueDate: "Lisbon · 2026",
+      eyebrow: "A relocation file by Alttavia",
+      kicker: "The lawyer is the one signing.",
+      titlePre: "Move to Portugal",
+      titleEm: "the way",
+      titleEm2: "the lawyers",
+      titlePost: "do.",
+      lede: "Your NIF and Portuguese bank account, signed off by a licensed Lisbon attorney, not by a sales team in a call centre. The same firm other relocation companies pay to do their legal work. You can pay us directly.",
+      ctaPrimary: "Book a free call",
+      ctaSecondary: "See how it works",
+      photoCaption: "Patrícia Viana, OA Portugal · OAB Brasil",
+      floatingChips: [
+        { label: "OA Portugal · 1148L" },
+        { label: "Files signed by counsel" },
+        { label: "Lisbon, by hand" },
+      ],
+      heroStat: {
+        number: "850+",
+        label: "files closed since 2017",
+      },
+    },
+
+    trustMarquee: {
+      label: "Clients arriving from",
+      cities: [
+        "New York",
+        "Miami",
+        "Los Angeles",
+        "Houston",
+        "Chicago",
+        "Toronto",
+        "London",
+        "Madrid",
+        "São Paulo",
+        "Rio",
+        "Mexico City",
+        "Dubai",
+        "Singapore",
+      ],
+    },
+
+    visaMarquee: {
+      types: [
+        "D7 passive income",
+        "D8 digital nomad",
+        "Golden Visa",
+        "Family reunification",
+        "Tech visa",
+        "Student visa",
+        "Retiree visa",
+      ],
+    },
+
+    versus: {
+      eyebrow: "The difference",
+      title: "Two ways to apply for a Portuguese visa.",
+      lede: "Most relocation firms outsource the legal work. We are the legal work. Here is what changes when the lawyer answers the phone.",
+      headerLeft: "Most relocation firms",
+      headerRight: "Alttavia",
+      rows: [
+        {
+          left: "Sales rep on the call. Lawyer enters at the end, briefly.",
+          right: "Licensed attorney handles your file from intake to filing.",
+        },
+        {
+          left: "Fiscal representation outsourced to a third party for a markup.",
+          right: "Fiscal representation issued and held by us, no markup, no middlemen.",
+        },
+        {
+          left: "Bank account opened through a generic referral. KYC built ad hoc.",
+          right: "Bank file pre-screened against compliance before submission.",
+        },
+        {
+          left: "Generic email replies, mixed signals between teams.",
+          right: "One named lawyer. One thread. Decisions in writing.",
+        },
+        {
+          left: "Pricing depends on bundle, upsells, conversions.",
+          right: "Flat fee, on paper, before any work begins.",
+        },
       ],
     },
 
     services: {
       eyebrow: "What we do",
-      title: "Two documents. One law firm. Zero intermediaries.",
-      desc: "Two steps decide your D7 or D8 visa. Relocation firms across the market call us to handle them. Now you can call us directly.",
-      items: [
-        {
-          id: "nif",
-          tag: "Essential for D7 applicants",
-          title: "NIF with fiscal representation",
-          subtitle: "Your Portuguese tax ID, required from day one.",
-          body: "The NIF is Portugal's tax ID. Without it you can't rent, bank, or enroll children. D7 applicants also need a registered fiscal representative inside Portugal, a role only a lawyer can hold.",
-          body2:
-            "We issue your NIF remotely and stay on as your fiscal representative for as long as you need.",
-          bullets: [
-            "100% remote, no travel needed",
-            "Registered fiscal representative included",
-            "Required before D7 and D8 visa interviews",
-            "Needed for banking, rentals, utilities, and schools",
-          ],
-          cta: "Request my NIF",
+      title: "Two documents. One firm. Zero intermediaries.",
+      lede: "These are the only two files we handle, because they are the two that decide D7 and D8 outcomes. Both are remote. Both are signed by a licensed lawyer.",
+      bento: {
+        nifTag: "Required for D7 from day one",
+        nifNumber: "01",
+        nifTitle: "NIF with fiscal representation",
+        nifDesc:
+          "Your Portuguese tax ID, plus a registered fiscal representative inside Portugal. Without these, you cannot rent, bank, enroll children, or schedule a consular interview.",
+        nifBullets: [
+          "Registered fiscal representative",
+          "Issued in 3 to 5 business days",
+          "100% remote, signed digitally",
+        ],
+        nifCta: "Request my NIF",
+        bankTag: "Required for D7 and Golden Visa",
+        bankNumber: "02",
+        bankTitle: "Remote Portuguese bank account",
+        bankDesc:
+          "Your proof-of-funds account, opened with a partner Portuguese bank. We build the KYC file, run pre-screening, and follow the wire until it lands.",
+        bankBullets: [
+          "Partner banks accustomed to non-residents",
+          "Pre-screened compliance dossier",
+          "Funds received before consular interview",
+        ],
+        bankCta: "Open my account",
+        sideOne: {
+          tag: "Bonus",
+          title: "Consular timing review",
+          desc: "We map your timeline against the consulate that will hear your case so the dates line up.",
         },
-        {
-          id: "bank",
-          tag: "Essential for D7 and Golden Visa applicants",
-          title: "Remote bank account for non-residents",
-          subtitle: "Proof of funds your visa cannot move without.",
-          body: "Portuguese consulates ask for funds already in a Portuguese bank account. A fixed condition of the D7 and Golden Visa. Most banks reject foreign applications. The few that accept them ask for a complex KYC file.",
-          body2:
-            "We open your account with our banking partners, build the compliance file, and follow it through until your funds clear.",
-          bullets: [
-            "100% remote, signed digitally",
-            "Full KYC and compliance support",
-            "Accepted for D7 and Golden Visa",
-            "Pre-screened file to reduce rejection risk",
-          ],
-          cta: "Open my bank account",
+        sideTwo: {
+          tag: "Bonus",
+          title: "Compliance second look",
+          desc: "Before any document leaves your inbox, a second lawyer reviews the file end to end.",
         },
-      ],
-    },
-
-    whyUs: {
-      eyebrow: "Why Alttavia Relocation",
-      title: "Other relocation firms outsource their legal work to us.",
-      intro:
-        "When a relocation firm needs a NIF or a bank account for a client, they call a Portuguese lawyer. That call often lands here. Skip the middleman.",
-      items: [
-        {
-          title: "Handled by actual attorneys",
-          desc: "Your NIF, your bank account, your fiscal representation. All managed personally by licensed Portuguese lawyers, never sales teams, paralegals, or third parties.",
-        },
-        {
-          title: "The firm other firms call",
-          desc: "When the industry needs legal work done for clients, they outsource it to us. With Alttavia, you work directly with the team the market already relies on.",
-        },
-        {
-          title: "Specialists in D7 and D8 visas",
-          desc: "We know the documentation, the compliance, the consular expectations. Over 800 cases in passive-income visas, digital-nomad visas, Golden Visa, and consular proceedings.",
-        },
-        {
-          title: "Remote from start to finish",
-          desc: "Everything is signed, filed, and followed up without you leaving home. You always know what's happening, when, and why, in plain English.",
-        },
-      ],
-    },
-
-    about: {
-      eyebrow: "Our story",
-      title: "Founded because the lawyer was always the last to be called.",
-      paragraphs: [
-        "Alttavia Relocation started with one observation. As a Portuguese attorney, I kept getting calls from relocation companies who wanted to subcontract their legal work. Every one of them eventually needed a lawyer. If I was already doing it, I could do it directly. No markup. No middleman.",
-        "Our mission is straightforward. Make moving to Portugal feel less like paperwork and more like the start of a new life.",
-        "Everything we do goes through a Portuguese-licensed lawyer. When you trust someone with your fiscal identity and the money behind your new life, who actually handles it matters.",
-      ],
-      highlight: {
-        name: "Patrícia Viana",
-        role: "Founder, OA Portugal & OAB Brasil",
-        quote:
-          "I want every client to feel the calm I wish I had had the first time I ever did this myself.",
       },
-      stats: [
-        { number: "800+", label: "cases handled" },
-        { number: "10+", label: "years of practice" },
-        { number: "100%", label: "attorney-led" },
+    },
+
+    process: {
+      eyebrow: "How it runs",
+      title: "Four steps from your kitchen table to a Lisbon postbox.",
+      lede: "Every Alttavia file moves through the same four-step path. You always know which step you are on, which lawyer holds it, and what is missing.",
+      steps: [
+        {
+          n: "01",
+          title: "Brief",
+          duration: "Day 1",
+          desc: "A free call with the attorney who would handle your file. We read your case, name the documents you need, and send a flat-fee proposal in writing.",
+        },
+        {
+          n: "02",
+          title: "File",
+          duration: "Day 2 to 5",
+          desc: "Power of attorney signed digitally. We issue your NIF, register your fiscal representation, and open the KYC dossier with a partner bank.",
+        },
+        {
+          n: "03",
+          title: "Submit",
+          duration: "Week 2 to 4",
+          desc: "Bank submission, compliance back-and-forth, follow-up until your account is live. NIF certificate in your inbox. Consular dates aligned.",
+        },
+        {
+          n: "04",
+          title: "Live",
+          duration: "Week 4+",
+          desc: "Funds wired and confirmed. Documents bundled for your visa interview. We stay on as your fiscal representative for as long as you need.",
+        },
+      ],
+      footnote: "Most files clear step 03 inside 4 weeks. Complex compliance cases may take 6.",
+    },
+
+    bigStats: {
+      eyebrow: "By the numbers",
+      title: "What 8 years on the lawyer side of relocation looks like.",
+      items: [
+        { number: "850+", label: "files closed", caption: "Since 2017, all signed by counsel." },
+        { number: "8", label: "years on file", caption: "Patrícia at the OA bar, OAB before that." },
+        { number: "100%", label: "attorney-led", caption: "Every file. No exceptions." },
+        { number: "0", label: "middlemen", caption: "No reseller, no markup, no kickbacks." },
       ],
     },
 
-    principles: {
-      eyebrow: "How we work",
-      title: "Four principles we will not outsource.",
-      items: [
-        {
-          quote:
-            "Paperwork shouldn't hold your life back. Every step is scheduled, acted on, and reported in writing.",
-          attribution: "On celerity",
-        },
-        {
-          quote:
-            "If we can't help you, we say so. If we can, we tell you exactly how, in writing, before you commit.",
-          attribution: "On ethics",
-        },
-        {
-          quote:
-            "Your attorney is your point of contact. No sales layer. No handoff to paralegals. No surprise invoices.",
-          attribution: "On direct access",
-        },
-        {
-          quote:
-            "Moving abroad is a life-sized decision. You deserve the room to ask every question, in the language that feels most yours.",
-          attribution: "On empathy",
-        },
+    founder: {
+      eyebrow: "On the record",
+      title: "Patrícia Viana, the lawyer signing your file.",
+      kicker: "Press kit",
+      bio: "Licensed Portuguese attorney since 2017 (OA 1148L), prior practice in Brazil (OAB SP). Patrícia spent six years on the receiving end of subcontracted relocation work before launching Alttavia, so clients could call the lawyer first instead of last. Native Portuguese, fluent English, fluent Spanish.",
+      quote:
+        "I want every client to feel the calm I wish I had had the first time I ever did this myself.",
+      credentials: [
+        { label: "OA Portugal", value: "1148L" },
+        { label: "OAB Brasil", value: "Active" },
+        { label: "Languages", value: "PT · EN · ES" },
+        { label: "Practice", value: "Since 2017" },
       ],
+      stickerCta: "Book a 30-minute call with Patrícia",
+    },
+
+    globe: {
+      eyebrow: "Lisbon, by hand",
+      title: "We work from one office. Our clients move from everywhere.",
+      lede: "Files are signed in Lisbon. Calls happen in your timezone. Your visa application reads as if a Portuguese local prepared it, because one did.",
+      cityListLabel: "Recent intakes",
     },
 
     faq: {
-      eyebrow: "Frequently asked",
-      title: "The questions most clients bring to the first call.",
+      eyebrow: "Questions before the call",
+      title: "Things every client asks on day one.",
+      categories: ["Eligibility", "Pricing", "Timing", "Logistics"],
       items: [
         {
+          n: "01",
+          category: "Eligibility",
           q: "Can I get my NIF or open a Portuguese bank account by myself?",
           a: "Both processes need Portuguese legal representation, an in-country address, and KYC compliance built for non-residents. The Tax Authority requires a fiscal representative with a Portuguese address. Most banks refuse direct applications from abroad. These are legal requirements only a licensed Portuguese lawyer can carry out for you.",
         },
         {
+          n: "02",
+          category: "Pricing",
           q: "Is it expensive?",
-          a: "Compared to a denied visa, a rejected bank account, or months of avoidable delay, no. Our pricing is flat and written down before any work begins. You'll know exactly what you're paying and exactly what you get.",
+          a: "Compared to a denied visa, a rejected bank account, or months of avoidable delay, no. Our pricing is flat and written down before any work begins. You will know exactly what you are paying and exactly what you get.",
         },
         {
+          n: "03",
+          category: "Timing",
           q: "How long does each process take?",
           a: "NIF issuance usually takes 3 to 5 business days after we receive your documents. Remote bank account opening takes 2 to 4 weeks depending on the bank's compliance review and your nationality. We give you realistic timelines before you commit and update you as they evolve.",
         },
         {
+          n: "04",
+          category: "Logistics",
           q: "Do I need to travel to Portugal for any of this?",
           a: "No. Both services are fully remote. You sign, we file, the authorities and the bank approve, from wherever you are. Visiting only makes sense once your account is live and you want to see your new city.",
         },
         {
-          q: "I'm applying for a D7 visa. Do I need both services?",
-          a: "Yes. The D7 needs a NIF (with a registered fiscal representative) and a Portuguese bank account with deposited funds before the consular interview. Without one of them the consulate won't approve the application.",
+          n: "05",
+          category: "Eligibility",
+          q: "I am applying for a D7 visa. Do I need both services?",
+          a: "Yes. The D7 needs a NIF (with a registered fiscal representative) and a Portuguese bank account with deposited funds before the consular interview. Without one of them the consulate will not approve the application.",
         },
         {
+          n: "06",
+          category: "Logistics",
           q: "What documents will I need to provide?",
           a: "Usually your passport, a proof of address, proof of income or pension, and a short questionnaire we send you. Exact requirements depend on your nationality and visa type. We confirm everything before any document leaves your inbox.",
         },
         {
+          n: "07",
+          category: "Logistics",
           q: "What if the bank rejects my application?",
-          a: "It rarely happens, because our compliance team reviews every file before it goes in. If it does, we open with another partner bank at no extra cost. Your process doesn't stop until your account is live.",
+          a: "It rarely happens, because our compliance team reviews every file before it goes in. If it does, we open with another partner bank at no extra cost. Your process does not stop until your account is live.",
         },
       ],
     },
 
-    ctaBanner: {
-      title: "Ready to start?",
-      desc: "A first call is free and without commitment. You'll leave it with a clear plan, written pricing, and the name of the attorney handling your case.",
-      button: "Start my application",
-    },
-
     contact: {
-      eyebrow: "Let's talk",
-      title: "Tell us where you are.\nWe'll tell you what comes next.",
-      desc: "Fill the form and one of our attorneys replies inside one business day. Everything you share is protected by attorney-client privilege.",
+      eyebrow: "Open the file",
+      title: "Tell us where you are.\nWe will tell you what comes next.",
+      desc: "A first call is free, on the calendar of an actual attorney, without commitment. You leave it with a clear plan, written pricing, and the name of the lawyer holding your file.",
+      replyTime: "We reply inside one business day",
+      privilege: "Protected by attorney-client privilege",
       emailLabel: "Email",
       phoneLabel: "Phone or WhatsApp",
       officeLabel: "Office",
@@ -216,9 +292,9 @@ export const messages = {
         email: "Email",
         phone: "Phone or WhatsApp",
         country: "Country of residence",
-        interest: "I'm interested in",
-        message: "Tell us a little about your plans",
-        submit: "Send my request",
+        interest: "I am interested in",
+        message: "Tell us where you are in your move",
+        submit: "Send my brief",
         disclaimer:
           "By submitting, you agree to our privacy policy. We respond within one business day.",
       },
@@ -226,7 +302,7 @@ export const messages = {
         name: "How should we address you?",
         email: "your@email.com",
         phone: "+1 (555) 000 0000",
-        country: "United States, UK, Brazil, …",
+        country: "United States, UK, Brazil, ...",
         message:
           "Where are you in your move, and what would make this easier?",
       },
@@ -238,13 +314,6 @@ export const messages = {
         "D8 visa guidance",
         "Not sure yet",
       ],
-    },
-
-    location: {
-      eyebrow: "Come visit, or don't",
-      title: "Our office is in the heart of Lisbon.",
-      desc: "Everything we do is remote. You don't need to cross an ocean for the paperwork to be done. If you're already in Lisbon, or plan to be once you have the keys, drop by.",
-      openMaps: "Open in Google Maps",
     },
 
     footer: {
@@ -264,8 +333,9 @@ export const messages = {
         {
           title: "Firm",
           links: [
-            { href: "#about", label: "About" },
-            { href: "#why", label: "Why Alttavia" },
+            { href: "#founder", label: "Founder" },
+            { href: "#versus", label: "The difference" },
+            { href: "#process", label: "Process" },
             { href: "#faq", label: "FAQ" },
             { href: "#contact", label: "Contact" },
           ],
@@ -299,193 +369,269 @@ export const messages = {
     metaDescription:
       "Advogados portugueses licenciados emitem o seu NIF com representação fiscal e abrem a sua conta bancária portuguesa de forma remota. Os dois documentos que o visto D7 ou D8 exige. Mais de 800 casos conduzidos.",
 
-    navCtaLabel: "Quero aplicar",
+    navCtaLabel: "Agendar conversa",
     nav: [
+      { href: "#versus", label: "A diferença" },
       { href: "#services", label: "Serviços" },
-      { href: "#why", label: "Por que nós" },
-      { href: "#about", label: "Sobre" },
+      { href: "#process", label: "Processo" },
+      { href: "#founder", label: "Fundadora" },
       { href: "#faq", label: "FAQ" },
       { href: "#contact", label: "Contato" },
     ],
 
+    statusBadge: {
+      live: "Aceitando casos",
+      label: "Pauta aberta para abril/26",
+    },
+
     hero: {
-      eyebrow: "Advogados portugueses. Sem intermediários.",
-      titleBefore: "Os mesmos",
-      titleHighlight: "advogados",
-      titleAfter: " que outras firmas contratam.",
-      subtitle:
-        "NIF e conta bancária em Portugal abertos sem você sair de casa. Os dois documentos que o D7 e o D8 exigem, conduzidos por nós, mais de 800 vezes.",
-      ctaPrimary: "Solicitar meu NIF",
-      ctaSecondary: "Abrir minha conta bancária",
-      cardTitle: "Patrícia Viana",
-      cardRole: "OA Portugal · OAB Brasil",
-      cardDesc:
-        "Seu caso conduzido por uma advogada licenciada, do começo ao fim.",
-      stats: [
-        { number: "800+", label: "casos conduzidos" },
-        { number: "100%", label: "advogada à frente" },
-        { number: "100%", label: "remoto" },
+      issueLabel: "Edição 02",
+      issueDate: "Lisboa · 2026",
+      eyebrow: "Um dossiê de relocation, por Alttavia",
+      kicker: "Quem assina é a advogada.",
+      titlePre: "Mude para Portugal",
+      titleEm: "do jeito que",
+      titleEm2: "as advogadas",
+      titlePost: "fazem.",
+      lede: "Seu NIF e a sua conta bancária portuguesa, assinados por uma advogada licenciada em Lisboa, não por uma central de vendas. O mesmo escritório que outras empresas de relocation pagam para fazer o jurídico delas. Você pode pagar a gente direto.",
+      ctaPrimary: "Agendar conversa",
+      ctaSecondary: "Ver como funciona",
+      photoCaption: "Patrícia Viana, OA Portugal · OAB Brasil",
+      floatingChips: [
+        { label: "OA Portugal · 1148L" },
+        { label: "Dossiê assinado por advogada" },
+        { label: "Lisboa, à mão" },
+      ],
+      heroStat: {
+        number: "850+",
+        label: "casos fechados desde 2017",
+      },
+    },
+
+    trustMarquee: {
+      label: "Clientes vindos de",
+      cities: [
+        "Nova Iorque",
+        "Miami",
+        "Los Angeles",
+        "Houston",
+        "Chicago",
+        "Toronto",
+        "Londres",
+        "Madri",
+        "São Paulo",
+        "Rio",
+        "Cidade do México",
+        "Dubai",
+        "Singapura",
+      ],
+    },
+
+    visaMarquee: {
+      types: [
+        "D7 renda passiva",
+        "D8 nômade digital",
+        "Golden Visa",
+        "Reagrupamento familiar",
+        "Tech Visa",
+        "Visto de estudante",
+        "Visto de aposentado",
+      ],
+    },
+
+    versus: {
+      eyebrow: "A diferença",
+      title: "Dois caminhos para um visto português.",
+      lede: "A maioria das empresas de relocation terceiriza o jurídico. Nós somos o jurídico. O que muda quando é a advogada que atende.",
+      headerLeft: "A maioria das empresas",
+      headerRight: "Alttavia",
+      rows: [
+        {
+          left: "Vendedor na ligação. O advogado entra no fim, rapidinho.",
+          right: "Advogada licenciada cuida do dossiê do briefing à protocolação.",
+        },
+        {
+          left: "Representação fiscal terceirizada com markup.",
+          right: "Representação fiscal emitida e mantida por nós, sem markup, sem intermediário.",
+        },
+        {
+          left: "Conta bancária por indicação genérica. KYC montado ao acaso.",
+          right: "Dossiê do banco pré-revisado pelo compliance antes da submissão.",
+        },
+        {
+          left: "Respostas genéricas, sinais cruzados entre equipes.",
+          right: "Uma advogada nomeada. Uma única thread. Decisões por escrito.",
+        },
+        {
+          left: "Preço varia conforme pacote, upsell, conversão.",
+          right: "Honorário fixo, no papel, antes de qualquer trabalho começar.",
+        },
       ],
     },
 
     services: {
       eyebrow: "O que fazemos",
       title: "Dois documentos. Um escritório. Zero intermediários.",
-      desc: "Duas etapas decidem o seu visto D7 ou D8. Empresas de relocation pelo mundo nos chamam para executá-las. Agora você pode chamar a gente direto.",
-      items: [
-        {
-          id: "nif",
-          tag: "Essencial para candidatos ao D7",
-          title: "NIF com representação fiscal",
-          subtitle: "A sua identidade fiscal portuguesa, obrigatória desde o primeiro dia.",
-          body: "O NIF é o CPF português. Sem ele, você não aluga, não abre conta, não matricula filhos. Quem aplica para o D7 ainda precisa de um representante fiscal em Portugal, função reservada a advogados.",
-          body2:
-            "Emitimos o seu NIF remotamente e seguimos como seu representante o tempo que precisar.",
-          bullets: [
-            "100% remoto, sem viagens",
-            "Representante fiscal inscrito incluído",
-            "Obrigatório antes das entrevistas D7 e D8",
-            "Necessário para banco, aluguel, contas e escolas",
-          ],
-          cta: "Solicitar meu NIF",
+      lede: "São os dois únicos serviços que executamos, porque são os dois que decidem o D7 e o D8. Os dois remotos. Os dois assinados por advogada licenciada.",
+      bento: {
+        nifTag: "Obrigatório para o D7 desde o dia 1",
+        nifNumber: "01",
+        nifTitle: "NIF com representação fiscal",
+        nifDesc:
+          "A sua identidade fiscal portuguesa, mais um representante fiscal inscrito em Portugal. Sem estes dois, você não aluga, não abre conta, não matricula filhos, não agenda entrevista consular.",
+        nifBullets: [
+          "Representante fiscal inscrito",
+          "Emissão em 3 a 5 dias úteis",
+          "100% remoto, assinatura digital",
+        ],
+        nifCta: "Solicitar meu NIF",
+        bankTag: "Obrigatório para D7 e Golden Visa",
+        bankNumber: "02",
+        bankTitle: "Conta bancária remota em Portugal",
+        bankDesc:
+          "A sua conta de prova de fundos, aberta com banco parceiro português. Montamos o KYC, fazemos pré-revisão e acompanhamos a transferência até o dinheiro cair.",
+        bankBullets: [
+          "Bancos parceiros acostumados a não-residentes",
+          "Dossiê de compliance pré-revisado",
+          "Fundos confirmados antes da entrevista consular",
+        ],
+        bankCta: "Abrir minha conta",
+        sideOne: {
+          tag: "Bônus",
+          title: "Revisão de timing consular",
+          desc: "Mapeamos o seu cronograma contra o consulado que vai julgar o seu caso para as datas baterem.",
         },
-        {
-          id: "bank",
-          tag: "Essencial para D7 e Golden Visa",
-          title: "Conta bancária remota para não-residentes",
-          subtitle: "Prova de fundos sem a qual nenhum visto avança.",
-          body: "Os consulados pedem fundos já em conta portuguesa. Exigência fixa do D7 e do Golden Visa. A maioria dos bancos recusa pedidos do exterior. Os poucos que aceitam pedem KYC complexo.",
-          body2:
-            "Abrimos a sua conta com bancos parceiros, montamos o compliance e acompanhamos até o dinheiro cair.",
-          bullets: [
-            "100% remoto, com assinatura digital",
-            "Suporte completo de KYC e compliance",
-            "Aceita para D7 e Golden Visa",
-            "Dossier pré-revisado para reduzir recusas",
-          ],
-          cta: "Abrir minha conta bancária",
+        sideTwo: {
+          tag: "Bônus",
+          title: "Segunda revisão de compliance",
+          desc: "Antes de qualquer documento sair da sua caixa, uma segunda advogada lê o dossiê de ponta a ponta.",
         },
-      ],
-    },
-
-    whyUs: {
-      eyebrow: "Por que Alttavia Relocation",
-      title: "Outras empresas de relocation terceirizam o jurídico para nós.",
-      intro:
-        "Quando uma empresa de relocation precisa de NIF ou conta para um cliente, ela liga para um advogado. Essa ligação chega aqui com frequência. Pule o intermediário.",
-      items: [
-        {
-          title: "Conduzido por advogados",
-          desc: "Seu NIF, sua conta bancária, sua representação fiscal. Tudo cuidado pessoalmente por advogados portugueses, nunca por equipe comercial, estagiários ou terceiros.",
-        },
-        {
-          title: "O escritório que as outras empresas chamam",
-          desc: "Quando o setor precisa de jurídico para os próprios clientes, terceiriza para nós. Com a Alttavia, você trabalha direto com a equipe em que o mercado já confia.",
-        },
-        {
-          title: "Especialistas em visto D7 e D8",
-          desc: "Conhecemos a documentação, o compliance, as expectativas consulares. Mais de 800 casos em vistos de renda passiva, nômade digital, Golden Visa e processos consulares.",
-        },
-        {
-          title: "Remoto do início ao fim",
-          desc: "Tudo é assinado, protocolado e acompanhado sem você sair de casa. Você sempre sabe o que está acontecendo, quando e por quê, em linguagem clara.",
-        },
-      ],
-    },
-
-    about: {
-      eyebrow: "Nossa história",
-      title: "Nasceu porque o advogado sempre era o último a ser chamado.",
-      paragraphs: [
-        "A Alttavia Relocation começou com uma observação. Como advogada portuguesa, eu recebia ligações de empresas de relocation pedindo para subcontratar o jurídico. No fim, todas precisavam de um advogado. Se eu já fazia o trabalho, podia fazer direto. Sem markup. Sem intermediário.",
-        "Nossa missão é direta: mudar para Portugal deve parecer menos com burocracia e mais com começar uma nova vida.",
-        "Tudo o que fazemos passa por um advogado licenciado em Portugal. Quando você confia sua identidade fiscal e o dinheiro da sua nova vida, quem cuida disso importa.",
-      ],
-      highlight: {
-        name: "Patrícia Viana",
-        role: "Fundadora, OA Portugal & OAB Brasil",
-        quote:
-          "Quero que cada cliente sinta a calma que eu queria ter sentido na primeira vez em que precisei fazer isso sozinha.",
       },
-      stats: [
-        { number: "800+", label: "casos conduzidos" },
-        { number: "10+", label: "anos de prática" },
-        { number: "100%", label: "advogada à frente" },
+    },
+
+    process: {
+      eyebrow: "Como roda",
+      title: "Quatro passos da sua mesa de jantar à caixa do correio em Lisboa.",
+      lede: "Todo dossiê Alttavia corre pelos mesmos quatro passos. Você sempre sabe em qual está, qual advogada o segura e o que falta.",
+      steps: [
+        {
+          n: "01",
+          title: "Briefing",
+          duration: "Dia 1",
+          desc: "Conversa gratuita com a advogada que cuidaria do seu caso. Lemos o cenário, listamos os documentos e mandamos proposta com honorário fixo por escrito.",
+        },
+        {
+          n: "02",
+          title: "Protocolar",
+          duration: "Dia 2 a 5",
+          desc: "Procuração assinada digitalmente. Emitimos o NIF, registramos a representação fiscal e abrimos o KYC com banco parceiro.",
+        },
+        {
+          n: "03",
+          title: "Submeter",
+          duration: "Semana 2 a 4",
+          desc: "Submissão ao banco, idas e vindas com compliance, acompanhamento até a conta ficar ativa. Certidão de NIF na caixa de entrada. Datas consulares alinhadas.",
+        },
+        {
+          n: "04",
+          title: "No ar",
+          duration: "Semana 4+",
+          desc: "Fundos transferidos e confirmados. Documentos prontos para a entrevista consular. Continuamos como representante fiscal pelo tempo que precisar.",
+        },
+      ],
+      footnote: "A maioria dos casos vence o passo 03 em até 4 semanas. Casos de compliance complexos podem levar 6.",
+    },
+
+    bigStats: {
+      eyebrow: "Em números",
+      title: "É assim que se parece o relocation visto pelo lado da advogada.",
+      items: [
+        { number: "850+", label: "casos fechados", caption: "Desde 2017, todos assinados pela advogada." },
+        { number: "8", label: "anos de barra", caption: "Patrícia inscrita na OA, antes na OAB." },
+        { number: "100%", label: "advogada à frente", caption: "Cada caso, sem exceção." },
+        { number: "0", label: "intermediários", caption: "Sem revenda, sem markup, sem comissão." },
       ],
     },
 
-    principles: {
-      eyebrow: "Como trabalhamos",
-      title: "Quatro princípios que não terceirizamos.",
-      items: [
-        {
-          quote:
-            "Burocracia não pode segurar a sua vida. Cada etapa é agendada, executada e reportada por escrito.",
-          attribution: "Sobre celeridade",
-        },
-        {
-          quote:
-            "Se não podemos ajudar, dizemos. Se podemos, contamos exatamente como, por escrito, antes de você se comprometer.",
-          attribution: "Sobre ética",
-        },
-        {
-          quote:
-            "A sua advogada é o seu ponto de contato. Sem camada comercial. Sem repasse para estagiários. Sem fatura-surpresa.",
-          attribution: "Sobre acesso direto",
-        },
-        {
-          quote:
-            "Mudar de país é uma decisão do tamanho de uma vida. Você merece espaço para fazer cada pergunta, no idioma em que se sente mais em casa.",
-          attribution: "Sobre empatia",
-        },
+    founder: {
+      eyebrow: "A registo",
+      title: "Patrícia Viana, a advogada que assina o seu dossiê.",
+      kicker: "Press kit",
+      bio: "Advogada portuguesa licenciada desde 2017 (OA 1148L), prática anterior no Brasil (OAB SP). Antes de fundar a Alttavia, Patrícia passou seis anos recebendo trabalho jurídico subcontratado por empresas de relocation. A Alttavia nasceu para que o cliente possa ligar primeiro para a advogada, não por último. Português nativo, inglês fluente, espanhol fluente.",
+      quote:
+        "Quero que cada cliente sinta a calma que eu queria ter sentido na primeira vez em que precisei fazer isso sozinha.",
+      credentials: [
+        { label: "OA Portugal", value: "1148L" },
+        { label: "OAB Brasil", value: "Ativa" },
+        { label: "Idiomas", value: "PT · EN · ES" },
+        { label: "Atuação", value: "Desde 2017" },
       ],
+      stickerCta: "Agendar 30 min com a Patrícia",
+    },
+
+    globe: {
+      eyebrow: "Lisboa, à mão",
+      title: "Trabalhamos a partir de um escritório. Os clientes mudam de todo lado.",
+      lede: "Os dossiês são assinados em Lisboa. As ligações acontecem no seu fuso. O seu pedido de visto chega ao consulado lendo como se um português local o tivesse preparado, porque foi exatamente isso.",
+      cityListLabel: "Casos recentes",
     },
 
     faq: {
-      eyebrow: "Perguntas frequentes",
-      title: "As dúvidas que quase todo cliente traz na primeira conversa.",
+      eyebrow: "Antes da primeira conversa",
+      title: "O que quase todo cliente pergunta no dia um.",
+      categories: ["Elegibilidade", "Preço", "Prazos", "Logística"],
       items: [
         {
+          n: "01",
+          category: "Elegibilidade",
           q: "Posso obter o NIF ou abrir uma conta portuguesa sozinho?",
           a: "Os dois processos exigem representação legal em Portugal, morada no país e regras de KYC desenhadas para não-residentes. A Autoridade Tributária pede um representante fiscal com endereço português. A maioria dos bancos recusa candidaturas diretas vindas do exterior. Não são formalidades, são exigências legais que apenas um advogado português licenciado pode cumprir por você.",
         },
         {
+          n: "02",
+          category: "Preço",
           q: "É caro?",
           a: "Comparado a um visto negado, uma conta recusada ou meses de atraso evitável, não. Nosso preço é fixo e está no papel antes de qualquer trabalho começar. Você sabe exatamente o que está pagando e o que recebe.",
         },
         {
+          n: "03",
+          category: "Prazos",
           q: "Quanto tempo cada processo leva?",
           a: "Emissão do NIF: tipicamente 3 a 5 dias úteis depois de recebermos a documentação. Abertura de conta bancária remota: 2 a 4 semanas, conforme o compliance do banco e a sua nacionalidade. Comunicamos prazos realistas antes de você se comprometer e atualizamos conforme avançam.",
         },
         {
+          n: "04",
+          category: "Logística",
           q: "Preciso viajar para Portugal em alguma etapa?",
           a: "Não. Os dois serviços são totalmente remotos. Você assina, nós protocolamos, as autoridades e o banco aprovam, de onde você estiver. Uma visita só faz sentido quando a conta já estiver ativa e você quiser conhecer a sua nova cidade.",
         },
         {
+          n: "05",
+          category: "Elegibilidade",
           q: "Vou aplicar para o D7. Preciso dos dois serviços?",
           a: "Sim. O D7 exige NIF (com representante fiscal inscrito) e conta bancária portuguesa com fundos depositados antes da entrevista consular. Sem um dos dois, o consulado não aprova a candidatura.",
         },
         {
+          n: "06",
+          category: "Logística",
           q: "Quais documentos vou precisar?",
           a: "Em geral: passaporte, comprovante de residência, comprovante de rendimento ou aposentadoria e um questionário curto que enviamos. As exigências exatas dependem da sua nacionalidade e do tipo de visto. Confirmamos tudo antes de qualquer documento sair da sua caixa.",
         },
         {
+          n: "07",
+          category: "Logística",
           q: "E se o banco recusar minha candidatura?",
           a: "Raramente acontece, porque a nossa equipe de compliance revisa cada dossier antes da submissão. Se acontecer, abrimos com outro banco parceiro sem custo extra. Seu processo não para até a sua conta estar ativa.",
         },
       ],
     },
 
-    ctaBanner: {
-      title: "Pronta para começar?",
-      desc: "Uma primeira conversa é gratuita e sem compromisso. Você sai dela com um plano claro, preço por escrito e o nome da advogada que vai cuidar do seu caso.",
-      button: "Quero aplicar",
-    },
-
     contact: {
-      eyebrow: "Vamos conversar",
+      eyebrow: "Abrir o dossiê",
       title: "Conte onde você está.\nA gente diz o que vem a seguir.",
-      desc: "Preencha o formulário e uma de nossas advogadas retorna em até um dia útil. Tudo o que você compartilhar fica protegido pelo sigilo profissional.",
+      desc: "A primeira conversa é gratuita, na agenda de uma advogada de verdade, sem compromisso. Você sai dela com plano claro, preço por escrito e o nome da advogada que vai segurar o seu caso.",
+      replyTime: "Respondemos em até um dia útil",
+      privilege: "Protegido pelo sigilo profissional",
       emailLabel: "E-mail",
       phoneLabel: "Telefone ou WhatsApp",
       officeLabel: "Escritório",
@@ -497,8 +643,8 @@ export const messages = {
         phone: "Telefone ou WhatsApp",
         country: "País de residência",
         interest: "Tenho interesse em",
-        message: "Conte um pouco do seu momento",
-        submit: "Enviar mensagem",
+        message: "Conte em que ponto está",
+        submit: "Enviar briefing",
         disclaimer:
           "Ao enviar, você concorda com nossa política de privacidade. Respondemos em até um dia útil.",
       },
@@ -506,7 +652,7 @@ export const messages = {
         name: "Como podemos chamar você?",
         email: "seu@email.com",
         phone: "+55 (11) 99999 9999",
-        country: "Brasil, Estados Unidos, Reino Unido, …",
+        country: "Brasil, Estados Unidos, Reino Unido, ...",
         message:
           "Em que ponto da mudança você está, e o que tornaria o processo mais fácil?",
       },
@@ -518,13 +664,6 @@ export const messages = {
         "Orientação sobre visto D8",
         "Ainda estou decidindo",
       ],
-    },
-
-    location: {
-      eyebrow: "Venha visitar, ou não",
-      title: "Nosso escritório fica no coração de Lisboa.",
-      desc: "Tudo o que fazemos é remoto. Você não precisa atravessar o oceano para a papelada ficar pronta. Se já está em Lisboa, ou se vai estar assim que pegar as chaves, é só passar.",
-      openMaps: "Abrir no Google Maps",
     },
 
     footer: {
@@ -544,8 +683,9 @@ export const messages = {
         {
           title: "Escritório",
           links: [
-            { href: "#about", label: "Sobre" },
-            { href: "#why", label: "Por que Alttavia" },
+            { href: "#founder", label: "Fundadora" },
+            { href: "#versus", label: "A diferença" },
+            { href: "#process", label: "Processo" },
             { href: "#faq", label: "FAQ" },
             { href: "#contact", label: "Contato" },
           ],
@@ -579,193 +719,269 @@ export const messages = {
     metaDescription:
       "Abogados portugueses licenciados emiten tu NIF con representación fiscal y abren tu cuenta bancaria portuguesa de forma remota. Los dos documentos que tu visado D7 o D8 necesita. Más de 800 casos gestionados.",
 
-    navCtaLabel: "Iniciar mi solicitud",
+    navCtaLabel: "Agendar llamada",
     nav: [
+      { href: "#versus", label: "La diferencia" },
       { href: "#services", label: "Servicios" },
-      { href: "#why", label: "Por qué nosotros" },
-      { href: "#about", label: "Nosotros" },
+      { href: "#process", label: "Proceso" },
+      { href: "#founder", label: "Fundadora" },
       { href: "#faq", label: "FAQ" },
       { href: "#contact", label: "Contacto" },
     ],
 
+    statusBadge: {
+      live: "Aceptando casos",
+      label: "Cupo abierto para abril/26",
+    },
+
     hero: {
-      eyebrow: "Abogados portugueses. Sin intermediarios.",
-      titleBefore: "Los mismos",
-      titleHighlight: "abogados",
-      titleAfter: " que otras firmas contratan.",
-      subtitle:
-        "Tu NIF y tu cuenta bancaria portuguesa, sin salir de casa. Los dos documentos que exigen los visados D7 y D8, resueltos por nosotros más de 800 veces.",
-      ctaPrimary: "Solicitar mi NIF",
-      ctaSecondary: "Abrir mi cuenta bancaria",
-      cardTitle: "Patrícia Viana",
-      cardRole: "OA Portugal · OAB Brasil",
-      cardDesc:
-        "Tu caso lo lleva una abogada licenciada, de principio a fin.",
-      stats: [
-        { number: "800+", label: "casos gestionados" },
-        { number: "100%", label: "con abogada al frente" },
-        { number: "100%", label: "remoto" },
+      issueLabel: "Edición 02",
+      issueDate: "Lisboa · 2026",
+      eyebrow: "Un expediente de relocation, por Alttavia",
+      kicker: "Firma la abogada.",
+      titlePre: "Múdate a Portugal",
+      titleEm: "como lo hacen",
+      titleEm2: "los abogados",
+      titlePost: ".",
+      lede: "Tu NIF y tu cuenta bancaria portuguesa, firmados por una abogada licenciada en Lisboa, no por un equipo de ventas en un call center. El mismo bufete al que otras firmas de relocation pagan para hacer su trabajo jurídico. Puedes pagarnos directamente.",
+      ctaPrimary: "Agendar llamada",
+      ctaSecondary: "Ver cómo funciona",
+      photoCaption: "Patrícia Viana, OA Portugal · OAB Brasil",
+      floatingChips: [
+        { label: "OA Portugal · 1148L" },
+        { label: "Expediente firmado por abogada" },
+        { label: "Lisboa, a mano" },
+      ],
+      heroStat: {
+        number: "850+",
+        label: "expedientes cerrados desde 2017",
+      },
+    },
+
+    trustMarquee: {
+      label: "Clientes que llegan desde",
+      cities: [
+        "Nueva York",
+        "Miami",
+        "Los Ángeles",
+        "Houston",
+        "Chicago",
+        "Toronto",
+        "Londres",
+        "Madrid",
+        "São Paulo",
+        "Río",
+        "Ciudad de México",
+        "Dubái",
+        "Singapur",
+      ],
+    },
+
+    visaMarquee: {
+      types: [
+        "D7 ingresos pasivos",
+        "D8 nómada digital",
+        "Golden Visa",
+        "Reagrupación familiar",
+        "Tech Visa",
+        "Visado de estudiante",
+        "Visado de jubilado",
+      ],
+    },
+
+    versus: {
+      eyebrow: "La diferencia",
+      title: "Dos formas de pedir un visado portugués.",
+      lede: "La mayoría de las firmas de relocation terceriza el trabajo jurídico. Nosotros somos el trabajo jurídico. Esto cambia cuando es la abogada quien atiende.",
+      headerLeft: "La mayoría de las firmas",
+      headerRight: "Alttavia",
+      rows: [
+        {
+          left: "Comercial en la llamada. El abogado entra al final, brevemente.",
+          right: "Abogada licenciada lleva tu expediente desde el briefing hasta la presentación.",
+        },
+        {
+          left: "Representación fiscal tercerizada con markup.",
+          right: "Representación fiscal emitida y mantenida por nosotros, sin markup, sin intermediarios.",
+        },
+        {
+          left: "Cuenta bancaria por referencia genérica. KYC armado al vuelo.",
+          right: "Dossier bancario revisado por compliance antes de la presentación.",
+        },
+        {
+          left: "Respuestas genéricas, señales cruzadas entre equipos.",
+          right: "Una abogada nombrada. Un solo hilo. Decisiones por escrito.",
+        },
+        {
+          left: "El precio depende del paquete, upsells, conversiones.",
+          right: "Honorario fijo, por escrito, antes de que empiece el trabajo.",
+        },
       ],
     },
 
     services: {
       eyebrow: "Qué hacemos",
       title: "Dos documentos. Un bufete. Cero intermediarios.",
-      desc: "Dos pasos deciden tu visado D7 o D8. Las firmas de relocation del mundo nos llaman para resolverlos. Ahora puedes llamarnos directamente.",
-      items: [
-        {
-          id: "nif",
-          tag: "Esencial para solicitantes del D7",
-          title: "NIF con representación fiscal",
-          subtitle: "Tu identidad fiscal portuguesa, obligatoria desde el primer día.",
-          body: "El NIF es el equivalente al CPF brasileño y al NIE español. Sin él no alquilas, no abres cuenta, no matriculas a tus hijos. Quien solicita el D7 además necesita un representante fiscal en Portugal, una función reservada a abogados.",
-          body2:
-            "Emitimos tu NIF de forma remota y seguimos como tu representante el tiempo que necesites.",
-          bullets: [
-            "100% remoto, sin viajar",
-            "Representante fiscal registrado incluido",
-            "Obligatorio antes de las entrevistas D7 y D8",
-            "Necesario para bancos, alquileres, servicios y colegios",
-          ],
-          cta: "Solicitar mi NIF",
+      lede: "Son los dos únicos servicios que ejecutamos, porque son los dos que deciden el D7 y el D8. Ambos remotos. Ambos firmados por abogada licenciada.",
+      bento: {
+        nifTag: "Obligatorio para el D7 desde el día 1",
+        nifNumber: "01",
+        nifTitle: "NIF con representación fiscal",
+        nifDesc:
+          "Tu identidad fiscal portuguesa, más un representante fiscal registrado en Portugal. Sin esos dos, no alquilas, no abres cuenta, no matriculas hijos, no agendas entrevista consular.",
+        nifBullets: [
+          "Representante fiscal registrado",
+          "Emisión en 3 a 5 días hábiles",
+          "100% remoto, firma digital",
+        ],
+        nifCta: "Solicitar mi NIF",
+        bankTag: "Obligatoria para D7 y Golden Visa",
+        bankNumber: "02",
+        bankTitle: "Cuenta bancaria remota en Portugal",
+        bankDesc:
+          "Tu cuenta de prueba de fondos, abierta con un banco asociado portugués. Armamos el KYC, hacemos pre-revisión y seguimos la transferencia hasta que el dinero entra.",
+        bankBullets: [
+          "Bancos asociados acostumbrados a no residentes",
+          "Dossier de compliance pre-revisado",
+          "Fondos confirmados antes de la entrevista consular",
+        ],
+        bankCta: "Abrir mi cuenta",
+        sideOne: {
+          tag: "Extra",
+          title: "Revisión de timing consular",
+          desc: "Mapeamos tu cronograma contra el consulado que verá tu caso para que las fechas calcen.",
         },
-        {
-          id: "bank",
-          tag: "Esencial para D7 y Golden Visa",
-          title: "Cuenta bancaria remota para no residentes",
-          subtitle: "Una prueba de fondos sin la cual ningún visado avanza.",
-          body: "Los consulados piden fondos ya en una cuenta portuguesa. Condición fija del D7 y del Golden Visa. La mayoría de los bancos rechaza solicitudes del extranjero. Los que aceptan piden un KYC complejo.",
-          body2:
-            "Abrimos tu cuenta con nuestros bancos asociados, montamos el compliance y seguimos hasta que el dinero entra.",
-          bullets: [
-            "100% remoto, firma digital",
-            "Soporte completo de KYC y compliance",
-            "Aceptada para D7 y Golden Visa",
-            "Dossier pre-revisado para reducir rechazos",
-          ],
-          cta: "Abrir mi cuenta bancaria",
+        sideTwo: {
+          tag: "Extra",
+          title: "Segunda revisión de compliance",
+          desc: "Antes de que ningún documento salga de tu bandeja, una segunda abogada lee el expediente entero.",
         },
-      ],
-    },
-
-    whyUs: {
-      eyebrow: "Por qué Alttavia Relocation",
-      title: "Otras firmas de relocation tercerizan lo jurídico con nosotros.",
-      intro:
-        "Cuando una firma de relocation necesita un NIF o una cuenta para un cliente, llama a un abogado portugués. Esa llamada termina aquí muchas veces. Sáltate al intermediario.",
-      items: [
-        {
-          title: "Lo gestionan abogados reales",
-          desc: "Tu NIF, tu cuenta bancaria, tu representación fiscal. Todo lo lleva personalmente un abogado portugués, nunca equipos comerciales, pasantes o terceros.",
-        },
-        {
-          title: "El bufete al que llaman las otras firmas",
-          desc: "Cuando el sector necesita trabajo jurídico para sus clientes, lo terceriza a nosotros. Con Alttavia, trabajas directamente con el equipo en el que el mercado ya confía.",
-        },
-        {
-          title: "Especialistas en visados D7 y D8",
-          desc: "Conocemos la documentación, el compliance, las expectativas consulares. Más de 800 casos en visados de ingresos pasivos, nómadas digitales, Golden Visa y procedimientos consulares.",
-        },
-        {
-          title: "Remoto de principio a fin",
-          desc: "Todo se firma, se presenta y se sigue sin salir de casa. Sabes siempre qué está pasando, cuándo y por qué, en lenguaje claro.",
-        },
-      ],
-    },
-
-    about: {
-      eyebrow: "Nuestra historia",
-      title: "Nacida porque al abogado siempre lo llamaban al final.",
-      paragraphs: [
-        "Alttavia Relocation nació de una observación. Como abogada portuguesa, recibía llamadas de firmas de relocation que querían subcontratar lo jurídico. Todas, al final, necesitaban un abogado. Si yo ya hacía el trabajo, podía hacerlo directo. Sin markup. Sin intermediario.",
-        "Nuestra misión es directa: que mudarse a Portugal se parezca menos a papeleo y más al principio de una vida nueva.",
-        "Todo lo que hacemos pasa por un abogado licenciado en Portugal. Cuando le confías a alguien tu identidad fiscal y el dinero detrás de tu vida nueva, importa quién lo gestiona.",
-      ],
-      highlight: {
-        name: "Patrícia Viana",
-        role: "Fundadora, OA Portugal & OAB Brasil",
-        quote:
-          "Quiero que cada cliente sienta la calma que me habría gustado tener la primera vez que tuve que hacer esto.",
       },
-      stats: [
-        { number: "800+", label: "casos gestionados" },
-        { number: "10+", label: "años de práctica" },
-        { number: "100%", label: "con abogada al frente" },
+    },
+
+    process: {
+      eyebrow: "Cómo corre",
+      title: "Cuatro pasos de tu mesa al buzón en Lisboa.",
+      lede: "Todo expediente de Alttavia corre por los mismos cuatro pasos. Siempre sabes en cuál estás, qué abogada lo tiene y qué falta.",
+      steps: [
+        {
+          n: "01",
+          title: "Briefing",
+          duration: "Día 1",
+          desc: "Llamada gratuita con la abogada que llevaría tu caso. Leemos el escenario, listamos los documentos y enviamos propuesta con honorario fijo por escrito.",
+        },
+        {
+          n: "02",
+          title: "Presentar",
+          duration: "Día 2 a 5",
+          desc: "Poder firmado digitalmente. Emitimos el NIF, registramos la representación fiscal y abrimos el KYC con banco asociado.",
+        },
+        {
+          n: "03",
+          title: "Someter",
+          duration: "Semana 2 a 4",
+          desc: "Presentación al banco, idas y vueltas con compliance, seguimiento hasta que la cuenta esté activa. Certificado del NIF en tu bandeja. Fechas consulares alineadas.",
+        },
+        {
+          n: "04",
+          title: "En el aire",
+          duration: "Semana 4+",
+          desc: "Fondos transferidos y confirmados. Documentos listos para la entrevista consular. Seguimos como representante fiscal el tiempo que necesites.",
+        },
+      ],
+      footnote: "La mayoría de los expedientes pasa el paso 03 en hasta 4 semanas. Los casos de compliance complejo pueden llegar a 6.",
+    },
+
+    bigStats: {
+      eyebrow: "En cifras",
+      title: "Así se ve el relocation desde el lado de la abogada.",
+      items: [
+        { number: "850+", label: "expedientes cerrados", caption: "Desde 2017, todos firmados por abogada." },
+        { number: "8", label: "años de barra", caption: "Patrícia en la OA, antes en la OAB." },
+        { number: "100%", label: "con abogada al frente", caption: "Cada caso, sin excepción." },
+        { number: "0", label: "intermediarios", caption: "Sin reventa, sin markup, sin comisión." },
       ],
     },
 
-    principles: {
-      eyebrow: "Cómo trabajamos",
-      title: "Cuatro principios que no tercerizamos.",
-      items: [
-        {
-          quote:
-            "La burocracia no puede detener tu vida. Cada paso se agenda, se ejecuta y se reporta por escrito.",
-          attribution: "Sobre celeridad",
-        },
-        {
-          quote:
-            "Si no podemos ayudarte, lo decimos. Si podemos, te decimos exactamente cómo, por escrito, antes de que te comprometas.",
-          attribution: "Sobre ética",
-        },
-        {
-          quote:
-            "Tu abogada es tu punto de contacto. Sin capa comercial. Sin traspaso a pasantes. Sin facturas sorpresa.",
-          attribution: "Sobre acceso directo",
-        },
-        {
-          quote:
-            "Mudarse de país es una decisión del tamaño de una vida. Mereces espacio para hacer todas las preguntas, en el idioma que te resulte más tuyo.",
-          attribution: "Sobre empatía",
-        },
+    founder: {
+      eyebrow: "Para constancia",
+      title: "Patrícia Viana, la abogada que firma tu expediente.",
+      kicker: "Press kit",
+      bio: "Abogada portuguesa licenciada desde 2017 (OA 1148L), práctica previa en Brasil (OAB SP). Antes de fundar Alttavia, Patrícia pasó seis años recibiendo trabajo jurídico subcontratado por firmas de relocation. Alttavia nació para que el cliente pueda llamar a la abogada primero, no al final. Portugués nativo, inglés fluido, español fluido.",
+      quote:
+        "Quiero que cada cliente sienta la calma que me habría gustado tener la primera vez que tuve que hacer esto.",
+      credentials: [
+        { label: "OA Portugal", value: "1148L" },
+        { label: "OAB Brasil", value: "Activa" },
+        { label: "Idiomas", value: "PT · EN · ES" },
+        { label: "Práctica", value: "Desde 2017" },
       ],
+      stickerCta: "Agendar 30 min con Patrícia",
+    },
+
+    globe: {
+      eyebrow: "Lisboa, a mano",
+      title: "Trabajamos desde una oficina. Nuestros clientes se mudan desde todas partes.",
+      lede: "Los expedientes se firman en Lisboa. Las llamadas ocurren en tu huso horario. Tu solicitud de visado le llega al consulado leyéndose como si la hubiera preparado un portugués local, porque así fue.",
+      cityListLabel: "Casos recientes",
     },
 
     faq: {
-      eyebrow: "Preguntas frecuentes",
-      title: "Las dudas que casi todo cliente trae a la primera llamada.",
+      eyebrow: "Antes de la primera llamada",
+      title: "Lo que casi todo cliente pregunta el primer día.",
+      categories: ["Elegibilidad", "Precio", "Plazos", "Logística"],
       items: [
         {
+          n: "01",
+          category: "Elegibilidad",
           q: "¿Puedo obtener el NIF o abrir una cuenta bancaria portuguesa por mi cuenta?",
           a: "Ambos procesos requieren representación jurídica portuguesa, dirección en el país y reglas KYC diseñadas para no residentes. La Autoridad Tributaria exige un representante fiscal con dirección portuguesa. La mayoría de los bancos rechazan solicitudes directas desde el exterior. No son formalidades, son exigencias legales que sólo un abogado portugués licenciado puede cumplir por ti.",
         },
         {
+          n: "02",
+          category: "Precio",
           q: "¿Es caro?",
           a: "Comparado con un visado denegado, una cuenta rechazada o meses de retraso evitable, no. Nuestro precio es cerrado y está por escrito antes de empezar. Sabes exactamente lo que pagas y lo que recibes.",
         },
         {
+          n: "03",
+          category: "Plazos",
           q: "¿Cuánto tarda cada proceso?",
           a: "Emisión del NIF: normalmente 3 a 5 días laborables desde la documentación. Apertura de cuenta bancaria remota: 2 a 4 semanas según el análisis de compliance del banco y tu nacionalidad. Comunicamos plazos realistas antes de que te comprometas y actualizamos según evolucionan.",
         },
         {
+          n: "04",
+          category: "Logística",
           q: "¿Tengo que viajar a Portugal en algún momento?",
           a: "No. Ambos servicios son totalmente remotos. Tú firmas, nosotros presentamos, las autoridades y el banco aprueban, desde donde estés. Visitar sólo tiene sentido cuando la cuenta ya está activa y quieres conocer tu nueva ciudad.",
         },
         {
+          n: "05",
+          category: "Elegibilidad",
           q: "Voy a solicitar el visado D7. ¿Necesito los dos servicios?",
           a: "Sí. El D7 exige un NIF (con representante fiscal registrado) y una cuenta bancaria portuguesa con fondos depositados antes de la entrevista consular. Sin uno u otro, el consulado no aprueba la solicitud.",
         },
         {
+          n: "06",
+          category: "Logística",
           q: "¿Qué documentos necesitaré aportar?",
           a: "Normalmente: pasaporte, comprobante de domicilio, comprobante de ingresos o pensión y un cuestionario breve que te enviamos. Los requisitos exactos dependen de tu nacionalidad y del tipo de visado. Lo confirmamos todo antes de que nada salga de tu bandeja de entrada.",
         },
         {
+          n: "07",
+          category: "Logística",
           q: "¿Y si el banco rechaza mi solicitud?",
           a: "Es raro, porque nuestro equipo de compliance revisa cada dossier antes de presentarlo. Si ocurre, abrimos con otro banco asociado sin coste adicional. Tu proceso no se detiene hasta que tu cuenta esté activa.",
         },
       ],
     },
 
-    ctaBanner: {
-      title: "¿Lista para empezar?",
-      desc: "Una primera conversación es gratuita y sin compromiso. Saldrás con un plan claro, precio por escrito y el nombre de la abogada que llevará tu caso.",
-      button: "Iniciar mi solicitud",
-    },
-
     contact: {
-      eyebrow: "Hablemos",
+      eyebrow: "Abrir el expediente",
       title: "Cuéntanos dónde estás.\nTe diremos qué viene a continuación.",
-      desc: "Rellena el formulario y una de nuestras abogadas responde en un día laborable. Todo lo que compartas está protegido por el secreto profesional.",
+      desc: "La primera llamada es gratuita, en la agenda de una abogada de verdad, sin compromiso. Saldrás con un plan claro, precio por escrito y el nombre de la abogada que llevará tu caso.",
+      replyTime: "Respondemos en un día laborable",
+      privilege: "Protegido por el secreto profesional",
       emailLabel: "Email",
       phoneLabel: "Teléfono o WhatsApp",
       officeLabel: "Oficina",
@@ -777,8 +993,8 @@ export const messages = {
         phone: "Teléfono o WhatsApp",
         country: "País de residencia",
         interest: "Me interesa",
-        message: "Cuéntanos un poco tu momento",
-        submit: "Enviar mi solicitud",
+        message: "Cuéntanos en qué momento estás",
+        submit: "Enviar briefing",
         disclaimer:
           "Al enviar, aceptas nuestra política de privacidad. Respondemos en un día laborable.",
       },
@@ -786,7 +1002,7 @@ export const messages = {
         name: "¿Cómo podemos llamarte?",
         email: "tu@email.com",
         phone: "+34 600 000 000",
-        country: "España, México, Argentina, …",
+        country: "España, México, Argentina, ...",
         message:
           "¿En qué punto de la mudanza estás, y qué te haría todo más fácil?",
       },
@@ -798,13 +1014,6 @@ export const messages = {
         "Orientación sobre visado D8",
         "Todavía estoy decidiendo",
       ],
-    },
-
-    location: {
-      eyebrow: "Ven a visitarnos, o no",
-      title: "Nuestra oficina está en el corazón de Lisboa.",
-      desc: "Todo lo que hacemos es remoto. No hace falta cruzar un océano para tener tu documentación lista. Si ya estás en Lisboa, o vas a estar cuando recibas las llaves, eres bienvenido.",
-      openMaps: "Abrir en Google Maps",
     },
 
     footer: {
@@ -824,8 +1033,9 @@ export const messages = {
         {
           title: "Bufete",
           links: [
-            { href: "#about", label: "Nosotros" },
-            { href: "#why", label: "Por qué Alttavia" },
+            { href: "#founder", label: "Fundadora" },
+            { href: "#versus", label: "La diferencia" },
+            { href: "#process", label: "Proceso" },
             { href: "#faq", label: "FAQ" },
             { href: "#contact", label: "Contacto" },
           ],

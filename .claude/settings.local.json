@@ -47,7 +47,13 @@
       "Bash(curl -s http://localhost:3000/__TRACKED_VAR__)",
       "Bash(npx next *)",
       "Bash(timeout 120 npx tsc --noEmit)",
-      "Bash(timeout 60 npx tsc --noEmit)"
+      "Bash(timeout 60 npx tsc --noEmit)",
+      "Bash(tee /tmp/devserver.log)",
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /tmp/page-en.html -w \"HTTP %{http_code}, %{size_download} bytes\\\\n\" http://localhost:3002/en)",
+      "Bash(curl -s -o /tmp/page-pt.html -w \"HTTP-PT %{http_code}\\\\n\" http://localhost:3002/pt)",
+      "Bash(curl -s -o /tmp/page-es.html -w \"HTTP-ES %{http_code}\\\\n\" http://localhost:3002/es)",
+      "Bash(curl -s -o /dev/null -w \"ROOT %{http_code} -> %{redirect_url}\\\\n\" http://localhost:3002/)"
     ]
   }
 }

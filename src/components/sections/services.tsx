@@ -1,101 +1,252 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check, FileText, Landmark } from "lucide-react";
+import { ArrowUpRight, Check, FileText, Landmark, Calendar, ShieldCheck } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Eyebrow } from "@/components/ui/eyebrow";
 import { Reveal } from "@/components/ui/reveal";
 import { ButtonLink } from "@/components/ui/button";
 import { useContent } from "@/components/providers/content-provider";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
-const icons = [FileText, Landmark];
 
 export function Services() {
   const { t } = useContent();
   const services = t.services;
+  const b = services.bento;
 
   return (
-    <section
-      id="services"
-      className="relative py-24 lg:py-32 bg-cream-deep/60"
-    >
-      <Container size="wide">
-        <div className="mx-auto max-w-3xl text-center">
-          <Reveal>
-            <Eyebrow>{services.eyebrow}</Eyebrow>
-          </Reveal>
-          <Reveal delay={0.1}>
-            <h2 className="mt-6 font-serif text-balance text-navy">
-              {services.title}
-            </h2>
-          </Reveal>
-          <Reveal delay={0.18}>
-            <p className="mt-5 text-lg text-navy-soft leading-relaxed">
-              {services.desc}
-            </p>
-          </Reveal>
+    <section id="services" className="relative py-24 lg:py-32 bg-white overflow-hidden">
+      <div aria-hidden className="absolute inset-0 grid-lines-cream opacity-60 pointer-events-none" />
+      <Container size="wide" className="relative">
+        <div className="grid gap-10 lg:grid-cols-12 items-end">
+          <div className="lg:col-span-7">
+            <Reveal>
+              <div className="flex items-center gap-3 text-[0.7rem] font-medium uppercase tracking-[0.28em] text-gold-dark">
+                <span aria-hidden className="inline-block h-px w-8 bg-gold/60" />
+                <span>{services.eyebrow}</span>
+              </div>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <h2 className="mt-6 font-serif text-balance text-navy">
+                {services.title}
+              </h2>
+            </Reveal>
+          </div>
+          <div className="lg:col-span-5">
+            <Reveal delay={0.18}>
+              <p className="text-lg text-navy-soft leading-relaxed">
+                {services.lede}
+              </p>
+            </Reveal>
+          </div>
         </div>
 
-        <div className="mt-16 lg:mt-20 grid gap-6 lg:gap-8 lg:grid-cols-2">
-          {services.items.map((item, i) => {
-            const Icon = icons[i % icons.length];
-            return (
-              <motion.article
-                key={item.id}
-                initial={{ opacity: 0, y: 32 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-6% 0%" }}
-                transition={{ duration: 0.8, delay: i * 0.1, ease: smooth }}
-                className="group relative flex flex-col overflow-hidden rounded-xl bg-white border border-warm-line/70 p-8 sm:p-10 lg:p-12 shadow-[var(--shadow-soft)] transition-all duration-500 hover:border-gold/50 hover:shadow-[var(--shadow-card)]"
-              >
-                <div className="flex items-start gap-5">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-wheat/40 text-gold-dark">
-                    <Icon className="size-6" strokeWidth={1.5} />
-                  </div>
-                  <span className="inline-flex items-center rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-[0.68rem] font-medium uppercase tracking-wider text-gold-dark">
-                    {item.tag}
-                  </span>
-                </div>
+        {/* Bento grid */}
+        <div className="mt-16 lg:mt-20 grid gap-5 lg:grid-cols-12 lg:grid-rows-[auto_auto]">
+          {/* NIF — large primary card */}
+          <BentoLarge
+            number={b.nifNumber}
+            tag={b.nifTag}
+            title={b.nifTitle}
+            desc={b.nifDesc}
+            bullets={b.nifBullets}
+            cta={b.nifCta}
+            icon={FileText}
+            tone="navy"
+            className="lg:col-span-7 lg:row-span-2"
+          />
 
-                <h3 className="mt-7 font-serif text-3xl text-navy leading-tight">
-                  {item.title}
-                </h3>
-                <p className="mt-2 text-base italic text-navy-soft font-serif">
-                  {item.subtitle}
-                </p>
+          {/* Bank — secondary card */}
+          <BentoMedium
+            number={b.bankNumber}
+            tag={b.bankTag}
+            title={b.bankTitle}
+            desc={b.bankDesc}
+            bullets={b.bankBullets}
+            cta={b.bankCta}
+            icon={Landmark}
+            className="lg:col-span-5"
+          />
 
-                <div className="mt-6 space-y-4 text-[0.96rem] text-navy-soft leading-relaxed">
-                  <p>{item.body}</p>
-                  <p>{item.body2}</p>
-                </div>
+          {/* Bonus 1 */}
+          <BentoSmall
+            tag={b.sideOne.tag}
+            title={b.sideOne.title}
+            desc={b.sideOne.desc}
+            icon={Calendar}
+            className="lg:col-span-3"
+          />
 
-                <ul className="mt-7 space-y-3">
-                  {item.bullets.map((b) => (
-                    <li key={b} className="flex gap-3 text-[0.93rem] text-navy">
-                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-navy text-white">
-                        <Check className="size-3" strokeWidth={3} />
-                      </span>
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="mt-9 pt-7 border-t border-warm-line/70">
-                  <ButtonLink
-                    href="#contact"
-                    size="md"
-                    withArrow
-                    className="w-full sm:w-auto"
-                  >
-                    {item.cta}
-                  </ButtonLink>
-                </div>
-              </motion.article>
-            );
-          })}
+          {/* Bonus 2 */}
+          <BentoSmall
+            tag={b.sideTwo.tag}
+            title={b.sideTwo.title}
+            desc={b.sideTwo.desc}
+            icon={ShieldCheck}
+            className="lg:col-span-2"
+          />
         </div>
       </Container>
     </section>
+  );
+}
+
+type LargeProps = {
+  number: string;
+  tag: string;
+  title: string;
+  desc: string;
+  bullets: readonly string[];
+  cta: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  tone: "navy" | "white";
+  className?: string;
+};
+
+function BentoLarge({ number, tag, title, desc, bullets, cta, icon: Icon, className }: LargeProps) {
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 32 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-6% 0%" }}
+      transition={{ duration: 0.8, ease: smooth }}
+      className={`relative group overflow-hidden rounded-2xl bg-navy text-white p-8 sm:p-10 lg:p-12 has-grain-dark flex flex-col ${className ?? ""}`}
+    >
+      {/* gold glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-32 -right-20 h-[420px] w-[420px] rounded-full blur-3xl opacity-30"
+        style={{
+          background:
+            "radial-gradient(circle at center, rgba(208,161,43,0.50) 0%, transparent 70%)",
+        }}
+      />
+      {/* big editorial number */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute right-6 top-6 sm:right-10 sm:top-10 editorial-number text-[8rem] sm:text-[10rem] text-gold-light/40"
+      >
+        {number}
+      </div>
+
+      <div className="relative flex items-start gap-4">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gold text-navy">
+          <Icon className="size-6" strokeWidth={1.75} />
+        </div>
+        <span className="inline-flex items-center self-center rounded-full bg-white/10 border border-white/15 px-3 py-1 text-[0.66rem] font-medium uppercase tracking-[0.18em] text-gold-light">
+          {tag}
+        </span>
+      </div>
+
+      <h3 className="relative mt-7 font-serif text-3xl sm:text-4xl text-white leading-tight max-w-md">
+        {title}
+      </h3>
+      <p className="relative mt-5 text-base text-white/75 leading-relaxed max-w-xl">
+        {desc}
+      </p>
+
+      <ul className="relative mt-7 space-y-2.5">
+        {bullets.map((b) => (
+          <li key={b} className="flex gap-3 text-sm text-white/85">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gold text-navy">
+              <Check className="size-3" strokeWidth={3} />
+            </span>
+            <span>{b}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="relative mt-auto pt-9">
+        <ButtonLink href="#contact" size="md" variant="gold" withArrow>
+          {cta}
+        </ButtonLink>
+      </div>
+    </motion.article>
+  );
+}
+
+type MediumProps = Omit<LargeProps, "tone">;
+function BentoMedium({ number, tag, title, desc, bullets, cta, icon: Icon, className }: MediumProps) {
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 32 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-6% 0%" }}
+      transition={{ duration: 0.8, delay: 0.05, ease: smooth }}
+      className={`relative group overflow-hidden rounded-2xl bg-cream-deep/60 border border-warm-line p-8 sm:p-10 flex flex-col hover:bg-white hover:border-gold/40 hover:shadow-[var(--shadow-card)] transition-all duration-500 ${className ?? ""}`}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute right-4 top-4 editorial-number text-[6rem] text-navy/15"
+      >
+        {number}
+      </div>
+
+      <div className="relative flex items-center gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-navy text-white">
+          <Icon className="size-5" strokeWidth={1.75} />
+        </div>
+        <span className="inline-flex items-center rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-[0.66rem] font-medium uppercase tracking-[0.18em] text-gold-dark">
+          {tag}
+        </span>
+      </div>
+
+      <h3 className="relative mt-6 font-serif text-2xl sm:text-3xl text-navy leading-tight">
+        {title}
+      </h3>
+      <p className="relative mt-4 text-[0.95rem] text-navy-soft leading-relaxed">
+        {desc}
+      </p>
+
+      <ul className="relative mt-6 space-y-2.5">
+        {bullets.map((b) => (
+          <li key={b} className="flex gap-3 text-sm text-navy">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-navy text-white">
+              <Check className="size-3" strokeWidth={3} />
+            </span>
+            <span>{b}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="relative mt-auto pt-7">
+        <a
+          href="#contact"
+          className="inline-flex items-center gap-2 text-sm font-medium text-gold-dark hover:text-navy transition-colors group/cta"
+        >
+          <span className="border-b border-gold/40 group-hover/cta:border-navy">{cta}</span>
+          <ArrowUpRight className="size-4 group-hover/cta:translate-x-0.5 transition-transform" />
+        </a>
+      </div>
+    </motion.article>
+  );
+}
+
+type SmallProps = {
+  tag: string;
+  title: string;
+  desc: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  className?: string;
+};
+
+function BentoSmall({ tag, title, desc, icon: Icon, className }: SmallProps) {
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-6% 0%" }}
+      transition={{ duration: 0.7, delay: 0.1, ease: smooth }}
+      className={`relative rounded-2xl bg-white border border-warm-line p-6 lg:p-7 flex flex-col ${className ?? ""}`}
+    >
+      <div className="flex items-center gap-3">
+        <Icon className="size-5 text-gold-dark" strokeWidth={1.75} />
+        <span className="text-[0.62rem] font-medium uppercase tracking-[0.22em] text-navy-muted">
+          {tag}
+        </span>
+      </div>
+      <h4 className="mt-4 font-serif text-lg text-navy leading-snug">{title}</h4>
+      <p className="mt-2 text-sm text-navy-soft leading-relaxed">{desc}</p>
+    </motion.article>
   );
 }
