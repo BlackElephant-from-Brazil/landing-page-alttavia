@@ -11,29 +11,31 @@ type GlobeProps = {
 // [lat, lng] + relative size.
 const LISBON: [number, number] = [38.7223, -9.1393];
 
+// Marker sizes are roughly 30% of the previous values so the dots feel like
+// quiet city pins instead of full beads.
 const CITIES: Array<{ location: [number, number]; size: number }> = [
-  { location: LISBON, size: 0.12 }, // Lisbon (HQ)
-  { location: [40.4168, -3.7038], size: 0.07 },     // Madrid
-  { location: [51.5074, -0.1278], size: 0.08 },     // London
-  { location: [48.8566, 2.3522], size: 0.07 },      // Paris
-  { location: [52.52, 13.405], size: 0.06 },        // Berlin
-  { location: [41.9028, 12.4964], size: 0.06 },     // Rome
-  { location: [35.8997, 14.5147], size: 0.05 },     // Valletta (Malta)
-  { location: [40.7128, -74.006], size: 0.09 },     // New York
-  { location: [34.0522, -118.2437], size: 0.07 },   // Los Angeles
-  { location: [25.7617, -80.1918], size: 0.07 },    // Miami
-  { location: [41.8781, -87.6298], size: 0.06 },    // Chicago
-  { location: [29.7604, -95.3698], size: 0.05 },    // Houston
-  { location: [-23.5505, -46.6333], size: 0.08 },   // São Paulo
-  { location: [-22.9068, -43.1729], size: 0.06 },   // Rio
-  { location: [19.4326, -99.1332], size: 0.06 },    // Mexico City
-  { location: [25.2048, 55.2708], size: 0.06 },     // Dubai
-  { location: [1.3521, 103.8198], size: 0.05 },     // Singapore
-  { location: [35.6762, 139.6503], size: 0.06 },    // Tokyo
-  { location: [-33.8688, 151.2093], size: 0.05 },   // Sydney
+  { location: LISBON, size: 0.025 },                  // Lisbon (HQ)
+  { location: [40.4168, -3.7038], size: 0.015 },      // Madrid
+  { location: [51.5074, -0.1278], size: 0.017 },      // London
+  { location: [48.8566, 2.3522], size: 0.015 },       // Paris
+  { location: [52.52, 13.405], size: 0.013 },         // Berlin
+  { location: [41.9028, 12.4964], size: 0.013 },      // Rome
+  { location: [35.8997, 14.5147], size: 0.011 },      // Valletta (Malta)
+  { location: [40.7128, -74.006], size: 0.019 },      // New York
+  { location: [34.0522, -118.2437], size: 0.015 },    // Los Angeles
+  { location: [25.7617, -80.1918], size: 0.015 },     // Miami
+  { location: [41.8781, -87.6298], size: 0.013 },     // Chicago
+  { location: [29.7604, -95.3698], size: 0.011 },     // Houston
+  { location: [-23.5505, -46.6333], size: 0.017 },    // São Paulo
+  { location: [-22.9068, -43.1729], size: 0.013 },    // Rio
+  { location: [19.4326, -99.1332], size: 0.013 },     // Mexico City
+  { location: [25.2048, 55.2708], size: 0.013 },      // Dubai
+  { location: [1.3521, 103.8198], size: 0.011 },      // Singapore
+  { location: [35.6762, 139.6503], size: 0.013 },     // Tokyo
+  { location: [-33.8688, 151.2093], size: 0.011 },    // Sydney
 ];
 
-// Arcs from Lisbon (HQ) out to the main markets — conveys global reach.
+// Arcs from Lisbon (HQ) out to the main markets. Visualizes global reach.
 const ARCS: Array<{ from: [number, number]; to: [number, number] }> = [
   { from: LISBON, to: [40.7128, -74.006] },     // NYC
   { from: LISBON, to: [34.0522, -118.2437] },   // LA

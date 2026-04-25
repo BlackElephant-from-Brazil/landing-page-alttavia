@@ -24,7 +24,7 @@ Primary narrative lever in Hero, Why Us, About, CTA banner.
 - **Next.js 16** (App Router + Turbopack), TypeScript, `src/` layout, `@/*` alias.
 - **Tailwind CSS v4** with `@theme` directive in `src/app/globals.css`. Base layer rules wrapped in `@layer base` so Tailwind utilities win specificity battles.
 - **Framer Motion 12** for scroll-triggered animations (`Reveal` + `staggerContainer`/`staggerItem` in `@/components/ui/reveal.tsx`).
-- **Fonts:** `next/font` — `Fraunces` (serif) for headings, `Inter` (sans) for body.
+- **Fonts:** `next/font`. `Spectral` (serif, exposed as `--font-serif`) for headings. `Inter` (sans) for body. Spectral pairs warmer-classical look with enough weight to feel corporate.
 - **Icons:** `lucide-react` (latest). Brand icons (Instagram / Facebook / WhatsApp) are inline SVGs (lucide removed them for trademark reasons).
 - **Globe:** `cobe` v2 — WebGL globe with markers + arcs from Lisbon HQ to 10 client cities. Wrapped in `@/components/ui/globe.tsx`.
 - **Images:** `next/image` with `remotePatterns: images.unsplash.com` in `next.config.ts`.
@@ -65,7 +65,7 @@ Legacy aliases (`cream`, `ink`, `plum`, `rose-gold`, `blush`) are mapped to the 
 - Content: single `src/content/messages.ts` with `en`, `pt`, `es` keys (same shape, enforced by `Messages` type).
 - Brand data (email, phone, address street, social URLs) is locale-neutral in `src/content/brand.ts`.
 - Context: `ContentProvider` (`src/components/providers/content-provider.tsx`) exposes `{ locale, brand, t }` via `useContent()` hook. Every section uses it.
-- Locale detection priority in root redirect: cookie (`alttavia_locale`) → `Accept-Language` → default `en`.
+- Locale detection priority in root redirect: cookie (`alttavia_locale`) first; otherwise default `en`. (Accept-Language was removed; first-time visitors always see English unless they pick another locale via the switcher.)
 - Switcher: `src/components/ui/language-switcher.tsx` — EN · PT · ES pills. Navigates via `router.push` and writes cookie client-side.
 - `LOCALES` / `Locale` / `DEFAULT_LOCALE` in `src/lib/i18n.ts`.
 - `<html lang>` is static "en" in root layout (limitation of App Router root layout access); nested `[locale]/layout.tsx` adds a wrapper `<div lang={locale}>` so assistive tech reads the correct language for content.
@@ -76,9 +76,21 @@ Legacy aliases (`cream`, `ink`, `plum`, `rose-gold`, `blush`) are mapped to the 
 - **Outline** / **Ghost**: transparent variants.
 
 ## Visual effects
-- **Glassmorphism** utility: `.glass-card` in `globals.css` — translucent white (6%), blur 24px, saturation 180%, inset highlight. Used in Why Us cards.
+- **Glassmorphism** utility: `.glass-card` in `globals.css`. Translucent white (6%), blur 24px, saturation 180%, inset highlight. Used in Why Us cards.
 - **Gold particles**: `GoldParticles` component in `@/components/ui/gold-particles.tsx`. Deterministic seeded pseudo-random positions, 22 particles floating upward with `float-up` keyframe. Used in FAQ background.
-- **Rotating globe**: cobe v2 with 19 city markers + 10 arcs from Lisbon. Auto-rotation ~0.0022 rad/frame. Fade-in on mount. Masked with radial gradient to show only the upper-right quadrant.
+- **Rotating globe**: cobe v2 with 19 city markers (sized at ~30% of the original beads, kept small to read as quiet pins) + 10 arcs from Lisbon. Auto-rotation ~0.0022 rad/frame. Fade-in on mount. Masked with radial gradient to show only the upper-right quadrant. Mobile positioning is tuned to keep that quadrant inside the viewport.
+
+## Why Us mobile carousel
+- Below `sm`, the cards become a horizontal snap-scrolling list with `min-w-[78vw]` so the next card peeks. ChevronLeft/Right arrows sit *below* the carousel on mobile only.
+- Above `sm`, layout reverts to a 2-column grid.
+
+## Copy voice (the-humanizer rules in force)
+- **No em-dashes anywhere.** Use commas, periods, semicolons, or parentheses. Applies to copy, alt text, comments, and JSDoc.
+- Skip AI buzzwords (seamless, transformative, leverage, robust, comprehensive, holistic, navigate, unlock, etc.).
+- Concrete > abstract. Numbers, named things, real consequences.
+- Vary sentence length. No `X. Y. Z.` stacked fragment cadence.
+- Active voice unless the passive carries clearer meaning.
+- The shape of `messages.ts` is parallel across `en`, `pt`, `es`. Update all three when changing copy.
 
 ## Repo & workflow
 - Remote: https://github.com/BlackElephant-from-Brazil/landing-page-alttavia
@@ -97,7 +109,7 @@ Update this file when:
 Keep entries lean. This is project memory, not a changelog.
 
 ## Known open questions / blockers
-- **Logo** — client confirmed having one; file not yet provided. Currently wordmark "alttavia." in Fraunces.
+- **Logo** — `public/logo.svg` is now live; rendered via `next/image` in `src/components/ui/logo.tsx`. `tone="cream"` applies `brightness-0 invert` for dark backgrounds.
 - **Social links** — Instagram / Facebook URLs not yet provided. Currently `#`.
 - **Hero + About images** — still Unsplash placeholders. Need real portrait of Patrícia + office/Lisbon imagery.
 - **Contact form destination** — no backend wired. Submission is no-op with success state. Need email/webhook/CRM endpoint.

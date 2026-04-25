@@ -45,14 +45,14 @@ export function Hero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: smooth }}
             >
-              <Eyebrow align="left">{hero.eyebrow}</Eyebrow>
+              <Eyebrow align="centerOnMobile">{hero.eyebrow}</Eyebrow>
             </motion.div>
 
             <motion.h1
               initial={{ opacity: 0, y: 32 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.85, delay: 0.1, ease: smooth }}
-              className="mt-8 font-serif text-[clamp(2.75rem,6vw,5rem)] leading-[1.03] tracking-[-0.02em] text-navy"
+              className="mt-8 font-serif text-[clamp(2.2rem,4.4vw,3.2rem)] leading-[1.05] tracking-[-0.02em] text-navy"
             >
               {hero.titleBefore}{" "}
               <span className="relative inline-block italic text-gold-dark">
@@ -128,12 +128,12 @@ export function Hero() {
           >
             <div className="relative aspect-[4/5] rounded-xl overflow-hidden shadow-[var(--shadow-card)] bg-champagne">
               <Image
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1200&q=80"
-                alt="Alttavia Relocation attorney in a refined working environment"
+                src="/patricia.webp"
+                alt="Patrícia Viana, founder of Alttavia Relocation"
                 fill
                 priority
                 sizes="(min-width: 1024px) 40vw, 90vw"
-                className="object-cover"
+                className="object-cover object-[55%_30%]"
               />
               <div
                 aria-hidden

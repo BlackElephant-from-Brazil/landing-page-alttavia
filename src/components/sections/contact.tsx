@@ -18,7 +18,7 @@ export function Contact() {
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // Placeholder submit — replace with real endpoint when client provides it.
+    // Placeholder submit. Replace with real endpoint when client provides it.
     setSent(true);
     e.currentTarget.reset();
     setTimeout(() => setSent(false), 4000);
@@ -35,7 +35,7 @@ export function Contact() {
         <div className="grid gap-14 lg:gap-20 lg:grid-cols-12 items-start">
           <div className="lg:col-span-5">
             <Reveal>
-              <Eyebrow align="left">{contact.eyebrow}</Eyebrow>
+              <Eyebrow align="centerOnMobile">{contact.eyebrow}</Eyebrow>
             </Reveal>
             <Reveal delay={0.1}>
               <h2 className="mt-6 font-serif text-balance text-navy">

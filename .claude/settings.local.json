@@ -44,7 +44,10 @@
       "Bash(curl -s -o /dev/null http://localhost:3000/pt)",
       "Bash(curl -s -o /dev/null -w \"/pt → %{http_code}\\\\n\" http://localhost:3000/pt)",
       "Bash(curl -s -o /dev/null -w \"/es → %{http_code}\\\\n\" http://localhost:3000/es)",
-      "Bash(curl -s http://localhost:3000/__TRACKED_VAR__)"
+      "Bash(curl -s http://localhost:3000/__TRACKED_VAR__)",
+      "Bash(npx next *)",
+      "Bash(timeout 120 npx tsc --noEmit)",
+      "Bash(timeout 60 npx tsc --noEmit)"
     ]
   }
 }

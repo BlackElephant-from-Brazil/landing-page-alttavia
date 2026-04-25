@@ -19,7 +19,7 @@ export function Location() {
         <div className="grid gap-14 lg:gap-16 lg:grid-cols-12 items-center">
           <div className="lg:col-span-5">
             <Reveal>
-              <Eyebrow align="left">{location.eyebrow}</Eyebrow>
+              <Eyebrow align="centerOnMobile">{location.eyebrow}</Eyebrow>
             </Reveal>
             <Reveal delay={0.1}>
               <h2 className="mt-6 font-serif text-balance text-navy">
@@ -80,7 +80,7 @@ export function Location() {
             <div className="aspect-[4/3] sm:aspect-[16/10] w-full">
               <iframe
                 src={brand.map.embed}
-                title="Alttavia Relocation — Lisbon office location"
+                title="Alttavia Relocation Lisbon office location"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
                 className="h-full w-full border-0"

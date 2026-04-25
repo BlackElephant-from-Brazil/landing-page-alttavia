@@ -31,7 +31,7 @@ export function About() {
             <div className="relative aspect-[4/5] rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
               <Image
                 src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=1200&q=80"
-                alt="Patrícia Viana — founder of Alttavia Relocation"
+                alt="Patrícia Viana, founder of Alttavia Relocation"
                 fill
                 sizes="(min-width: 1024px) 40vw, 90vw"
                 className="object-cover"
@@ -47,7 +47,7 @@ export function About() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8, delay: 0.2, ease: smooth }}
-              className="absolute -bottom-6 -right-4 sm:-right-8 max-w-sm rounded-xl bg-white border border-warm-line/70 p-6 shadow-[var(--shadow-card)]"
+              className="absolute -bottom-6 right-4 sm:-right-8 max-w-[calc(100%-2rem)] sm:max-w-sm rounded-xl bg-white border border-warm-line/70 p-6 shadow-[var(--shadow-card)]"
             >
               <Quote className="size-6 text-gold-dark" aria-hidden />
               <p className="mt-3 font-serif text-lg italic text-navy leading-snug">
@@ -66,7 +66,7 @@ export function About() {
 
           <div className="lg:col-span-7">
             <Reveal>
-              <Eyebrow align="left">{about.eyebrow}</Eyebrow>
+              <Eyebrow align="centerOnMobile">{about.eyebrow}</Eyebrow>
             </Reveal>
             <Reveal delay={0.1}>
               <h2 className="mt-6 font-serif text-balance text-navy">

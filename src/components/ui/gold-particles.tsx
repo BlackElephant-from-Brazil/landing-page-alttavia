@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type GoldParticlesProps = {
   count?: number;
@@ -25,22 +25,40 @@ function seeded(seed: number) {
   };
 }
 
+// Round to a fixed precision so every render serializes the value identically.
+const round = (n: number, d = 3) => Number(n.toFixed(d));
+
 function buildParticles(count: number): Particle[] {
   const rand = seeded(7);
   return Array.from({ length: count }).map((_, i) => {
     const r = (k: number) => rand(i * 7 + k);
-    const size = 6 + r(1) * 20;                     // 6–26 px
-    const opacity = 0.15 + r(2) * 0.35;             // 0.15–0.5
-    const duration = 14 + r(3) * 14;                // 14–28 s
-    const delay = -r(4) * duration;                 // negative so they appear mid-animation
-    const left = r(5) * 100;                        // 0–100 %
-    const drift = (r(6) - 0.5) * 120;               // -60–60 px horizontal drift
+    const size = round(6 + r(1) * 20);              // 6–26 px
+    const opacity = round(0.15 + r(2) * 0.35);      // 0.15–0.5
+    const duration = round(14 + r(3) * 14);         // 14–28 s
+    const delay = round(-r(4) * duration);          // negative so they appear mid-animation
+    const left = round(r(5) * 100);                 // 0–100 %
+    const drift = round((r(6) - 0.5) * 120);        // -60–60 px horizontal drift
     return { id: i, left, size, delay, duration, opacity, drift };
   });
 }
 
 export function GoldParticles({ count = 22, className = "" }: GoldParticlesProps) {
   const particles = useMemo(() => buildParticles(count), [count]);
+  // Defer rendering until after hydration: the animated style strings are
+  // browser-normalized in ways the SSR HTML can't predict (animation shorthand
+  // exploded into longhands, decimal precision trimmed), so we sidestep the
+  // mismatch by mounting the decorative layer client-side only.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) {
+    return (
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}
+      />
+    );
+  }
 
   return (
     <div

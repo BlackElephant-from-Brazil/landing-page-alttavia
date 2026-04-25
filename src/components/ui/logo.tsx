@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { cn } from "@/lib/cn";
 
 type LogoProps = {
@@ -6,18 +7,18 @@ type LogoProps = {
 };
 
 export function Logo({ className, tone = "ink" }: LogoProps) {
-  const color = tone === "ink" ? "text-ink" : "text-cream";
   return (
-    <span
+    <Image
+      src="/logo.svg"
+      alt="Alttavia"
+      width={170}
+      height={136}
       className={cn(
-        "font-serif text-2xl tracking-[-0.02em] lowercase select-none",
-        color,
+        "h-9 w-auto",
+        tone === "cream" && "brightness-0 invert",
         className
       )}
-      aria-label="Alttavia"
-    >
-      <span className="font-medium">alttavia</span>
-      <span className="text-rose-gold italic font-normal">.</span>
-    </span>
+      priority
+    />
   );
 }

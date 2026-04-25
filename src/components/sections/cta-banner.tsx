@@ -12,14 +12,14 @@ export function CtaBanner() {
   const ctaBanner = t.ctaBanner;
 
   return (
-    <section className="relative py-20 lg:py-28">
+    <section className="relative py-16 sm:py-20 lg:py-28">
       <Container size="wide">
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-10% 0%" }}
           transition={{ duration: 0.9, ease: smooth }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy-deep via-navy to-navy-deep px-8 py-16 sm:px-14 sm:py-20 lg:px-20 lg:py-24 text-white"
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy-deep via-navy to-navy-deep px-7 py-12 sm:px-14 sm:py-20 lg:px-20 lg:py-24 text-white"
         >
           {/* Decorative blobs */}
           <div
@@ -39,17 +39,23 @@ export function CtaBanner() {
             }}
           />
 
-          <div className="relative grid gap-10 lg:grid-cols-12 items-center">
+          <div className="relative grid gap-8 lg:gap-10 lg:grid-cols-12 items-center">
             <div className="lg:col-span-8">
               <h2 className="font-serif text-balance text-white">
                 {ctaBanner.title}
               </h2>
-              <p className="mt-5 max-w-2xl text-white/80 text-lg leading-relaxed">
+              <p className="mt-4 sm:mt-5 max-w-2xl text-white/80 text-base sm:text-lg leading-relaxed">
                 {ctaBanner.desc}
               </p>
             </div>
             <div className="lg:col-span-4 lg:flex lg:justify-end">
-              <ButtonLink href="#contact" size="lg" variant="gold" withArrow>
+              <ButtonLink
+                href="#contact"
+                size="lg"
+                variant="gold"
+                withArrow
+                className="w-full lg:w-auto"
+              >
                 {ctaBanner.button}
               </ButtonLink>
             </div>

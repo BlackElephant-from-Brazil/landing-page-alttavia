@@ -9,10 +9,10 @@ const base =
   "inline-flex items-center justify-center gap-2 font-medium tracking-[-0.01em] transition-all duration-300 ease-out rounded-full whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:opacity-50 disabled:cursor-not-allowed";
 
 const variants: Record<Variant, string> = {
-  /** Dark navy button with bright white text — use on light backgrounds. */
+  /** Dark navy button with bright white text. Use on light backgrounds. */
   primary:
     "bg-navy text-white hover:bg-gold hover:text-navy hover:shadow-[var(--shadow-glow)] hover:-translate-y-0.5 active:translate-y-0",
-  /** Gold accent button with bright white text — use on dark/plum backgrounds. */
+  /** Gold accent button. Use on dark navy or plum backgrounds. */
   gold:
     "bg-gold text-white hover:bg-gold-dark hover:shadow-[var(--shadow-glow)] hover:-translate-y-0.5 active:translate-y-0",
   ghost:
