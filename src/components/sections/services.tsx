@@ -42,7 +42,7 @@ export function Services() {
         </div>
 
         {/* Bento grid */}
-        <div className="mt-16 lg:mt-20 grid gap-5 lg:grid-cols-12 lg:grid-rows-[auto_auto]">
+        <div className="mt-16 lg:mt-20 grid gap-5 lg:grid-cols-12">
           {/* NIF — large primary card */}
           <BentoLarge
             number={b.nifNumber}
@@ -53,38 +53,35 @@ export function Services() {
             cta={b.nifCta}
             icon={FileText}
             tone="navy"
-            className="lg:col-span-7 lg:row-span-2"
+            className="lg:col-span-7"
           />
 
-          {/* Bank — secondary card */}
-          <BentoMedium
-            number={b.bankNumber}
-            tag={b.bankTag}
-            title={b.bankTitle}
-            desc={b.bankDesc}
-            bullets={b.bankBullets}
-            cta={b.bankCta}
-            icon={Landmark}
-            className="lg:col-span-5"
-          />
-
-          {/* Bonus 1 */}
-          <BentoSmall
-            tag={b.sideOne.tag}
-            title={b.sideOne.title}
-            desc={b.sideOne.desc}
-            icon={Calendar}
-            className="lg:col-span-3"
-          />
-
-          {/* Bonus 2 */}
-          <BentoSmall
-            tag={b.sideTwo.tag}
-            title={b.sideTwo.title}
-            desc={b.sideTwo.desc}
-            icon={ShieldCheck}
-            className="lg:col-span-2"
-          />
+          {/* Right column: Bank stacked above two equal-width bonus cards */}
+          <div className="lg:col-span-5 flex flex-col gap-5">
+            <BentoMedium
+              number={b.bankNumber}
+              tag={b.bankTag}
+              title={b.bankTitle}
+              desc={b.bankDesc}
+              bullets={b.bankBullets}
+              cta={b.bankCta}
+              icon={Landmark}
+            />
+            <div className="grid grid-cols-2 gap-5 flex-1">
+              <BentoSmall
+                tag={b.sideOne.tag}
+                title={b.sideOne.title}
+                desc={b.sideOne.desc}
+                icon={Calendar}
+              />
+              <BentoSmall
+                tag={b.sideTwo.tag}
+                title={b.sideTwo.title}
+                desc={b.sideTwo.desc}
+                icon={ShieldCheck}
+              />
+            </div>
+          </div>
         </div>
       </Container>
     </section>

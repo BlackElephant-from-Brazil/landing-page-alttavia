@@ -26,19 +26,19 @@ export function WhyUs() {
         }}
       />
 
-      {/* Large background globe: 210vw wide, top hemisphere only, centered at 30% from left */}
+      {/* Large background globe: upper right, top hemisphere visible */}
       <div
         aria-hidden
-        className="absolute bottom-0 pointer-events-none overflow-hidden z-[1]"
+        className="absolute top-0 pointer-events-none overflow-hidden z-[1]"
         style={{
-          width: "210vw",
-          height: "105vw",
-          left: "calc(30% - 105vw)",
+          width: "min(210vw, 900px)",
+          height: "min(210vw, 900px)",
+          left: "calc(70% - min(105vw, 450px))",
         }}
       >
         <div
           className="absolute top-0 opacity-[0.13]"
-          style={{ width: "210vw", height: "210vw" }}
+          style={{ width: "min(210vw, 900px)", height: "min(210vw, 900px)" }}
         >
           <Globe rotationSpeed={0.0006} />
         </div>

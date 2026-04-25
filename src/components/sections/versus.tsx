@@ -29,9 +29,10 @@ export function Versus() {
       <Container size="wide">
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
-            <div className="flex items-center gap-3 text-[0.7rem] font-medium uppercase tracking-[0.28em] text-gold-dark">
+            <div className="flex items-center gap-3 text-[0.7rem] font-medium uppercase tracking-[0.28em] text-gold-dark lg:justify-center">
               <span aria-hidden className="inline-block h-px w-8 bg-gold/60" />
               <span>{versus.eyebrow}</span>
+              <span aria-hidden className="hidden lg:inline-block h-px w-8 bg-gold/60" />
             </div>
           </Reveal>
           <Reveal delay={0.1}>
