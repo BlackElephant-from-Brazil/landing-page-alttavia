@@ -2,7 +2,6 @@
 
 import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/ui/logo";
-import { Marquee } from "@/components/ui/marquee";
 import { useContent } from "@/components/providers/content-provider";
 
 export function Footer() {
@@ -89,16 +88,6 @@ export function Footer() {
             </div>
           </div>
         </Container>
-      </div>
-
-      {/* Giant Alttavia wordmark — bleeding off the edges */}
-      <div className="relative border-t border-white/10 py-10 lg:py-14 overflow-hidden">
-        <Marquee
-          items={["ALTTAVIA · RELOCATION", "VIANA · CONSULTANCY", "LISBOA · 2026", footer.craftedIn]}
-          duration={50}
-          edgeFade
-          itemClassName="font-serif italic text-5xl sm:text-7xl lg:text-8xl text-white/[0.08] uppercase tracking-tight"
-        />
       </div>
 
       <div className="relative border-t border-white/10 py-6">

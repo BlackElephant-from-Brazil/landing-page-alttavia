@@ -5,6 +5,7 @@ import createGlobe from "cobe";
 
 type GlobeProps = {
   className?: string;
+  rotationSpeed?: number;
 };
 
 // Markers: cities of interest. Lisbon is the HQ; others are the main client markets.
@@ -49,7 +50,7 @@ const ARCS: Array<{ from: [number, number]; to: [number, number] }> = [
   { from: LISBON, to: [-33.8688, 151.2093] },   // Sydney
 ];
 
-export function Globe({ className }: GlobeProps) {
+export function Globe({ className, rotationSpeed = 0.0022 }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const phiRef = useRef(3.6);
 
@@ -86,7 +87,7 @@ export function Globe({ className }: GlobeProps) {
 
     let rafId = 0;
     const animate = () => {
-      phiRef.current += 0.0022;
+      phiRef.current += rotationSpeed;
       globe.update({
         phi: phiRef.current,
         width: width * 2,

@@ -191,6 +191,24 @@ html {
   animation: pulse-dot 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* Sequential pulse — only one ring at a time inside a 9.6s cycle.
+   Used by the 4-step process timeline so the rings fire 1, 2, 3, 4 in turn. */
+@keyframes pulse-step {
+  0%, 22%, 100% {
+    box-shadow: 0 0 0 0 rgba(208, 161, 43, 0);
+  }
+  4% {
+    box-shadow: 0 0 0 0 rgba(208, 161, 43, 0.55);
+  }
+  18% {
+    box-shadow: 0 0 0 14px rgba(208, 161, 43, 0);
+  }
+}
+
+.pulse-step {
+  animation: pulse-step 9.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 @keyframes pulse-dot-green {
   0%, 100% {
     box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55);

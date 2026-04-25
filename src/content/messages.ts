@@ -17,7 +17,7 @@ export const messages = {
     metaTitle:
       "Alttavia Relocation. NIF and Portuguese bank account, handled by licensed lawyers.",
     metaDescription:
-      "Licensed Portuguese lawyers issue your NIF with fiscal representation and open your Portuguese bank account remotely. Two documents your D7 or D8 visa needs. Over 800 cases handled.",
+      "Licensed Portuguese lawyers issue your NIF with fiscal representation and open your Portuguese bank account remotely. Two documents your D7 or D8 visa needs. 800+ cases handled.",
 
     navCtaLabel: "Book a free call",
     nav: [
@@ -36,14 +36,14 @@ export const messages = {
 
     hero: {
       issueLabel: "Issue 02",
-      issueDate: "Lisbon · 2026",
+      issueDate: "Lisbon",
       eyebrow: "A relocation file by Alttavia",
       kicker: "The lawyer is the one signing.",
       titlePre: "Move to Portugal",
       titleEm: "the way",
       titleEm2: "the lawyers",
       titlePost: "do.",
-      lede: "Your NIF and Portuguese bank account, signed off by a licensed Lisbon attorney, not by a sales team in a call centre. The same firm other relocation companies pay to do their legal work. You can pay us directly.",
+      lede: "NIF and Portuguese bank account, signed by a Lisbon attorney. The same firm other relocation companies hire. No middleman.",
       ctaPrimary: "Book a free call",
       ctaSecondary: "See how it works",
       photoCaption: "Patrícia Viana, OA Portugal · OAB Brasil",
@@ -53,7 +53,7 @@ export const messages = {
         { label: "Lisbon, by hand" },
       ],
       heroStat: {
-        number: "850+",
+        number: "800+",
         label: "files closed since 2017",
       },
     },
@@ -196,7 +196,7 @@ export const messages = {
       eyebrow: "By the numbers",
       title: "What 8 years on the lawyer side of relocation looks like.",
       items: [
-        { number: "850+", label: "files closed", caption: "Since 2017, all signed by counsel." },
+        { number: "800+", label: "files closed", caption: "Since 2017, all signed by counsel." },
         { number: "8", label: "years on file", caption: "Patrícia at the OA bar, OAB before that." },
         { number: "100%", label: "attorney-led", caption: "Every file. No exceptions." },
         { number: "0", label: "middlemen", caption: "No reseller, no markup, no kickbacks." },
@@ -204,9 +204,8 @@ export const messages = {
     },
 
     founder: {
-      eyebrow: "On the record",
+      eyebrow: "The lawyer",
       title: "Patrícia Viana, the lawyer signing your file.",
-      kicker: "Press kit",
       bio: "Licensed Portuguese attorney since 2017 (OA 1148L), prior practice in Brazil (OAB SP). Patrícia spent six years on the receiving end of subcontracted relocation work before launching Alttavia, so clients could call the lawyer first instead of last. Native Portuguese, fluent English, fluent Spanish.",
       quote:
         "I want every client to feel the calm I wish I had had the first time I ever did this myself.",
@@ -386,14 +385,14 @@ export const messages = {
 
     hero: {
       issueLabel: "Edição 02",
-      issueDate: "Lisboa · 2026",
+      issueDate: "Lisboa",
       eyebrow: "Um dossiê de relocation, por Alttavia",
       kicker: "Quem assina é a advogada.",
       titlePre: "Mude para Portugal",
       titleEm: "do jeito que",
       titleEm2: "as advogadas",
       titlePost: "fazem.",
-      lede: "Seu NIF e a sua conta bancária portuguesa, assinados por uma advogada licenciada em Lisboa, não por uma central de vendas. O mesmo escritório que outras empresas de relocation pagam para fazer o jurídico delas. Você pode pagar a gente direto.",
+      lede: "NIF e conta bancária em Portugal, assinados por uma advogada de Lisboa. O escritório que outras empresas de relocation contratam. Sem intermediário.",
       ctaPrimary: "Agendar conversa",
       ctaSecondary: "Ver como funciona",
       photoCaption: "Patrícia Viana, OA Portugal · OAB Brasil",
@@ -403,7 +402,7 @@ export const messages = {
         { label: "Lisboa, à mão" },
       ],
       heroStat: {
-        number: "850+",
+        number: "800+",
         label: "casos fechados desde 2017",
       },
     },
@@ -546,7 +545,7 @@ export const messages = {
       eyebrow: "Em números",
       title: "É assim que se parece o relocation visto pelo lado da advogada.",
       items: [
-        { number: "850+", label: "casos fechados", caption: "Desde 2017, todos assinados pela advogada." },
+        { number: "800+", label: "casos fechados", caption: "Desde 2017, todos assinados pela advogada." },
         { number: "8", label: "anos de barra", caption: "Patrícia inscrita na OA, antes na OAB." },
         { number: "100%", label: "advogada à frente", caption: "Cada caso, sem exceção." },
         { number: "0", label: "intermediários", caption: "Sem revenda, sem markup, sem comissão." },
@@ -554,9 +553,8 @@ export const messages = {
     },
 
     founder: {
-      eyebrow: "A registo",
+      eyebrow: "A advogada",
       title: "Patrícia Viana, a advogada que assina o seu dossiê.",
-      kicker: "Press kit",
       bio: "Advogada portuguesa licenciada desde 2017 (OA 1148L), prática anterior no Brasil (OAB SP). Antes de fundar a Alttavia, Patrícia passou seis anos recebendo trabalho jurídico subcontratado por empresas de relocation. A Alttavia nasceu para que o cliente possa ligar primeiro para a advogada, não por último. Português nativo, inglês fluente, espanhol fluente.",
       quote:
         "Quero que cada cliente sinta a calma que eu queria ter sentido na primeira vez em que precisei fazer isso sozinha.",
@@ -736,14 +734,14 @@ export const messages = {
 
     hero: {
       issueLabel: "Edición 02",
-      issueDate: "Lisboa · 2026",
+      issueDate: "Lisboa",
       eyebrow: "Un expediente de relocation, por Alttavia",
       kicker: "Firma la abogada.",
       titlePre: "Múdate a Portugal",
       titleEm: "como lo hacen",
       titleEm2: "los abogados",
       titlePost: ".",
-      lede: "Tu NIF y tu cuenta bancaria portuguesa, firmados por una abogada licenciada en Lisboa, no por un equipo de ventas en un call center. El mismo bufete al que otras firmas de relocation pagan para hacer su trabajo jurídico. Puedes pagarnos directamente.",
+      lede: "NIF y cuenta bancaria portuguesa, firmados por una abogada de Lisboa. El bufete que otras firmas de relocation contratan. Sin intermediarios.",
       ctaPrimary: "Agendar llamada",
       ctaSecondary: "Ver cómo funciona",
       photoCaption: "Patrícia Viana, OA Portugal · OAB Brasil",
@@ -753,7 +751,7 @@ export const messages = {
         { label: "Lisboa, a mano" },
       ],
       heroStat: {
-        number: "850+",
+        number: "800+",
         label: "expedientes cerrados desde 2017",
       },
     },
@@ -896,7 +894,7 @@ export const messages = {
       eyebrow: "En cifras",
       title: "Así se ve el relocation desde el lado de la abogada.",
       items: [
-        { number: "850+", label: "expedientes cerrados", caption: "Desde 2017, todos firmados por abogada." },
+        { number: "800+", label: "expedientes cerrados", caption: "Desde 2017, todos firmados por abogada." },
         { number: "8", label: "años de barra", caption: "Patrícia en la OA, antes en la OAB." },
         { number: "100%", label: "con abogada al frente", caption: "Cada caso, sin excepción." },
         { number: "0", label: "intermediarios", caption: "Sin reventa, sin markup, sin comisión." },
@@ -904,9 +902,8 @@ export const messages = {
     },
 
     founder: {
-      eyebrow: "Para constancia",
+      eyebrow: "La abogada",
       title: "Patrícia Viana, la abogada que firma tu expediente.",
-      kicker: "Press kit",
       bio: "Abogada portuguesa licenciada desde 2017 (OA 1148L), práctica previa en Brasil (OAB SP). Antes de fundar Alttavia, Patrícia pasó seis años recibiendo trabajo jurídico subcontratado por firmas de relocation. Alttavia nació para que el cliente pueda llamar a la abogada primero, no al final. Portugués nativo, inglés fluido, español fluido.",
       quote:
         "Quiero que cada cliente sienta la calma que me habría gustado tener la primera vez que tuve que hacer esto.",

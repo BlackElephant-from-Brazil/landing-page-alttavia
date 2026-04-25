@@ -41,18 +41,15 @@ export function Hero() {
         }}
       />
 
-      {/* issue strip — editorial mast */}
+      {/* issue strip — editorial mast (no "Issue 02" label per design B mobile pass) */}
       <Container size="wide" className="relative">
         <div className="flex items-center justify-between gap-4 border-b border-white/15 pb-4 mb-10 lg:mb-14 text-[0.68rem] uppercase tracking-[0.28em] text-white/60">
           <div className="flex items-center gap-3">
             <span aria-hidden className="inline-block h-px w-6 bg-gold/70" />
-            <span>{hero.issueLabel}</span>
-            <span className="hidden sm:inline">·</span>
-            <span className="hidden sm:inline">{hero.issueDate}</span>
+            <span>{hero.issueDate}</span>
           </div>
           <PulseBadge tone="green" className="text-[0.62rem]">
-            <span>{status.live}</span>
-            <span className="hidden sm:inline opacity-70">/ {status.label}</span>
+            {status.live}
           </PulseBadge>
         </div>
       </Container>
@@ -83,7 +80,7 @@ export function Hero() {
               initial={{ opacity: 0, y: 28 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.85, delay: 0.12, ease: smooth }}
-              className="mt-4 font-serif text-[clamp(2.6rem,6.5vw,5.4rem)] leading-[0.98] tracking-[-0.025em]"
+              className="mt-4 font-serif text-[clamp(3rem,9vw,5.4rem)] leading-[0.98] tracking-[-0.025em]"
             >
               <span className="block text-white">{hero.titlePre}</span>
               <span className="block text-white/95">
@@ -179,37 +176,41 @@ export function Hero() {
                 />
                 <div
                   aria-hidden
-                  className="absolute inset-0 bg-gradient-to-t from-navy-deep/65 via-transparent to-transparent"
+                  className="absolute inset-0 bg-gradient-to-t from-navy-deep/55 via-transparent to-transparent"
                 />
-                {/* photo caption */}
-                <div className="absolute bottom-4 left-4 right-4 text-[0.7rem] uppercase tracking-[0.2em] text-white/85">
-                  <span aria-hidden className="inline-block h-px w-6 bg-gold/70 align-middle mr-2" />
-                  {hero.photoCaption}
-                </div>
               </div>
 
-              {/* floating chips */}
-              <div className="absolute -top-4 -left-6 sm:-left-10 float-bob" style={{ ["--bob-duration" as string]: "5.5s" }}>
+              {/* floating chips around the photo edges */}
+              <div className="absolute -top-4 -left-4 sm:-left-10 float-bob z-10" style={{ ["--bob-duration" as string]: "5.5s" }}>
                 <Chip label={hero.floatingChips[0].label} className="tilt-l" />
               </div>
-              <div className="absolute top-1/3 -right-4 sm:-right-8 float-bob" style={{ ["--bob-duration" as string]: "6.5s", ["--bob-delay" as string]: "-1s" }}>
+              <div className="absolute top-1/3 -right-3 sm:-right-8 float-bob z-10" style={{ ["--bob-duration" as string]: "6.5s", ["--bob-delay" as string]: "-1s" }}>
                 <Chip label={hero.floatingChips[1].label} className="tilt-r" />
               </div>
-              <div className="absolute -bottom-5 left-6 sm:left-10 float-bob" style={{ ["--bob-duration" as string]: "7s", ["--bob-delay" as string]: "-2.5s" }}>
+              <div className="absolute -bottom-5 right-6 sm:right-auto sm:left-10 float-bob z-10" style={{ ["--bob-duration" as string]: "7s", ["--bob-delay" as string]: "-2.5s" }}>
                 <Chip label={hero.floatingChips[2].label} className="tilt-l" />
               </div>
+            </div>
+
+            {/* photo caption — sits below the photo so it never collides with the floating chips */}
+            <div className="mt-9 flex items-center gap-2 text-[0.68rem] uppercase tracking-[0.2em] text-white/70">
+              <span aria-hidden className="inline-block h-px w-6 bg-gold/70" />
+              <span>{hero.photoCaption}</span>
             </div>
           </motion.div>
         </div>
       </Container>
 
-      {/* trust marquee at hero bottom */}
+      {/* trust marquee at hero bottom — stacks on mobile so cities have full width to scroll */}
       <Container size="wide" className="relative mt-20 lg:mt-28">
-        <div className="flex items-center gap-5 border-t border-white/12 pt-6">
-          <span className="shrink-0 text-[0.65rem] uppercase tracking-[0.28em] text-white/45">
-            {trust.label}
-          </span>
-          <div className="flex-1 text-sm text-white/70">
+        <div className="border-t border-white/12 pt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+          <div className="flex items-center justify-between gap-3 sm:justify-start">
+            <span className="shrink-0 text-[0.65rem] uppercase tracking-[0.28em] text-white/45">
+              {trust.label}
+            </span>
+            <ArrowDown className="size-4 text-gold-light shrink-0 sm:hidden" aria-hidden />
+          </div>
+          <div className="flex-1 text-sm text-white/70 -mx-5 sm:mx-0">
             <Marquee
               items={trust.cities}
               duration={45}

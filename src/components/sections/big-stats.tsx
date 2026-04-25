@@ -1,15 +1,46 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useRef, useState, useEffect } from "react";
+import { motion, useInView } from "framer-motion";
 import { Container } from "@/components/ui/container";
 import { Reveal } from "@/components/ui/reveal";
 import { useContent } from "@/components/providers/content-provider";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
 
+function CountUp({ value, active }: { value: string; active: boolean }) {
+  const match = value.match(/^(\d+)(.*)/);
+  const target = match ? parseInt(match[1], 10) : null;
+  const suffix = match ? match[2] : "";
+  const [current, setCurrent] = useState(0);
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (!active || target === null || startedRef.current) return;
+    startedRef.current = true;
+    if (target === 0) { setCurrent(0); return; }
+    const duration = 1800;
+    const start = performance.now();
+    let raf: number;
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setCurrent(Math.round(eased * target));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, target]);
+
+  if (target === null) return <>{value}</>;
+  return <>{current}{suffix}</>;
+}
+
 export function BigStats() {
   const { t } = useContent();
   const stats = t.bigStats;
+  const listRef = useRef<HTMLUListElement>(null);
+  const inView = useInView(listRef, { once: true, margin: "-6% 0%" });
 
   return (
     <section
@@ -29,10 +60,9 @@ export function BigStats() {
       <Container size="wide" className="relative">
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
-            <div className="flex items-center gap-3 text-[0.7rem] font-medium uppercase tracking-[0.28em] text-gold-light justify-center">
+            <div className="flex items-center gap-3 text-[0.7rem] font-medium uppercase tracking-[0.28em] text-gold-light">
               <span aria-hidden className="inline-block h-px w-8 bg-gold/70" />
               <span>{stats.eyebrow}</span>
-              <span aria-hidden className="inline-block h-px w-8 bg-gold/70" />
             </div>
           </Reveal>
           <Reveal delay={0.1}>
@@ -42,7 +72,10 @@ export function BigStats() {
           </Reveal>
         </div>
 
-        <ul className="mt-16 lg:mt-20 grid gap-px sm:grid-cols-2 lg:grid-cols-4 bg-white/10 rounded-2xl overflow-hidden border border-white/10">
+        <ul
+          ref={listRef}
+          className="mt-16 lg:mt-20 grid gap-px sm:grid-cols-2 lg:grid-cols-4 bg-white/10 rounded-2xl overflow-hidden border border-white/10"
+        >
           {stats.items.map((item, i) => (
             <motion.li
               key={item.label}
@@ -53,7 +86,7 @@ export function BigStats() {
               className="relative bg-navy p-8 lg:p-10 group transition-colors hover:bg-navy-deep/80"
             >
               <div className="font-serif italic font-light text-[clamp(3.5rem,7vw,5.5rem)] leading-[0.9] text-gold">
-                {item.number}
+                <CountUp value={item.number} active={inView} />
               </div>
               <div className="mt-3 text-xs uppercase tracking-[0.22em] text-white/55">
                 {item.label}

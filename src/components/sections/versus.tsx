@@ -14,11 +14,13 @@ export function Versus() {
 
   return (
     <section id="versus" className="relative py-24 lg:py-32 bg-cream-deep/60 overflow-hidden">
-      {/* visa marquee at top, before headline */}
+      {/* visa marquee at top, before headline — flows right-to-left so it counter-balances
+          the left-to-right hero marquee directly above it */}
       <div className="border-y border-warm-line bg-white py-3 mb-20 lg:mb-28 text-navy">
         <Marquee
           items={visa.types}
           duration={40}
+          reverse
           edgeFade
           itemClassName="font-serif italic text-base sm:text-lg uppercase tracking-[0.18em] text-navy-soft"
         />
@@ -27,10 +29,9 @@ export function Versus() {
       <Container size="wide">
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
-            <div className="flex items-center gap-3 text-[0.7rem] font-medium uppercase tracking-[0.28em] text-gold-dark justify-center">
+            <div className="flex items-center gap-3 text-[0.7rem] font-medium uppercase tracking-[0.28em] text-gold-dark">
               <span aria-hidden className="inline-block h-px w-8 bg-gold/60" />
               <span>{versus.eyebrow}</span>
-              <span aria-hidden className="inline-block h-px w-8 bg-gold/60" />
             </div>
           </Reveal>
           <Reveal delay={0.1}>

@@ -8,6 +8,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { PulseBadge } from "@/components/ui/pulse-badge";
+import { Marquee } from "@/components/ui/marquee";
 import { useContent } from "@/components/providers/content-provider";
 import { cn } from "@/lib/cn";
 
@@ -33,27 +34,29 @@ export function Navbar() {
 
   return (
     <>
-      {/* Top status strip — only visible at very top */}
+      {/* Top status strip — only visible at very top. Marquee shows the open-intake label;
+          the duplicate "live" text is owned by the in-hero PulseBadge instead. */}
       <div
         className={cn(
           "fixed top-0 inset-x-0 z-[60] bg-navy-deep text-white text-[0.65rem] uppercase tracking-[0.22em] transition-all duration-500 overflow-hidden",
           scrolled ? "max-h-0 opacity-0" : "max-h-10 opacity-100"
         )}
       >
-        <Container size="wide">
-          <div className="flex items-center justify-between gap-4 h-9">
-            <span className="flex items-center gap-2 text-white/70">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 pulse-dot-green" aria-hidden />
-              <span>{status.live}</span>
-              <span className="hidden sm:inline opacity-60"> · {status.label}</span>
-            </span>
-            <span className="hidden md:flex items-center gap-2 text-white/55 font-mono normal-case tracking-normal">
-              <span>{brand.address.street}</span>
-              <span>·</span>
-              <span>Lisboa</span>
-            </span>
+        <div className="flex items-center gap-3 h-9 px-4 sm:px-6">
+          <span aria-hidden className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 pulse-dot-green" />
+          <div className="flex-1 min-w-0 text-white/65">
+            <Marquee
+              items={[
+                status.label,
+                `${brand.address.street}, ${brand.address.zip} Lisboa`,
+                status.label,
+              ]}
+              duration={32}
+              edgeFade
+              itemClassName="text-[0.65rem] uppercase tracking-[0.22em]"
+            />
           </div>
-        </Container>
+        </div>
       </div>
 
       <header

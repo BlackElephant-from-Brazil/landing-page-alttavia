@@ -121,19 +121,20 @@ function BentoLarge({ number, tag, title, desc, bullets, cta, icon: Icon, classN
             "radial-gradient(circle at center, rgba(208,161,43,0.50) 0%, transparent 70%)",
         }}
       />
-      {/* big editorial number */}
+      {/* big editorial number — desktop only, anchored to bottom-right corner so it never
+          fights the tag pill or the icon at the top of the card */}
       <div
         aria-hidden
-        className="pointer-events-none absolute right-6 top-6 sm:right-10 sm:top-10 editorial-number text-[8rem] sm:text-[10rem] text-gold-light/40"
+        className="pointer-events-none absolute -bottom-6 -right-2 hidden lg:block editorial-number text-[12rem] text-gold-light/30 leading-none"
       >
         {number}
       </div>
 
-      <div className="relative flex items-start gap-4">
+      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gold text-navy">
           <Icon className="size-6" strokeWidth={1.75} />
         </div>
-        <span className="inline-flex items-center self-center rounded-full bg-white/10 border border-white/15 px-3 py-1 text-[0.66rem] font-medium uppercase tracking-[0.18em] text-gold-light">
+        <span className="inline-flex items-center self-start sm:self-center rounded-full bg-white/10 border border-white/15 px-3 py-1 text-[0.66rem] font-medium uppercase tracking-[0.18em] text-gold-light">
           {tag}
         </span>
       </div>
@@ -177,16 +178,16 @@ function BentoMedium({ number, tag, title, desc, bullets, cta, icon: Icon, class
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute right-4 top-4 editorial-number text-[6rem] text-navy/15"
+        className="pointer-events-none absolute -bottom-4 -right-2 hidden lg:block editorial-number text-[9rem] text-navy/12 leading-none"
       >
         {number}
       </div>
 
-      <div className="relative flex items-center gap-4">
+      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-navy text-white">
           <Icon className="size-5" strokeWidth={1.75} />
         </div>
-        <span className="inline-flex items-center rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-[0.66rem] font-medium uppercase tracking-[0.18em] text-gold-dark">
+        <span className="inline-flex items-center self-start sm:self-center rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-[0.66rem] font-medium uppercase tracking-[0.18em] text-gold-dark">
           {tag}
         </span>
       </div>

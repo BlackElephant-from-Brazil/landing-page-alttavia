@@ -53,7 +53,11 @@
       "Bash(curl -s -o /tmp/page-en.html -w \"HTTP %{http_code}, %{size_download} bytes\\\\n\" http://localhost:3002/en)",
       "Bash(curl -s -o /tmp/page-pt.html -w \"HTTP-PT %{http_code}\\\\n\" http://localhost:3002/pt)",
       "Bash(curl -s -o /tmp/page-es.html -w \"HTTP-ES %{http_code}\\\\n\" http://localhost:3002/es)",
-      "Bash(curl -s -o /dev/null -w \"ROOT %{http_code} -> %{redirect_url}\\\\n\" http://localhost:3002/)"
+      "Bash(curl -s -o /dev/null -w \"ROOT %{http_code} -> %{redirect_url}\\\\n\" http://localhost:3002/)",
+      "Bash(curl -s -o /tmp/page-pt2.html -w \"PT %{http_code}, %{size_download}\\\\n\" http://localhost:3002/pt)",
+      "Bash(curl -s -o /tmp/page-en2.html -w \"EN %{http_code}, %{size_download}\\\\n\" http://localhost:3002/en)",
+      "Bash(curl -s -o /tmp/page-es2.html -w \"ES %{http_code}, %{size_download}\\\\n\" http://localhost:3002/es)",
+      "Bash(npx tsc *)"
     ]
   }
 }

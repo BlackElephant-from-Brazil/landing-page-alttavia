@@ -55,15 +55,15 @@ export function Process() {
                 transition={{ duration: 0.7, delay: i * 0.08, ease: smooth }}
                 className="relative"
               >
-                {/* number circle with pulse on first */}
+                {/* number circle — every step pulses, but staggered so the ring fires
+                    in sequence (01, 02, 03, 04) inside a single 9.6s cycle */}
                 <div className="relative flex items-center gap-4 lg:flex-col lg:items-start">
                   <div className="relative flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-white border border-warm-line shadow-[var(--shadow-soft)]">
-                    {i === 0 && (
-                      <span
-                        aria-hidden
-                        className="absolute inset-0 rounded-full border-2 border-gold/40 pulse-dot"
-                      />
-                    )}
+                    <span
+                      aria-hidden
+                      className="absolute inset-0 rounded-full border-2 border-gold/40 pulse-step"
+                      style={{ animationDelay: `${i * 2.4}s` }}
+                    />
                     <span className="font-serif italic text-3xl text-gold-dark">{step.n}</span>
                   </div>
                   <div className="flex-1 lg:mt-7 lg:flex-none">
