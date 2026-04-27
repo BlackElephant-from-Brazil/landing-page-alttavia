@@ -172,9 +172,14 @@ html {
   animation: marquee-reverse var(--marquee-duration, 35s) linear infinite;
 }
 
-.animate-marquee:hover,
-.animate-marquee-reverse:hover {
-  animation-play-state: paused;
+/* Pause-on-hover only on devices that actually have a hover pointer.
+   On touch devices a tap leaves :hover stuck, which would freeze the marquee
+   until the next interaction elsewhere. */
+@media (hover: hover) {
+  .animate-marquee:hover,
+  .animate-marquee-reverse:hover {
+    animation-play-state: paused;
+  }
 }
 
 /* Pulse dot for "live" badges */
@@ -277,5 +282,14 @@ html {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Marquees are slow, predictable, decorative scrolls — they don't trigger
+     vestibular issues, and freezing them removes information (the city list /
+     status strip stop reading). Keep them moving, just at a calmer pace. */
+  .animate-marquee,
+  .animate-marquee-reverse {
+    animation-duration: var(--marquee-duration, 35s) !important;
+    animation-iteration-count: infinite !important;
   }
 }

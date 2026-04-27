@@ -58,6 +58,15 @@ export function Globe({ className, rotationSpeed = 0.0022 }: GlobeProps) {
     if (!canvasRef.current) return;
     const canvas = canvasRef.current;
 
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Mobile GPUs choke on the desktop sample density + 2x supersampling.
+    // Keep the desktop look untouched and only soften the mobile path.
+    const dprCap = isMobile ? 1.5 : 2;
+    const bufferScale = isMobile ? 1 : 2;
+    const mapSamples = isMobile ? 8000 : 18000;
+
     let width = 0;
     const onResize = () => {
       width = canvas.offsetWidth;
@@ -66,14 +75,14 @@ export function Globe({ className, rotationSpeed = 0.0022 }: GlobeProps) {
     onResize();
 
     const globe = createGlobe(canvas, {
-      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
-      width: width * 2,
-      height: width * 2,
+      devicePixelRatio: Math.min(window.devicePixelRatio || 1, dprCap),
+      width: width * bufferScale,
+      height: width * bufferScale,
       phi: phiRef.current,
       theta: 0.25,
       dark: 1,
       diffuse: 1.3,
-      mapSamples: 18000,
+      mapSamples,
       mapBrightness: 7,
       baseColor: [0.08, 0.16, 0.32],
       markerColor: [0.95, 0.73, 0.22],
@@ -86,16 +95,43 @@ export function Globe({ className, rotationSpeed = 0.0022 }: GlobeProps) {
     });
 
     let rafId = 0;
+    let visible = true;
     const animate = () => {
-      phiRef.current += rotationSpeed;
+      if (!reducedMotion) {
+        phiRef.current += rotationSpeed;
+      }
       globe.update({
         phi: phiRef.current,
-        width: width * 2,
-        height: width * 2,
+        width: width * bufferScale,
+        height: width * bufferScale,
       });
       rafId = requestAnimationFrame(animate);
     };
-    rafId = requestAnimationFrame(animate);
+    const start = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(animate);
+    };
+    const stop = () => {
+      if (!rafId) return;
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    };
+
+    // Pause the RAF when the section scrolls out of view so the globe stops
+    // burning frames in Why Us while the user is reading FAQ or Contact.
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          visible = entry.isIntersecting;
+          if (visible) start();
+          else stop();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    io.observe(canvas);
+
+    if (visible) start();
 
     // Subtle fade-in on mount
     canvas.style.opacity = "0";
@@ -105,11 +141,12 @@ export function Globe({ className, rotationSpeed = 0.0022 }: GlobeProps) {
     });
 
     return () => {
-      cancelAnimationFrame(rafId);
+      stop();
+      io.disconnect();
       globe.destroy();
       window.removeEventListener("resize", onResize);
     };
-  }, []);
+  }, [rotationSpeed]);
 
   return (
     <canvas
