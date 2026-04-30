@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import {
   buildPathD,
   DESKTOP_MARKERS,
@@ -32,6 +32,7 @@ type SectionRect = { id: SectionId; top: number; height: number };
  */
 export function RoadOverlay({ children }: RoadOverlayProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion = useReducedMotion();
   const [variant, setVariant] = useState<"desktop" | "mobile">("desktop");
   const [totalHeight, setTotalHeight] = useState(0);
   const [sectionRects, setSectionRects] = useState<SectionRect[]>([]);
@@ -165,7 +166,7 @@ export function RoadOverlay({ children }: RoadOverlayProps) {
                     ? "var(--road-stroke)"
                     : "var(--road-stroke-mobile)",
                 strokeDasharray: pathLength,
-                strokeDashoffset,
+                strokeDashoffset: prefersReducedMotion ? 0 : strokeDashoffset,
                 willChange: "stroke-dashoffset",
               }}
             />
