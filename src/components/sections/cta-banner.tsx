@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Container } from "@/components/ui/container";
 import { ButtonLink } from "@/components/ui/button";
+import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { useContent } from "@/components/providers/content-provider";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
@@ -12,15 +13,22 @@ export function CtaBanner() {
   const ctaBanner = t.ctaBanner;
 
   return (
-    <section className="relative py-16 sm:py-20 lg:py-28">
-      <Container size="wide">
+    <section data-section="cta-banner" className="relative py-16 sm:py-20 lg:py-28">
+      <Container size="wide" className="relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-10% 0%" }}
           transition={{ duration: 0.9, ease: smooth }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy-deep via-navy to-navy-deep px-7 py-12 sm:px-14 sm:py-20 lg:px-20 lg:py-24 text-white"
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy-deep via-navy to-navy-deep px-7 py-12 sm:px-14 sm:py-20 lg:px-20 lg:py-24 text-white shadow-[var(--shadow-long-dark)]"
         >
+          <ConcentricRings
+            count={3}
+            size={28}
+            strokeWidth={0.5}
+            color="rgba(208,161,43,0.45)"
+            className="absolute top-5 right-5 opacity-90 z-10"
+          />
           {/* Decorative blobs */}
           <div
             aria-hidden
