@@ -189,3 +189,11 @@ export function LiquidGlass({
  * Session 2 will migrate all usages to LiquidGlass directly.
  */
 export { LiquidGlass as LiquidGlassShell };
+
+/**
+ * No-op: SVG filters are now inlined per instance.
+ * Kept for backwards compat with layouts that mount <LiquidGlassDefs />.
+ */
+export function LiquidGlassDefs() {
+  return null;
+}
