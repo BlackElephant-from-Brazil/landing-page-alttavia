@@ -21,14 +21,14 @@ export function Eyebrow({ children, className, align = "center" }: EyebrowProps)
   return (
     <div
       className={cn(
-        "flex items-center gap-3 text-[0.72rem] font-medium uppercase tracking-[0.28em] text-rose-gold-dark",
+        "flex items-center gap-3 text-[0.72rem] font-medium uppercase tracking-[0.28em] text-gold-dark",
         ALIGN_CLASSES[align],
         className
       )}
     >
-      <span className="inline-block h-px w-8 shrink-0 bg-rose-gold/60" aria-hidden />
+      <span className="inline-block h-px w-8 shrink-0 bg-gold/60" aria-hidden />
       <span className="text-center">{children}</span>
-      <span className="inline-block h-px w-8 shrink-0 bg-rose-gold/60" aria-hidden />
+      <span className="inline-block h-px w-8 shrink-0 bg-gold/60" aria-hidden />
     </div>
   );
 }
@@ -37,11 +37,11 @@ export function EyebrowSolo({ children, className }: { children: React.ReactNode
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-3 text-[0.72rem] font-medium uppercase tracking-[0.28em] text-rose-gold-dark",
+        "inline-flex items-center gap-3 text-[0.72rem] font-medium uppercase tracking-[0.28em] text-gold-dark",
         className
       )}
     >
-      <span className="inline-block h-px w-8 bg-rose-gold/60" aria-hidden />
+      <span className="inline-block h-px w-8 bg-gold/60" aria-hidden />
       {children}
     </span>
   );
