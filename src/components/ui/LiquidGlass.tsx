@@ -191,8 +191,8 @@ export function LiquidGlassShell({
       onMouseLeave={handleMouseLeave}
       style={{
         ...radiusStyle,
-        rotateX: 0,
-        rotateY: 0,
+        rotateX: enableHover ? rotateX : 0,
+        rotateY: enableHover ? rotateY : 0,
         boxShadow: outerShadow,
         ...style,
       }}
