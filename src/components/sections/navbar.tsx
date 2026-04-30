@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { ButtonLink } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
 import { useContent } from "@/components/providers/content-provider";
-import { cn } from "@/lib/cn";
 
 export function Navbar() {
   const { t, brand } = useContent();
@@ -24,97 +23,125 @@ export function Navbar() {
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
+    return () => { document.body.style.overflow = ""; };
   }, [open]);
 
   return (
-    <header
-      className={cn(
-        "fixed top-0 inset-x-0 z-50 transition-all duration-500",
-        scrolled
-          ? "bg-white/85 backdrop-blur-xl border-b border-warm-line/60"
-          : "bg-transparent border-b border-transparent"
-      )}
-    >
-      <Container size="wide">
-        <nav className="flex h-20 items-center justify-between">
-          <a href="#top" className="flex items-center gap-2" aria-label={brand.name}>
-            <Logo />
-          </a>
+    <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(780px,90vw)]">
+      <motion.div
+        animate={{
+          opacity: scrolled ? 1 : 0.93,
+          scale: scrolled ? 1 : 0.992,
+        }}
+        transition={{ duration: 0.35, ease: [0.22, 0.61, 0.36, 1] }}
+        style={{ borderRadius: 9999 }}
+      >
+        <LiquidGlassShell
+          lightVariant
+          tintOpacity={0.55}
+          blur={24}
+          filter="glass-distortion-soft"
+          borderRadius="9999px"
+          className="w-full"
+        >
+          <nav className="flex h-16 items-center justify-between px-5 sm:px-7 w-full">
+            <a href="#top" className="flex items-center gap-2 shrink-0" aria-label={brand.name}>
+              <Logo />
+            </a>
 
-          <ul className="hidden lg:flex items-center gap-8">
-            {t.nav.map((item) => (
-              <li key={item.href}>
+            <ul className="hidden lg:flex items-center gap-7">
+              {t.nav.map((item) => (
+                <li key={item.href}>
+                  <a
+                    href={item.href}
+                    className="relative text-sm text-navy-soft hover:text-navy transition-colors duration-300 group"
+                  >
+                    {item.label}
+                    <span className="absolute -bottom-1 left-0 h-px w-0 bg-gold transition-all duration-300 group-hover:w-full" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+
+            <div className="hidden lg:flex items-center gap-4">
+              <LanguageSwitcher />
+              <LiquidGlassShell
+                lightVariant
+                tintOpacity={0.65}
+                blur={20}
+                filter="glass-distortion-soft"
+                borderRadius="9999px"
+                className="shrink-0"
+              >
                 <a
-                  href={item.href}
-                  className="relative text-sm text-navy-soft hover:text-navy transition-colors duration-300 group"
+                  href="#contact"
+                  className="inline-flex items-center gap-2 px-5 h-10 text-sm font-medium text-navy hover:text-gold-dark transition-colors whitespace-nowrap"
                 >
-                  {item.label}
-                  <span className="absolute -bottom-1 left-0 h-px w-0 bg-gold transition-all duration-300 group-hover:w-full" />
+                  {t.navCtaLabel}
+                  <ArrowUpRight className="size-3.5" aria-hidden />
                 </a>
-              </li>
-            ))}
-          </ul>
+              </LiquidGlassShell>
+            </div>
 
-          <div className="hidden lg:flex items-center gap-5">
-            <LanguageSwitcher />
-            <ButtonLink href="#contact" size="md" withArrow>
-              {t.navCtaLabel}
-            </ButtonLink>
-          </div>
-
-          <div className="lg:hidden flex items-center gap-3">
-            <LanguageSwitcher />
-            <button
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-navy/10 text-navy"
-              aria-label={open ? t.closeMenuLabel : t.openMenuLabel}
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
-            >
-              {open ? <X className="size-5" /> : <Menu className="size-5" />}
-            </button>
-          </div>
-        </nav>
-      </Container>
+            <div className="lg:hidden flex items-center gap-3">
+              <LanguageSwitcher />
+              <button
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-navy/10 text-navy hover:border-gold/40 transition-colors"
+                aria-label={open ? t.closeMenuLabel : t.openMenuLabel}
+                aria-expanded={open}
+                onClick={() => setOpen((v) => !v)}
+              >
+                {open ? <X className="size-5" /> : <Menu className="size-5" />}
+              </button>
+            </div>
+          </nav>
+        </LiquidGlassShell>
+      </motion.div>
 
       <AnimatePresence>
         {open && (
           <motion.div
             key="mobile-nav"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -8, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="lg:hidden border-t border-warm-line/60 bg-white/95 backdrop-blur-xl"
+            className="mt-2 lg:hidden"
           >
-            <Container size="wide">
-              <ul className="flex flex-col py-4">
-                {t.nav.map((item) => (
-                  <li key={item.href}>
+            <LiquidGlassShell
+              lightVariant
+              tintOpacity={0.80}
+              blur={24}
+              filter="glass-distortion-soft"
+              borderRadius="1.5rem"
+              className="w-full"
+            >
+              <div className="px-5 py-4">
+                <ul className="flex flex-col">
+                  {t.nav.map((item) => (
+                    <li key={item.href}>
+                      <a
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        className="block py-3 text-base text-navy border-b border-navy/10 last:border-b-0 hover:text-gold-dark transition-colors"
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  ))}
+                  <li className="pt-5 pb-3">
                     <a
-                      href={item.href}
+                      href="#contact"
                       onClick={() => setOpen(false)}
-                      className="block py-3 text-base text-navy border-b border-warm-line/60 last:border-b-0"
+                      className="inline-flex items-center gap-2 w-full justify-center h-12 rounded-full bg-navy text-white text-sm font-medium hover:bg-gold hover:text-navy transition-colors"
                     >
-                      {item.label}
+                      {t.navCtaLabel}
+                      <ArrowUpRight className="size-4" aria-hidden />
                     </a>
                   </li>
-                ))}
-                <li className="pt-5 pb-3">
-                  <ButtonLink
-                    href="#contact"
-                    size="md"
-                    withArrow
-                    className="w-full"
-                    onClick={() => setOpen(false)}
-                  >
-                    {t.navCtaLabel}
-                  </ButtonLink>
-                </li>
-              </ul>
-            </Container>
+                </ul>
+              </div>
+            </LiquidGlassShell>
           </motion.div>
         )}
       </AnimatePresence>
