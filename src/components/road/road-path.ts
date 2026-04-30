@@ -18,7 +18,7 @@ export type RoadVariant = "desktop" | "mobile";
 export type SectionId =
   | "hero"
   | "services"
-  | "whyus"
+  | "why"
   | "about"
   | "principles"
   | "faq"
@@ -30,7 +30,7 @@ export type SectionId =
 export const SECTION_IDS: readonly SectionId[] = [
   "hero",
   "services",
-  "whyus",
+  "why",
   "about",
   "principles",
   "faq",
@@ -45,7 +45,7 @@ export const SECTION_IDS: readonly SectionId[] = [
  * Keep in sync with the spec section 4.
  */
 export const NAVY_SECTIONS: ReadonlySet<SectionId> = new Set([
-  "whyus",
+  "why",
   "principles",
   "footer",
 ]);

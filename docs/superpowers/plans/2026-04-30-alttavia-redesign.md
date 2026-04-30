@@ -362,7 +362,7 @@ This task has four sub-deliverables: path data, marker, overlay, and finally pag
   export type SectionId =
     | "hero"
     | "services"
-    | "whyus"
+    | "why"
     | "about"
     | "principles"
     | "faq"
@@ -374,7 +374,7 @@ This task has four sub-deliverables: path data, marker, overlay, and finally pag
   export const SECTION_IDS: readonly SectionId[] = [
     "hero",
     "services",
-    "whyus",
+    "why",
     "about",
     "principles",
     "faq",
@@ -389,7 +389,7 @@ This task has four sub-deliverables: path data, marker, overlay, and finally pag
    * Keep in sync with the spec section 4.
    */
   export const NAVY_SECTIONS: ReadonlySet<SectionId> = new Set([
-    "whyus",
+    "why",
     "principles",
     "footer",
   ]);
