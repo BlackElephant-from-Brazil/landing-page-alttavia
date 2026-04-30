@@ -10,23 +10,26 @@ import { Contact } from "@/components/sections/contact";
 import { Location } from "@/components/sections/location";
 import { Footer } from "@/components/sections/footer";
 import { WhatsappFloat } from "@/components/ui/whatsapp-float";
+import { RoadOverlay } from "@/components/road/road-overlay";
 
 export default function Home() {
   return (
     <>
       <Navbar />
-      <main className="flex-1">
-        <Hero />
-        <Services />
-        <WhyUs />
-        <About />
-        <Principles />
-        <Faq />
-        <CtaBanner />
-        <Contact />
-        <Location />
-      </main>
-      <Footer />
+      <RoadOverlay>
+        <main className="flex-1">
+          <Hero />
+          <Services />
+          <WhyUs />
+          <About />
+          <Principles />
+          <Faq />
+          <CtaBanner />
+          <Contact />
+          <Location />
+        </main>
+        <Footer />
+      </RoadOverlay>
       <WhatsappFloat />
     </>
   );
