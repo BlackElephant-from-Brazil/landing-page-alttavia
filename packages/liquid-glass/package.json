@@ -1,0 +1,22 @@
+{
+  "name": "@alttavia/liquid-glass",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0",
+    "typescript": "^5.0.0",
+    "@types/react": "^19",
+    "jsdom": "^24.0.0"
+  }
+}

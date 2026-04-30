@@ -19,13 +19,17 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@alttavia/liquid-glass": ["./packages/liquid-glass/src/index.ts"],
+      "@alttavia/liquid-glass/*": ["./packages/liquid-glass/src/*"]
     }
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "packages/**/*.ts",
+    "packages/**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
