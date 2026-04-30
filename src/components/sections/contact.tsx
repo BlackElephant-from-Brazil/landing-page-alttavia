@@ -31,7 +31,7 @@ export function Contact() {
       id="contact"
       className="relative py-24 lg:py-32 bg-cream-deep/50"
     >
-      <Container size="wide">
+      <Container size="wide" className="relative z-10">
         <div className="grid gap-14 lg:gap-20 lg:grid-cols-12 items-start">
           <div className="lg:col-span-5">
             <Reveal>
@@ -112,7 +112,7 @@ export function Contact() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-8% 0%" }}
             transition={{ duration: 0.85, ease: smooth }}
-            className="lg:col-span-7 relative rounded-xl border border-warm-line/70 bg-white p-7 sm:p-10 lg:p-12 shadow-[var(--shadow-soft)]"
+            className="lg:col-span-7 relative rounded-xl border border-warm-line/70 bg-white p-7 sm:p-10 lg:p-12 shadow-[var(--shadow-long)]"
           >
             <div className="grid gap-5 sm:grid-cols-2">
               <Field
@@ -209,7 +209,7 @@ function Field({ name, label, placeholder, type = "text", required }: FieldProps
         type={type}
         required={required}
         placeholder={placeholder}
-        className="mt-2 block w-full rounded-full border border-warm-line bg-cream-deep/50 px-5 h-12 text-sm text-navy placeholder:text-navy-muted/60 focus:outline-none focus:border-gold focus:bg-white transition-colors"
+        className="mt-2 block w-full rounded-full border border-warm-line bg-cream-deep/50 px-5 h-12 text-sm text-navy placeholder:text-navy-muted/60 focus:outline-none focus:border-gold focus:bg-white focus:ring-4 focus:ring-gold/15 transition-[border-color,background-color,box-shadow] duration-300"
       />
     </label>
   );
@@ -232,7 +232,7 @@ function TextareaField({
         required={required}
         placeholder={placeholder}
         rows={4}
-        className="mt-2 block w-full rounded-2xl border border-warm-line bg-cream-deep/50 px-5 py-4 text-sm text-navy placeholder:text-navy-muted/60 focus:outline-none focus:border-gold focus:bg-white transition-colors resize-none"
+        className="mt-2 block w-full rounded-2xl border border-warm-line bg-cream-deep/50 px-5 py-4 text-sm text-navy placeholder:text-navy-muted/60 focus:outline-none focus:border-gold focus:bg-white focus:ring-4 focus:ring-gold/15 transition-[border-color,background-color,box-shadow] duration-300 resize-none"
       />
     </label>
   );
@@ -261,7 +261,7 @@ function SelectField({
         name={name}
         required={required}
         defaultValue=""
-        className="mt-2 block w-full appearance-none rounded-full border border-warm-line bg-cream-deep/50 px-5 h-12 text-sm text-navy focus:outline-none focus:border-gold focus:bg-white transition-colors"
+        className="mt-2 block w-full appearance-none rounded-full border border-warm-line bg-cream-deep/50 px-5 h-12 text-sm text-navy focus:outline-none focus:border-gold focus:bg-white focus:ring-4 focus:ring-gold/15 transition-[border-color,background-color,box-shadow] duration-300"
       >
         <option value="" disabled>
           {prompt}
