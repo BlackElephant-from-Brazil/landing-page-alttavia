@@ -6,6 +6,7 @@ import { Container } from "@/components/ui/container";
 import { Reveal, staggerContainer, staggerItem } from "@/components/ui/reveal";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { useContent } from "@/components/providers/content-provider";
+import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
 
 export function Principles() {
   const { t } = useContent();
@@ -56,22 +57,31 @@ export function Principles() {
             <motion.li
               key={item.attribution}
               variants={staggerItem}
-              className="card-hover-atelier-dark group glass-card relative flex flex-col rounded-xl p-7 lg:p-9"
+              className="relative"
             >
-              <ConcentricRings
-                count={3}
-                size={20}
-                strokeWidth={0.5}
-                color="rgba(208,161,43,0.45)"
-                className="absolute top-3 left-3 opacity-90"
-              />
-              <Quote className="size-6 text-gold-light ml-12" aria-hidden />
-              <blockquote className="mt-5 font-serif italic text-lg lg:text-xl text-white/95 leading-relaxed">
-                {item.quote}
-              </blockquote>
-              <div className="mt-auto pt-7 text-xs uppercase tracking-[0.22em] text-gold-light">
-                {item.attribution}
-              </div>
+              <LiquidGlassShell
+                lightVariant={false}
+                tintOpacity={0.15}
+                filter="glass-distortion-soft"
+                borderRadius="1rem"
+                className="card-hover-atelier-dark group h-full"
+                contentClassName="p-7 lg:p-9 flex flex-col"
+              >
+                <ConcentricRings
+                  count={3}
+                  size={20}
+                  strokeWidth={0.5}
+                  color="rgba(208,161,43,0.45)"
+                  className="absolute top-3 left-3 opacity-90"
+                />
+                <Quote className="size-6 text-gold/30 ml-12" aria-hidden />
+                <blockquote className="mt-5 font-serif italic text-lg lg:text-xl text-white/95 leading-relaxed">
+                  {item.quote}
+                </blockquote>
+                <div className="mt-auto pt-7 text-xs uppercase tracking-[0.22em] text-gold-light">
+                  {item.attribution}
+                </div>
+              </LiquidGlassShell>
             </motion.li>
           ))}
         </motion.ul>
