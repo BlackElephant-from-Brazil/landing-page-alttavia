@@ -2,6 +2,7 @@
 
 import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/ui/logo";
+import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { useContent } from "@/components/providers/content-provider";
 
 export function Footer() {
@@ -10,7 +11,7 @@ export function Footer() {
 
   return (
     <footer className="relative bg-navy text-white pt-20 pb-10">
-      <Container size="wide">
+      <Container size="wide" className="relative z-10">
         <div className="grid gap-10 lg:gap-16 lg:grid-cols-12">
           <div className="lg:col-span-5">
             <Logo tone="cream" />
@@ -104,7 +105,16 @@ export function Footer() {
 
         <div className="mt-10 pt-6 border-t border-white/15 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
           <p className="text-xs text-white/65">{footer.copyright(new Date().getFullYear())}</p>
-          <p className="text-xs text-white/65">{footer.craftedIn}</p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-white/65">{footer.craftedIn}</p>
+            <ConcentricRings
+              count={3}
+              size={10}
+              strokeWidth={0.5}
+              color="rgba(208,161,43,0.45)"
+              className="opacity-90"
+            />
+          </div>
         </div>
       </Container>
     </footer>
