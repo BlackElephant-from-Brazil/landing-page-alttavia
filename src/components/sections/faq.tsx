@@ -44,21 +44,21 @@ export function Faq() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-5% 0%" }}
                 transition={{ duration: 0.55, delay: i * 0.04, ease: smooth }}
-                className="overflow-hidden rounded-xl border border-warm-line/70 bg-white transition-shadow duration-300 hover:shadow-[var(--shadow-soft)]"
+                className="overflow-hidden rounded-xl border border-warm-line/70 bg-white transition-shadow duration-500 ease-[cubic-bezier(0.22,0.61,0.36,1)] hover:shadow-[var(--shadow-long)]"
               >
                 <button
                   onClick={() => setOpen(isOpen ? null : i)}
                   aria-expanded={isOpen}
-                  className="flex w-full items-center justify-between gap-6 px-6 sm:px-8 py-5 sm:py-6 text-left"
+                  className="group flex w-full items-center justify-between gap-6 px-6 sm:px-8 py-5 sm:py-6 text-left"
                 >
                   <span className="font-serif text-lg sm:text-xl text-navy leading-snug">
                     {item.q}
                   </span>
                   <span
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-warm-line transition-all duration-500 ${
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all duration-500 ${
                       isOpen
                         ? "bg-navy text-white border-navy rotate-45"
-                        : "bg-white text-navy-soft"
+                        : "bg-white text-navy-soft border-warm-line group-hover:border-gold/50 group-hover:text-gold-dark"
                     }`}
                     aria-hidden
                   >
