@@ -2,8 +2,8 @@
 
 import { motion } from "framer-motion";
 import { Container } from "@/components/ui/container";
-import { ButtonLink } from "@/components/ui/button";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
+import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
 import { useContent } from "@/components/providers/content-provider";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
@@ -20,7 +20,7 @@ export function CtaBanner() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-10% 0%" }}
           transition={{ duration: 0.9, ease: smooth }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy-deep via-navy to-navy-deep px-7 py-12 sm:px-14 sm:py-20 lg:px-20 lg:py-24 text-white shadow-[var(--shadow-long-dark)]"
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy-deep via-navy to-navy-deep text-white shadow-[var(--shadow-long-dark)]"
         >
           <ConcentricRings
             count={3}
@@ -47,27 +47,55 @@ export function CtaBanner() {
             }}
           />
 
-          <div className="relative grid gap-8 lg:gap-10 lg:grid-cols-12 items-center">
-            <div className="lg:col-span-8">
-              <h2 className="font-serif text-balance text-white">
-                {ctaBanner.title}
-              </h2>
-              <p className="mt-4 sm:mt-5 max-w-2xl text-white/80 text-base sm:text-lg leading-relaxed">
-                {ctaBanner.desc}
-              </p>
+          <LiquidGlassShell
+            lightVariant={false}
+            tintOpacity={0.20}
+            borderRadius="1.5rem"
+            filter="glass-distortion-soft"
+            contentClassName="px-7 py-12 sm:px-14 sm:py-20 lg:px-20 lg:py-24"
+          >
+            <div className="grid gap-8 lg:gap-10 lg:grid-cols-12 items-center">
+              <div className="lg:col-span-8">
+                <h2 className="font-serif text-balance text-white">
+                  {ctaBanner.title}
+                </h2>
+                <p className="mt-4 sm:mt-5 max-w-2xl text-white/80 text-base sm:text-lg leading-relaxed">
+                  {ctaBanner.desc}
+                </p>
+              </div>
+              <div className="lg:col-span-4 lg:flex lg:justify-end">
+                <LiquidGlassShell
+                  lightVariant={false}
+                  tintOpacity={0.30}
+                  borderRadius="9999px"
+                  filter="glass-distortion-soft"
+                  enableHover
+                  contentClassName="px-8 py-3 flex items-center gap-2"
+                >
+                  <a
+                    href="#contact"
+                    className="flex items-center gap-2 text-white font-medium text-base"
+                  >
+                    {ctaBanner.button}
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </a>
+                </LiquidGlassShell>
+              </div>
             </div>
-            <div className="lg:col-span-4 lg:flex lg:justify-end">
-              <ButtonLink
-                href="#contact"
-                size="lg"
-                variant="gold"
-                withArrow
-                className="w-full lg:w-auto"
-              >
-                {ctaBanner.button}
-              </ButtonLink>
-            </div>
-          </div>
+          </LiquidGlassShell>
         </motion.div>
       </Container>
     </section>
