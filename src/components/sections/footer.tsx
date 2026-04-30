@@ -4,6 +4,7 @@ import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/ui/logo";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { useContent } from "@/components/providers/content-provider";
+import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
 
 export function Footer() {
   const { t, brand } = useContent();
@@ -72,35 +73,43 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 border-t border-white/15 pt-8">
-          <address className="not-italic text-xs text-white/75 leading-relaxed">
-            <span className="block uppercase tracking-[0.22em] text-gold-light mb-2">
-              {footer.officeLabel}
-            </span>
-            {brand.address.street}
-            <br />
-            {brand.address.zip} {t.cityLabel}, {t.country}
-          </address>
-          <div className="text-xs text-white/75 leading-relaxed sm:text-right">
-            <span className="block uppercase tracking-[0.22em] text-gold-light mb-2">
-              {footer.getInTouchLabel}
-            </span>
-            <a
-              href={`mailto:${brand.email}`}
-              className="hover:text-white transition-colors"
-            >
-              {brand.email}
-            </a>
-            <br />
-            <a
-              href={brand.whatsapp}
-              target="_blank"
-              rel="noopener"
-              className="hover:text-white transition-colors"
-            >
-              {brand.phone}
-            </a>
-          </div>
+        <div className="mt-14">
+          <LiquidGlassShell
+            lightVariant={false}
+            tintOpacity={0.12}
+            borderRadius="1rem"
+            filter="glass-distortion-soft"
+            contentClassName="p-6 sm:p-8 grid gap-6 sm:grid-cols-2"
+          >
+            <address className="not-italic text-xs text-white/75 leading-relaxed">
+              <span className="block uppercase tracking-[0.22em] text-gold-light mb-2">
+                {footer.officeLabel}
+              </span>
+              {brand.address.street}
+              <br />
+              {brand.address.zip} {t.cityLabel}, {t.country}
+            </address>
+            <div className="text-xs text-white/75 leading-relaxed sm:text-right">
+              <span className="block uppercase tracking-[0.22em] text-gold-light mb-2">
+                {footer.getInTouchLabel}
+              </span>
+              <a
+                href={`mailto:${brand.email}`}
+                className="hover:text-white transition-colors"
+              >
+                {brand.email}
+              </a>
+              <br />
+              <a
+                href={brand.whatsapp}
+                target="_blank"
+                rel="noopener"
+                className="hover:text-white transition-colors"
+              >
+                {brand.phone}
+              </a>
+            </div>
+          </LiquidGlassShell>
         </div>
 
         <div className="mt-10 pt-6 border-t border-white/15 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
