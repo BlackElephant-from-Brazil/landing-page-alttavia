@@ -761,7 +761,7 @@ This task has four sub-deliverables: path data, marker, overlay, and finally pag
               </clipPath>
             ))}
           </defs>
-          <g opacity="var(--road-opacity)" style={{ willChange: "transform" }}>
+          <g style={{ opacity: "var(--road-opacity)", willChange: "transform" }}>
             {/* Master invisible path used as a length reference */}
             <path
               ref={pathRef}
@@ -781,15 +781,14 @@ This task has four sub-deliverables: path data, marker, overlay, and finally pag
                     ? "var(--road-color-dark)"
                     : "var(--road-color-light)"
                 }
-                strokeWidth={
-                  variant === "desktop"
-                    ? "var(--road-stroke)"
-                    : "var(--road-stroke-mobile)"
-                }
                 strokeLinecap="round"
                 clipPath={`url(#road-clip-${s.id})`}
                 vectorEffect="non-scaling-stroke"
                 style={{
+                  strokeWidth:
+                    variant === "desktop"
+                      ? "var(--road-stroke)"
+                      : "var(--road-stroke-mobile)",
                   strokeDasharray: pathLength,
                   strokeDashoffset,
                   willChange: "stroke-dashoffset",
