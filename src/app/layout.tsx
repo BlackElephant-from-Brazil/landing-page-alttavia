@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Spectral, Inter } from "next/font/google";
 import "./globals.css";
+import { LiquidGlassDefs } from "@/components/ui/LiquidGlass";
 
 const spectral = Spectral({
   variable: "--font-serif",
@@ -35,7 +36,10 @@ export default function RootLayout({
       className={`${spectral.variable} ${inter.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <LiquidGlassDefs />
+        {children}
+      </body>
     </html>
   );
 }
