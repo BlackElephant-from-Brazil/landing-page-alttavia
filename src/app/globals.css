@@ -60,6 +60,7 @@
   --road-stroke: 40px;
   --road-stroke-mobile: 32px;
   --road-opacity: 0.6;
+  --road-color-hero: #D0A12B;
   --marker-color: #D0A12B;
   --marker-color-light: #E6B94A;
 
@@ -196,4 +197,27 @@ html {
 
 @utility animate-pulse-soft {
   animation: pulse-soft var(--pulse-duration) var(--ease-smooth) infinite;
+}
+
+/* Hero orbital blob animations */
+@keyframes blob-orbit-1 {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  25%  { transform: translate(-60px, 40px) scale(1.05); }
+  50%  { transform: translate(-30px, 80px) scale(0.97); }
+  75%  { transform: translate(40px, 30px) scale(1.03); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes blob-orbit-2 {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  33%  { transform: translate(50px, -40px) scale(1.06); }
+  66%  { transform: translate(-40px, -60px) scale(0.96); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes blob-orbit-3 {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  40%  { transform: translate(30px, 50px) scale(1.04); }
+  80%  { transform: translate(-50px, 20px) scale(0.98); }
+  100% { transform: translate(0px, 0px) scale(1); }
 }

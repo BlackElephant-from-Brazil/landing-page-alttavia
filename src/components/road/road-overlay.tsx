@@ -149,7 +149,9 @@ export function RoadOverlay({ children }: RoadOverlayProps) {
               d={pathD}
               fill="none"
               stroke={
-                NAVY_SECTIONS.has(s.id)
+                s.id === "hero"
+                  ? "var(--road-color-hero)"
+                  : NAVY_SECTIONS.has(s.id)
                   ? "var(--road-color-dark)"
                   : "var(--road-color-light)"
               }
