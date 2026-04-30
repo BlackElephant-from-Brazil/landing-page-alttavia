@@ -20,7 +20,7 @@ export function Services() {
       id="services"
       className="relative py-24 lg:py-32 bg-cream-deep/60"
     >
-      <Container size="wide">
+      <Container size="wide" className="relative z-10">
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
             <Eyebrow>{services.eyebrow}</Eyebrow>
@@ -47,8 +47,14 @@ export function Services() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-6% 0%" }}
                 transition={{ duration: 0.8, delay: i * 0.1, ease: smooth }}
-                className="group relative flex flex-col overflow-hidden rounded-xl bg-white border border-warm-line/70 p-8 sm:p-10 lg:p-12 shadow-[var(--shadow-soft)] transition-all duration-500 hover:border-gold/50 hover:shadow-[var(--shadow-card)]"
+                className="card-hover-atelier group relative flex flex-col overflow-hidden rounded-xl bg-white border border-warm-line/70 p-8 sm:p-10 lg:p-12 shadow-[var(--shadow-long)]"
               >
+                <span
+                  className="absolute top-6 right-7 font-serif text-5xl text-gold/25 leading-none italic select-none pointer-events-none"
+                  aria-hidden
+                >
+                  {String(i + 1).padStart(2, "0")}
+                </span>
                 <div className="flex items-start gap-5">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-wheat/40 text-gold-dark">
                     <Icon className="size-6" strokeWidth={1.5} />
