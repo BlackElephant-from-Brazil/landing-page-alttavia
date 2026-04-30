@@ -6,7 +6,7 @@ type Variant = "primary" | "gold" | "ghost" | "outline";
 type Size = "md" | "lg";
 
 const base =
-  "inline-flex items-center justify-center gap-2 font-medium tracking-[-0.01em] transition-all duration-300 ease-out rounded-full whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:opacity-50 disabled:cursor-not-allowed";
+  "group inline-flex items-center justify-center gap-2 font-medium tracking-[-0.01em] transition-all duration-300 ease-out rounded-full whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:opacity-50 disabled:cursor-not-allowed";
 
 const variants: Record<Variant, string> = {
   /** Dark navy button with bright white text. Use on light backgrounds. */
@@ -51,7 +51,12 @@ export function Button({
       {...props}
     >
       {children}
-      {withArrow && <ArrowUpRight className="size-4" aria-hidden />}
+      {withArrow && (
+        <ArrowUpRight
+          className="size-4 transition-transform duration-300 ease-out group-hover:translate-x-[2px] group-hover:-translate-y-[2px]"
+          aria-hidden
+        />
+      )}
     </button>
   );
 }
@@ -70,7 +75,12 @@ export function ButtonLink({
       {...props}
     >
       {children}
-      {withArrow && <ArrowUpRight className="size-4" aria-hidden />}
+      {withArrow && (
+        <ArrowUpRight
+          className="size-4 transition-transform duration-300 ease-out group-hover:translate-x-[2px] group-hover:-translate-y-[2px]"
+          aria-hidden
+        />
+      )}
     </a>
   );
 }
