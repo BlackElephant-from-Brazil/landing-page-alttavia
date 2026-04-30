@@ -6,6 +6,7 @@ import { ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { ButtonLink } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { useContent } from "@/components/providers/content-provider";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
@@ -37,7 +38,7 @@ export function Hero() {
         }}
       />
 
-      <Container size="wide" className="relative">
+      <Container size="wide" className="relative z-10">
         <div className="grid gap-14 lg:gap-16 lg:grid-cols-12 items-center">
           <div className="lg:col-span-7">
             <motion.div
@@ -93,9 +94,17 @@ export function Hero() {
               transition={{ duration: 0.7, delay: 0.4, ease: smooth }}
               className="mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4"
             >
-              <ButtonLink href="#contact" size="lg" withArrow>
-                {hero.ctaPrimary}
-              </ButtonLink>
+              <span
+                className="inline-flex animate-pulse-soft will-change-transform"
+                style={{
+                  ["--pulse-duration" as string]: "var(--pulse-duration-cta)",
+                  ["--pulse-scale" as string]: "1.02",
+                } as React.CSSProperties}
+              >
+                <ButtonLink href="#contact" size="lg" withArrow>
+                  {hero.ctaPrimary}
+                </ButtonLink>
+              </span>
               <ButtonLink href="#services" size="lg" variant="outline">
                 {hero.ctaSecondary}
               </ButtonLink>
@@ -105,7 +114,7 @@ export function Hero() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.7, ease: smooth }}
-              className="mt-14 grid grid-cols-3 gap-6 sm:gap-10 max-w-xl"
+              className="mt-16 grid grid-cols-3 gap-8 sm:gap-12 max-w-xl"
             >
               {hero.stats.map((s) => (
                 <li key={s.label} className="border-l border-gold/30 pl-4 sm:pl-5">
@@ -126,7 +135,7 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.3, ease: smooth }}
             className="lg:col-span-5 relative"
           >
-            <div className="relative aspect-[4/5] rounded-xl overflow-hidden shadow-[var(--shadow-card)] bg-champagne">
+            <div className="relative aspect-[4/5] rounded-xl overflow-hidden shadow-[var(--shadow-long)] bg-champagne">
               <Image
                 src="/patricia.webp"
                 alt="Patrícia Viana, founder of Alttavia Relocation"
@@ -145,8 +154,13 @@ export function Hero() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.85, ease: smooth }}
-              className="absolute -bottom-6 -left-4 sm:-left-8 bg-white rounded-xl shadow-[var(--shadow-card)] px-5 py-4 max-w-[260px] border border-warm-line/80"
+              className="absolute -bottom-6 -left-4 sm:-left-8 bg-white rounded-xl shadow-[var(--shadow-long)] px-5 py-4 max-w-[260px] border border-warm-line/80"
             >
+              <ConcentricRings
+                count={3}
+                size={14}
+                className="absolute top-2 right-2 opacity-80"
+              />
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-navy text-white">
                   <ArrowUpRight className="size-4" />
