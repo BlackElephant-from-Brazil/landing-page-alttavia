@@ -6,6 +6,8 @@ import { UserCheck, Award, Languages, ShieldCheck, ChevronLeft, ChevronRight } f
 import { Container } from "@/components/ui/container";
 import { Reveal, staggerContainer, staggerItem } from "@/components/ui/reveal";
 import { Globe } from "@/components/ui/globe";
+import { ConcentricRings } from "@/components/ui/concentric-rings";
+import { Marquee } from "@/components/ui/marquee";
 import { useContent } from "@/components/providers/content-provider";
 
 const icons = [UserCheck, Award, Languages, ShieldCheck];
@@ -36,6 +38,42 @@ export function WhyUs() {
         }}
       >
         <Globe />
+      </div>
+
+      {/* Atelier concentric rings around the globe (behind the globe itself but above bg) */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute hidden sm:block z-0"
+        style={{
+          left: "calc(-15% + 56vw)",
+          bottom: "-25%",
+          width: "min(70vw, 560px)",
+          height: "min(70vw, 560px)",
+        }}
+      >
+        <div className="relative w-full h-full">
+          <ConcentricRings
+            count={1}
+            size={220}
+            strokeWidth={0.5}
+            color="rgba(208,161,43,0.30)"
+            className="absolute inset-0 m-auto"
+          />
+          <ConcentricRings
+            count={1}
+            size={170}
+            strokeWidth={0.5}
+            color="rgba(208,161,43,0.20)"
+            className="absolute inset-0 m-auto"
+          />
+          <ConcentricRings
+            count={1}
+            size={130}
+            strokeWidth={0.5}
+            color="rgba(208,161,43,0.12)"
+            className="absolute inset-0 m-auto"
+          />
+        </div>
       </div>
 
       {/* Soft gold glow top-right */}
@@ -96,8 +134,14 @@ export function WhyUs() {
                 <motion.li
                   key={item.title}
                   variants={staggerItem}
-                  className="group glass-card rounded-xl p-6 sm:p-8 transition-all duration-500 w-[82vw] sm:w-auto sm:min-w-0 snap-start flex-shrink-0"
+                  className="card-hover-atelier-dark group glass-card relative rounded-xl p-6 sm:p-8 w-[82vw] sm:w-auto sm:min-w-0 snap-start flex-shrink-0"
                 >
+                  <span
+                    className="absolute top-4 right-5 font-serif text-3xl text-gold-light/30 leading-none italic select-none pointer-events-none"
+                    aria-hidden
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
                   <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gold/20 border border-gold/25 text-gold-light transition-colors duration-500 group-hover:bg-gold group-hover:text-navy group-hover:border-gold">
                     <Icon className="size-5" strokeWidth={1.5} />
                   </div>
@@ -132,7 +176,49 @@ export function WhyUs() {
             </button>
           </div>
         </div>
+
+        {/* Cities-served marquee, closes the WhyUs section */}
+        <div className="mt-16 sm:mt-20 -mx-5 sm:mx-0 border-t border-gold/20 pt-8">
+          <Marquee>
+            <CityLine />
+          </Marquee>
+        </div>
       </Container>
     </section>
+  );
+}
+
+const CITIES = [
+  "LISBOA",
+  "MADRID",
+  "PARIS",
+  "LONDON",
+  "BERLIN",
+  "ROMA",
+  "VALLETTA",
+  "NYC",
+  "LA",
+  "MIAMI",
+  "CHICAGO",
+  "HOUSTON",
+  "SÃO PAULO",
+  "RIO",
+  "MEXICO CITY",
+  "DUBAI",
+  "SINGAPORE",
+  "TOKYO",
+  "SYDNEY",
+] as const;
+
+function CityLine() {
+  return (
+    <div className="flex items-center gap-8 sm:gap-10 px-8 text-[0.7rem] sm:text-xs uppercase tracking-[0.18em] font-medium text-wheat/80">
+      {CITIES.map((city, i) => (
+        <span key={`${city}-${i}`} className="flex items-center gap-8 sm:gap-10">
+          <span>{city}</span>
+          <span className="text-gold-light/40" aria-hidden>·</span>
+        </span>
+      ))}
+    </div>
   );
 }
