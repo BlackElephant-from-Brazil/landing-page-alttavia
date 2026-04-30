@@ -15,7 +15,7 @@ export function Location() {
 
   return (
     <section id="location" className="relative py-24 lg:py-32">
-      <Container size="wide">
+      <Container size="wide" className="relative z-10">
         <div className="grid gap-14 lg:gap-16 lg:grid-cols-12 items-center">
           <div className="lg:col-span-5">
             <Reveal>
@@ -33,7 +33,7 @@ export function Location() {
             </Reveal>
 
             <Reveal delay={0.25}>
-              <div className="mt-9 space-y-5">
+              <div className="mt-9 space-y-5 border-t border-gold/25 pt-7">
                 <div className="flex gap-4">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white border border-warm-line text-gold-dark">
                     <MapPin className="size-4" strokeWidth={1.5} />
@@ -75,7 +75,7 @@ export function Location() {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true, margin: "-8% 0%" }}
             transition={{ duration: 0.9, ease: smooth }}
-            className="lg:col-span-7 relative rounded-xl overflow-hidden shadow-[var(--shadow-card)] border border-warm-line/70 bg-white"
+            className="lg:col-span-7 relative rounded-xl overflow-hidden shadow-[var(--shadow-long)] border border-warm-line/70 bg-white"
           >
             <div className="aspect-[4/3] sm:aspect-[16/10] w-full">
               <iframe
