@@ -3,8 +3,8 @@
 import { motion } from "framer-motion";
 import { Quote } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Eyebrow } from "@/components/ui/eyebrow";
 import { Reveal, staggerContainer, staggerItem } from "@/components/ui/reveal";
+import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { useContent } from "@/components/providers/content-provider";
 
 export function Principles() {
@@ -12,14 +12,34 @@ export function Principles() {
   const principles = t.principles;
 
   return (
-    <section id="principles" className="relative py-24 lg:py-32">
-      <Container size="wide">
+    <section id="principles" className="relative py-28 lg:py-36 bg-navy text-white overflow-hidden isolate">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 right-[-15%] h-[520px] w-[520px] rounded-full blur-3xl opacity-25"
+        style={{
+          background:
+            "radial-gradient(circle at center, rgba(208,161,43,0.5) 0%, transparent 65%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 30%, transparent 20%, rgba(8, 16, 40, 0.55) 75%)",
+        }}
+      />
+      <Container size="wide" className="relative z-10">
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
-            <Eyebrow>{principles.eyebrow}</Eyebrow>
+            <div className="flex items-center gap-3 text-[0.72rem] font-medium uppercase tracking-[0.28em] text-gold-light justify-center">
+              <span className="inline-block h-px w-8 bg-gold/70" aria-hidden />
+              <span>{principles.eyebrow}</span>
+              <span className="inline-block h-px w-8 bg-gold/70" aria-hidden />
+            </div>
           </Reveal>
           <Reveal delay={0.1}>
-            <h2 className="mt-6 font-serif text-balance text-navy">
+            <h2 className="mt-6 font-serif text-balance text-white">
               {principles.title}
             </h2>
           </Reveal>
@@ -36,13 +56,20 @@ export function Principles() {
             <motion.li
               key={item.attribution}
               variants={staggerItem}
-              className="flex flex-col rounded-xl border border-warm-line/70 bg-white p-7 lg:p-9 shadow-[var(--shadow-soft)] transition-shadow duration-500 hover:shadow-[var(--shadow-card)]"
+              className="card-hover-atelier-dark group glass-card relative flex flex-col rounded-xl p-7 lg:p-9"
             >
-              <Quote className="size-6 text-gold-dark" aria-hidden />
-              <blockquote className="mt-5 font-serif italic text-lg lg:text-xl text-navy leading-relaxed">
+              <ConcentricRings
+                count={3}
+                size={20}
+                strokeWidth={0.5}
+                color="rgba(208,161,43,0.45)"
+                className="absolute top-3 left-3 opacity-90"
+              />
+              <Quote className="size-6 text-gold-light ml-12" aria-hidden />
+              <blockquote className="mt-5 font-serif italic text-lg lg:text-xl text-white/95 leading-relaxed">
                 {item.quote}
               </blockquote>
-              <div className="mt-auto pt-7 text-xs uppercase tracking-[0.22em] text-navy-muted">
+              <div className="mt-auto pt-7 text-xs uppercase tracking-[0.22em] text-gold-light">
                 {item.attribution}
               </div>
             </motion.li>
