@@ -47,6 +47,28 @@
   --shadow-card: 0 10px 34px rgba(14, 42, 71, 0.09), 0 2px 8px rgba(14, 42, 71, 0.05);
   --shadow-glow: 0 14px 44px rgba(208, 161, 43, 0.22);
   --shadow-glass: 0 8px 32px rgba(8, 31, 102, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+
+  /* ------ Long shadows (atelier-boutique redesign) ------ */
+  --shadow-long: 0 20px 60px rgba(14, 42, 71, 0.12), 0 8px 20px rgba(14, 42, 71, 0.06);
+  --shadow-long-dark: 0 20px 60px rgba(0, 0, 0, 0.40), 0 8px 20px rgba(0, 0, 0, 0.20);
+  --shadow-long-hover: 0 28px 80px rgba(14, 42, 71, 0.16), 0 12px 28px rgba(14, 42, 71, 0.08);
+  --shadow-long-hover-dark: 0 28px 80px rgba(0, 0, 0, 0.48), 0 12px 28px rgba(0, 0, 0, 0.24);
+
+  /* ------ Road tokens ------ */
+  --road-color-light: #D4D4D4;
+  --road-color-dark: #E3DAD0;
+  --road-stroke: 2.5px;
+  --road-stroke-mobile: 2px;
+  --road-opacity: 0.6;
+  --marker-color: #D0A12B;
+  --marker-color-light: #E6B94A;
+
+  /* ------ Animation tokens ------ */
+  --ease-smooth: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --marquee-duration: 60s;
+  --pulse-duration: 2.5s;
+  --pulse-duration-cta: 3s;
+  --pulse-duration-float: 4s;
 }
 
 :root {
@@ -133,6 +155,16 @@ html {
   }
 }
 
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(var(--pulse-scale, 1.03)); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -140,4 +172,28 @@ html {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+@utility card-hover-atelier {
+  transition: transform 500ms var(--ease-smooth), box-shadow 500ms var(--ease-smooth), border-color 500ms var(--ease-smooth);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-long-hover);
+    border-color: rgba(208, 161, 43, 0.40);
+  }
+}
+
+@utility card-hover-atelier-dark {
+  transition: transform 500ms var(--ease-smooth), box-shadow 500ms var(--ease-smooth), border-color 500ms var(--ease-smooth);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-long-hover-dark);
+    border-color: rgba(208, 161, 43, 0.50);
+  }
+}
+
+@utility animate-pulse-soft {
+  animation: pulse-soft var(--pulse-duration) var(--ease-smooth) infinite;
 }
