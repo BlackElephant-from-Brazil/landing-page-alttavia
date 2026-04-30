@@ -9,6 +9,7 @@ import { Globe } from "@/components/ui/globe";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { Marquee } from "@/components/ui/marquee";
 import { useContent } from "@/components/providers/content-provider";
+import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
 
 const icons = [UserCheck, Award, Languages, ShieldCheck];
 
@@ -134,23 +135,32 @@ export function WhyUs() {
                 <motion.li
                   key={item.title}
                   variants={staggerItem}
-                  className="card-hover-atelier-dark group glass-card relative rounded-xl p-6 sm:p-8 w-[82vw] sm:w-auto sm:min-w-0 snap-start flex-shrink-0"
+                  className="w-[82vw] sm:w-auto sm:min-w-0 snap-start flex-shrink-0"
                 >
-                  <span
-                    className="absolute top-4 right-5 font-serif text-3xl text-gold-light/30 leading-none italic select-none pointer-events-none"
-                    aria-hidden
+                  <LiquidGlassShell
+                    lightVariant={false}
+                    tintOpacity={0.18}
+                    filter="glass-distortion-soft"
+                    borderRadius="1rem"
+                    className="group card-hover-atelier-dark relative h-full"
+                    contentClassName="p-6 sm:p-8 flex flex-col"
                   >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gold/20 border border-gold/25 text-gold-light transition-colors duration-500 group-hover:bg-gold group-hover:text-navy group-hover:border-gold">
-                    <Icon className="size-5" strokeWidth={1.5} />
-                  </div>
-                  <h3 className="mt-5 sm:mt-6 font-serif text-xl sm:text-2xl text-white leading-snug break-words hyphens-auto">
-                    {item.title}
-                  </h3>
-                  <p className="mt-3 text-sm sm:text-[0.95rem] text-white/75 leading-relaxed break-words">
-                    {item.desc}
-                  </p>
+                    <span
+                      className="absolute top-4 right-5 font-serif text-3xl text-gold-light/30 leading-none italic select-none pointer-events-none"
+                      aria-hidden
+                    >
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gold/20 border border-gold/25 text-gold-light transition-colors duration-500 group-hover:bg-gold group-hover:text-navy group-hover:border-gold">
+                      <Icon className="size-5" strokeWidth={1.5} />
+                    </div>
+                    <h3 className="mt-5 sm:mt-6 font-serif text-xl sm:text-2xl text-white leading-snug break-words hyphens-auto">
+                      {item.title}
+                    </h3>
+                    <p className="mt-3 text-sm sm:text-[0.95rem] text-white/75 leading-relaxed break-words">
+                      {item.desc}
+                    </p>
+                  </LiquidGlassShell>
                 </motion.li>
               );
             })}
