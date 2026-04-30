@@ -47,7 +47,14 @@
       "Bash(curl -s http://localhost:3000/__TRACKED_VAR__)",
       "Bash(npx next *)",
       "Bash(timeout 120 npx tsc --noEmit)",
-      "Bash(timeout 60 npx tsc --noEmit)"
+      "Bash(timeout 60 npx tsc --noEmit)",
+      "Bash(C:/Users/guilh/.claude/plugins/cache/superpowers-dev/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh *)",
+      "Bash(npx eslint *)",
+      "Bash(git *)",
+      "Bash(cat eslint.config.mjs)",
+      "Bash(cat eslint.config.js)",
+      "Bash(cat .eslintrc.json)",
+      "Bash(node -e ' *)"
     ]
   }
 }

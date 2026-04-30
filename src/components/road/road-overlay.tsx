@@ -4,13 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import {
   buildPathD,
-  DESKTOP_MARKERS,
-  MOBILE_MARKERS,
   SECTION_IDS,
   NAVY_SECTIONS,
   type SectionId,
 } from "./road-path";
-import { RoadMarker } from "./road-marker";
 
 type RoadOverlayProps = {
   children: React.ReactNode;
@@ -117,7 +114,6 @@ export function RoadOverlay({ children }: RoadOverlayProps) {
   );
 
   const pathD = totalHeight ? buildPathD(variant, totalHeight) : "";
-  const markers = variant === "desktop" ? DESKTOP_MARKERS : MOBILE_MARKERS;
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -170,10 +166,6 @@ export function RoadOverlay({ children }: RoadOverlayProps) {
                 willChange: "stroke-dashoffset",
               }}
             />
-          ))}
-          {/* Markers */}
-          {markers.map((m) => (
-            <RoadMarker key={m.id} marker={m} totalHeight={totalHeight} />
           ))}
         </g>
       </svg>

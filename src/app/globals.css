@@ -57,8 +57,8 @@
   /* ------ Road tokens ------ */
   --road-color-light: #D4D4D4;
   --road-color-dark: #E3DAD0;
-  --road-stroke: 2.5px;
-  --road-stroke-mobile: 2px;
+  --road-stroke: 40px;
+  --road-stroke-mobile: 32px;
   --road-opacity: 0.6;
   --marker-color: #D0A12B;
   --marker-color-light: #E6B94A;
