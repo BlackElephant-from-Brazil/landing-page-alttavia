@@ -144,8 +144,10 @@ export function LiquidGlass({
         style={{ borderRadius: "inherit" }}
       >
         {/* Blur / refraction layer */}
+        {/* suppressHydrationWarning: backdropFilter is client-only (feature detect) */}
         <div
           className="absolute inset-0 z-0"
+          suppressHydrationWarning
           style={{
             backdropFilter: backdropValue,
             WebkitBackdropFilter: backdropValue,
