@@ -4,12 +4,37 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { ButtonLink } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
+import { HeroBlobs } from "@/components/ui/hero-blobs";
+import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
+import { useCountUp } from "@/hooks/useCountUp";
 import { useContent } from "@/components/providers/content-provider";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
+
+function StatCounter({ number, label }: { number: string; label: string }) {
+  const isPercentage = number.endsWith("%");
+  const hasPlus = number.endsWith("+");
+  const raw = parseInt(number.replace(/[^0-9]/g, ""), 10);
+  const { count, ref } = useCountUp(raw);
+
+  return (
+    <li className="border-l border-gold/30 pl-4 sm:pl-5">
+      <div
+        ref={ref as React.RefObject<HTMLDivElement>}
+        className="font-serif text-3xl sm:text-4xl text-navy leading-none"
+      >
+        {count}
+        {hasPlus && "+"}
+        {isPercentage && "%"}
+      </div>
+      <div className="mt-1.5 text-xs sm:text-sm text-navy-muted uppercase tracking-wider">
+        {label}
+      </div>
+    </li>
+  );
+}
 
 export function Hero() {
   const { t } = useContent();
@@ -20,23 +45,7 @@ export function Hero() {
       id="top"
       className="relative overflow-hidden pt-32 lg:pt-40 pb-20 lg:pb-28 has-grain"
     >
-      {/* Decorative gradient blob */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-40 -right-40 h-[560px] w-[560px] rounded-full blur-3xl opacity-40"
-        style={{
-          background:
-            "radial-gradient(circle at center, rgba(224,207,159,0.55) 0%, rgba(208,161,43,0.35) 35%, transparent 70%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute top-1/3 -left-32 h-[380px] w-[380px] rounded-full blur-3xl opacity-25"
-        style={{
-          background:
-            "radial-gradient(circle at center, rgba(208,161,43,0.55) 0%, transparent 70%)",
-        }}
-      />
+      <HeroBlobs />
 
       <Container size="wide" className="relative z-10">
         <div className="grid gap-14 lg:gap-16 lg:grid-cols-12 items-center">
@@ -101,13 +110,35 @@ export function Hero() {
                   ["--pulse-scale" as string]: "1.02",
                 } as React.CSSProperties}
               >
-                <ButtonLink href="#contact" size="lg" withArrow>
-                  {hero.ctaPrimary}
-                </ButtonLink>
+                <LiquidGlassShell
+                  lightVariant
+                  tintOpacity={0.55}
+                  filter="glass-distortion-soft"
+                  borderRadius="9999px"
+                >
+                  <a
+                    href="#contact"
+                    className="inline-flex items-center gap-2 px-8 h-14 text-base font-medium text-navy hover:text-gold-dark transition-colors whitespace-nowrap"
+                  >
+                    {hero.ctaPrimary}
+                    <ArrowUpRight className="size-4 text-gold" aria-hidden />
+                  </a>
+                </LiquidGlassShell>
               </span>
-              <ButtonLink href="#services" size="lg" variant="outline">
-                {hero.ctaSecondary}
-              </ButtonLink>
+
+              <LiquidGlassShell
+                lightVariant
+                tintOpacity={0.45}
+                filter="glass-distortion-soft"
+                borderRadius="9999px"
+              >
+                <a
+                  href="#services"
+                  className="inline-flex items-center gap-2 px-8 h-14 text-base font-medium text-navy hover:text-gold-dark transition-colors whitespace-nowrap"
+                >
+                  {hero.ctaSecondary}
+                </a>
+              </LiquidGlassShell>
             </motion.div>
 
             <motion.ul
@@ -117,14 +148,7 @@ export function Hero() {
               className="mt-16 grid grid-cols-3 gap-8 sm:gap-12 max-w-xl"
             >
               {hero.stats.map((s) => (
-                <li key={s.label} className="border-l border-gold/30 pl-4 sm:pl-5">
-                  <div className="font-serif text-3xl sm:text-4xl text-navy leading-none">
-                    {s.number}
-                  </div>
-                  <div className="mt-1.5 text-xs sm:text-sm text-navy-muted uppercase tracking-wider">
-                    {s.label}
-                  </div>
-                </li>
+                <StatCounter key={s.label} number={s.number} label={s.label} />
               ))}
             </motion.ul>
           </div>
@@ -146,37 +170,45 @@ export function Hero() {
               />
               <div
                 aria-hidden
-                className="absolute inset-0 bg-gradient-to-t from-navy-deep/35 via-transparent to-transparent"
+                className="absolute inset-0 bg-gradient-to-t from-gold/10 via-transparent to-transparent"
               />
             </div>
-            {/* Floating card */}
+
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.85, ease: smooth }}
-              className="absolute -bottom-6 -left-4 sm:-left-8 bg-white rounded-xl shadow-[var(--shadow-long)] px-5 py-4 max-w-[260px] border border-warm-line/80"
+              className="absolute -bottom-6 -left-4 sm:-left-8 max-w-[260px]"
             >
-              <ConcentricRings
-                count={3}
-                size={14}
-                className="absolute top-2 right-2 opacity-80"
-              />
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-navy text-white">
-                  <ArrowUpRight className="size-4" />
-                </span>
-                <div>
-                  <div className="font-serif text-sm text-navy leading-tight">
-                    {hero.cardTitle}
-                  </div>
-                  <div className="text-xs text-navy-muted">
-                    {hero.cardRole}
+              <LiquidGlassShell
+                lightVariant
+                tintOpacity={0.45}
+                filter="glass-distortion-soft"
+                borderRadius="1rem"
+                contentClassName="px-5 py-4"
+              >
+                <ConcentricRings
+                  count={3}
+                  size={14}
+                  className="absolute top-2 right-2 opacity-80"
+                />
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-navy text-white shrink-0">
+                    <ArrowUpRight className="size-4" />
+                  </span>
+                  <div>
+                    <div className="font-serif text-sm text-navy leading-tight">
+                      {hero.cardTitle}
+                    </div>
+                    <div className="text-xs text-navy-muted">
+                      {hero.cardRole}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <p className="mt-3 text-xs text-navy-soft leading-relaxed">
-                {hero.cardDesc}
-              </p>
+                <p className="mt-3 text-xs text-navy-soft leading-relaxed">
+                  {hero.cardDesc}
+                </p>
+              </LiquidGlassShell>
             </motion.div>
           </motion.div>
         </div>
