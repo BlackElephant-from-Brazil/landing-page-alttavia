@@ -19,7 +19,7 @@ export function About() {
       id="about"
       className="relative py-24 lg:py-32 bg-gradient-to-b from-cream via-cream-deep/60 to-cream"
     >
-      <Container size="wide">
+      <Container size="wide" className="relative z-10">
         <div className="grid gap-14 lg:gap-20 lg:grid-cols-12 items-center">
           <motion.div
             initial={{ opacity: 0, x: -24 }}
@@ -28,7 +28,7 @@ export function About() {
             transition={{ duration: 0.9, ease: smooth }}
             className="lg:col-span-5 relative"
           >
-            <div className="relative aspect-[4/5] rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
+            <div className="relative aspect-[4/5] rounded-xl overflow-hidden shadow-[var(--shadow-long)]">
               <Image
                 src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=1200&q=80"
                 alt="Patrícia Viana, founder of Alttavia Relocation"
@@ -47,7 +47,7 @@ export function About() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8, delay: 0.2, ease: smooth }}
-              className="absolute -bottom-6 right-4 sm:-right-8 max-w-[calc(100%-2rem)] sm:max-w-sm rounded-xl bg-white border border-warm-line/70 p-6 shadow-[var(--shadow-card)]"
+              className="absolute -bottom-6 right-4 sm:-right-8 max-w-[calc(100%-2rem)] sm:max-w-sm rounded-xl bg-white border border-warm-line/70 p-6 shadow-[var(--shadow-long)] card-hover-atelier"
             >
               <Quote className="size-6 text-gold-dark" aria-hidden />
               <p className="mt-3 font-serif text-lg italic text-navy leading-snug">
@@ -82,7 +82,7 @@ export function About() {
             </div>
 
             <Reveal delay={0.45}>
-              <dl className="mt-12 grid grid-cols-3 gap-6 sm:gap-10 border-t border-warm-line pt-8">
+              <dl className="mt-12 grid grid-cols-3 gap-6 sm:gap-10 border-t border-gold/30 pt-8">
                 {about.stats.map((s) => (
                   <div key={s.label}>
                     <dt className="sr-only">{s.label}</dt>
