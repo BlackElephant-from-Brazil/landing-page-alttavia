@@ -50,7 +50,7 @@ export function Services() {
                 className="card-hover-atelier group relative flex flex-col overflow-hidden rounded-xl bg-white border border-warm-line/70 p-8 sm:p-10 lg:p-12 shadow-[var(--shadow-long)]"
               >
                 <span
-                  className="absolute top-6 right-7 font-serif text-5xl text-gold/25 leading-none italic select-none pointer-events-none"
+                  className="absolute top-6 right-7 font-serif text-4xl sm:text-5xl text-gold/25 leading-none italic select-none pointer-events-none"
                   aria-hidden
                 >
                   {String(i + 1).padStart(2, "0")}
