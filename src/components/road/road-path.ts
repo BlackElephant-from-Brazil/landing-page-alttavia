@@ -9,6 +9,12 @@
 
 export type RoadVariant = "desktop" | "mobile";
 
+export type RoadMarkerSpec = {
+  x: number;
+  yRatio: number;
+  onNavy: boolean;
+};
+
 /**
  * The visible portions of the path, expressed as ratios of the wrapper height.
  * Section ratios are computed at runtime from the actual rendered DOM positions
