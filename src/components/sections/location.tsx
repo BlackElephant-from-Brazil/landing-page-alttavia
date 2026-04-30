@@ -6,6 +6,7 @@ import { Container } from "@/components/ui/container";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Reveal } from "@/components/ui/reveal";
 import { useContent } from "@/components/providers/content-provider";
+import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
 
@@ -33,26 +34,35 @@ export function Location() {
             </Reveal>
 
             <Reveal delay={0.25}>
-              <div className="mt-9 space-y-5 border-t border-gold/25 pt-7">
-                <div className="flex gap-4">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white border border-warm-line text-gold-dark">
-                    <MapPin className="size-4" strokeWidth={1.5} />
-                  </span>
-                  <address className="not-italic text-navy leading-relaxed">
-                    <div>{brand.address.street}</div>
-                    <div>
-                      {brand.address.zip} {t.cityLabel}
-                    </div>
-                    <div>{t.country}</div>
-                  </address>
+              <LiquidGlassShell
+                lightVariant
+                tintOpacity={0.45}
+                borderRadius="1rem"
+                filter="glass-distortion-soft"
+                contentClassName="p-7 sm:p-9"
+                className="mt-9"
+              >
+                <div className="space-y-5">
+                  <div className="flex gap-4">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/60 border border-white/50 text-gold-dark">
+                      <MapPin className="size-4" strokeWidth={1.5} />
+                    </span>
+                    <address className="not-italic text-navy leading-relaxed">
+                      <div>{brand.address.street}</div>
+                      <div>
+                        {brand.address.zip} {t.cityLabel}
+                      </div>
+                      <div>{t.country}</div>
+                    </address>
+                  </div>
+                  <div className="flex gap-4">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/60 border border-white/50 text-gold-dark">
+                      <Clock className="size-4" strokeWidth={1.5} />
+                    </span>
+                    <div className="text-navy leading-relaxed">{t.officeHours}</div>
+                  </div>
                 </div>
-                <div className="flex gap-4">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white border border-warm-line text-gold-dark">
-                    <Clock className="size-4" strokeWidth={1.5} />
-                  </span>
-                  <div className="text-navy leading-relaxed">{t.officeHours}</div>
-                </div>
-              </div>
+              </LiquidGlassShell>
             </Reveal>
 
             <Reveal delay={0.32}>
@@ -75,7 +85,7 @@ export function Location() {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true, margin: "-8% 0%" }}
             transition={{ duration: 0.9, ease: smooth }}
-            className="lg:col-span-7 relative rounded-xl overflow-hidden shadow-[var(--shadow-long)] border border-warm-line/70 bg-white"
+            className="lg:col-span-7 relative rounded-[1rem] overflow-hidden shadow-[var(--shadow-long)]"
           >
             <div className="aspect-[4/3] sm:aspect-[16/10] w-full">
               <iframe
