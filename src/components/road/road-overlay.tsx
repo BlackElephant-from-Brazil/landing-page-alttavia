@@ -1,42 +1,46 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import {
-  buildPathD,
-  SECTION_IDS,
-  NAVY_SECTIONS,
-  type SectionId,
-} from "./road-path";
+  motion,
+  type MotionValue,
+  useMotionValue,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "framer-motion";
+import { buildPathD } from "./road-path";
 
-type RoadOverlayProps = {
-  children: React.ReactNode;
-};
-
-type SectionRect = { id: SectionId; top: number; height: number };
+type YLenSample = { y: number; len: number };
 
 /**
- * Wraps the page content (everything below the navbar). Renders an absolutely
- * positioned SVG covering the full wrapper height. The road path is drawn by
- * scroll progress (stroke-dashoffset) and clipped per-section so the stroke
- * color shifts at light↔navy boundaries.
+ * Maps a target Y coordinate (in SVG space, i.e. page-height units) to the
+ * arc length of the path that should be drawn to "reach" that Y.
  *
- * Performance:
- *  - opacity 0.6 on the whole road group
- *  - pointer-events: none
- *  - z-index: 0; child sections must establish their own stacking context
- *    (e.g., `relative z-10`) so content stays above the road.
+ * Scans the full lookup table and returns the LAST sample whose y <= targetY.
+ * This naturally fast-forwards through backward loops (globe orbit, location
+ * loop): when the path dips back up in Y and then re-descends, the tip
+ * jumps ahead to the last point at that Y, keeping the drawn line at the
+ * viewport center regardless of how the path curves.
  */
-export function RoadOverlay({ children }: RoadOverlayProps) {
+function yToArcLength(targetY: number, table: YLenSample[]): number {
+  let result = 0;
+  for (const sample of table) {
+    if (sample.y <= targetY) result = sample.len;
+  }
+  return result;
+}
+
+export function RoadOverlay({ children }: { children: React.ReactNode }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
   const [variant, setVariant] = useState<"desktop" | "mobile">("desktop");
   const [totalHeight, setTotalHeight] = useState(0);
-  const [sectionRects, setSectionRects] = useState<SectionRect[]>([]);
-  const [pathLength, setPathLength] = useState(1);
   const pathRef = useRef<SVGPathElement>(null);
+  const pathLengthMV = useMotionValue(0);
+  // Y->arcLength lookup table built once after path is measured.
+  const lookupRef = useRef<YLenSample[]>([]);
 
-  // Detect variant
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
     const update = () => setVariant(mq.matches ? "desktop" : "mobile");
@@ -45,43 +49,10 @@ export function RoadOverlay({ children }: RoadOverlayProps) {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  // Measure wrapper height + section positions
   useEffect(() => {
     if (!wrapperRef.current) return;
     const el = wrapperRef.current;
-
-    const measure = () => {
-      const wrapperTop = el.getBoundingClientRect().top + window.scrollY;
-      setTotalHeight(el.scrollHeight);
-
-      const rects: SectionRect[] = [];
-      for (const id of SECTION_IDS) {
-        // Hero is "#top"; everything else uses its anchor id;
-        // footer is the only one that uses tag-based selection.
-        let secEl: HTMLElement | null = null;
-        if (id === "hero") {
-          secEl = document.getElementById("top");
-        } else if (id === "footer") {
-          secEl = el.querySelector("footer");
-        } else if (id === "ctaBanner") {
-          // CtaBanner has no id; pick the section between #faq and #contact.
-          // Fall back to scanning for an element with class containing "cta" sentinel.
-          const sentinel = el.querySelector("[data-section='cta-banner']");
-          secEl = sentinel as HTMLElement | null;
-        } else {
-          secEl = document.getElementById(id);
-        }
-        if (!secEl) continue;
-        const rect = secEl.getBoundingClientRect();
-        rects.push({
-          id,
-          top: rect.top + window.scrollY - wrapperTop,
-          height: rect.height,
-        });
-      }
-      setSectionRects(rects);
-    };
-
+    const measure = () => setTotalHeight(el.scrollHeight);
     measure();
     const ro = new ResizeObserver(() => requestAnimationFrame(measure));
     ro.observe(el);
@@ -92,28 +63,57 @@ export function RoadOverlay({ children }: RoadOverlayProps) {
     };
   }, []);
 
-  // Measure path length once it renders
   useEffect(() => {
-    if (!pathRef.current) return;
-    setPathLength(pathRef.current.getTotalLength());
-  }, [totalHeight, variant]);
+    if (!pathRef.current || !totalHeight) return;
+    const path = pathRef.current;
+    const totalLen = path.getTotalLength();
+    pathLengthMV.set(totalLen);
+    lookupRef.current = [];
 
-  // Scroll-driven dashoffset.
-  // offset: progress 0 when the wrapper's top hits the viewport top (page load,
-  // since navbar is fixed and the wrapper starts at scrollY ≈ 0),
-  // progress 1 when the wrapper's bottom hits the viewport bottom (scrolled to
-  // the very bottom of the page).
-  const { scrollYProgress } = useScroll({
-    target: wrapperRef,
-    offset: ["start start", "end end"],
-  });
-  const strokeDashoffset = useTransform(
-    scrollYProgress,
-    [0, 1],
-    [pathLength, 0],
+    // Build the lookup table during idle time so it does not block first paint.
+    // Capture path reference so it stays valid inside the deferred callback.
+    const build = () => {
+      const N = 1000;
+      const table: YLenSample[] = [];
+      for (let i = 0; i <= N; i++) {
+        const len = (i / N) * totalLen;
+        const pt = path.getPointAtLength(len);
+        table.push({ y: pt.y, len });
+      }
+      lookupRef.current = table;
+    };
+
+    if (typeof requestIdleCallback !== "undefined") {
+      const id = requestIdleCallback(build);
+      return () => cancelIdleCallback(id);
+    }
+    const id = setTimeout(build, 50);
+    return () => clearTimeout(id);
+  }, [totalHeight, variant, pathLengthMV]);
+
+  // scrollY is the raw scroll offset; used (not scrollYProgress) so we can
+  // add half a viewport height to track the viewport center, not the top edge.
+  const { scrollY } = useScroll();
+
+  const strokeDashoffset: MotionValue<number> = useTransform(
+    [scrollY, pathLengthMV] as MotionValue<number>[],
+    ([sy, len]: number[]) => {
+      const totalLen = len as number;
+      if (!totalLen || !lookupRef.current.length) return totalLen;
+      const vph = window.innerHeight;
+      // Y of the viewport center in SVG/page coordinates.
+      const centerY = (sy as number) + vph / 2;
+      const arcLen = yToArcLength(centerY, lookupRef.current);
+      return totalLen - arcLen;
+    }
   );
 
   const pathD = totalHeight ? buildPathD(variant, totalHeight) : "";
+
+  const strokeWidth =
+    variant === "desktop"
+      ? "var(--road-stroke)"
+      : "var(--road-stroke-mobile)";
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -126,54 +126,34 @@ export function RoadOverlay({ children }: RoadOverlayProps) {
         preserveAspectRatio="none"
         style={{ overflow: "visible" }}
       >
-        <defs>
-          {sectionRects.map((s) => (
-            <clipPath key={s.id} id={`road-clip-${s.id}`} clipPathUnits="userSpaceOnUse">
-              <rect x="-200" y={s.top} width="1400" height={s.height} />
-            </clipPath>
-          ))}
-        </defs>
-        <g style={{ opacity: "var(--road-opacity)", willChange: "transform" }}>
-          {/* Master invisible path used as a length reference */}
-          <path
-            ref={pathRef}
-            d={pathD}
-            fill="none"
-            stroke="transparent"
-            strokeWidth="0"
-          />
-          {/* Per-section colored copies, animated via dashoffset */}
-          {sectionRects.map((s) => (
-            <motion.path
-              key={s.id}
-              d={pathD}
-              fill="none"
-              stroke={
-                s.id === "hero"
-                  ? "var(--road-color-hero)"
-                  : NAVY_SECTIONS.has(s.id)
-                  ? "var(--road-color-dark)"
-                  : "var(--road-color-light)"
-              }
-              strokeLinecap="round"
-              clipPath={`url(#road-clip-${s.id})`}
-              vectorEffect="non-scaling-stroke"
-              style={{
-                strokeWidth:
-                  variant === "desktop"
-                    ? "var(--road-stroke)"
-                    : "var(--road-stroke-mobile)",
-                strokeDasharray: pathLength,
-                strokeDashoffset: prefersReducedMotion ? 0 : strokeDashoffset,
-                willChange: "stroke-dashoffset",
-              }}
-            />
-          ))}
-        </g>
+        {/* Gray base -- always fully visible */}
+        <path
+          ref={pathRef}
+          d={pathD}
+          fill="none"
+          stroke="#D4D4D4"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+          style={{ strokeWidth, opacity: 0.55 }}
+        />
+
+        {/* Gold fill -- tip tracks viewport center */}
+        <motion.path
+          d={pathD}
+          fill="none"
+          stroke="var(--color-gold)"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+          style={{
+            strokeWidth,
+            strokeDasharray: pathLengthMV,
+            strokeDashoffset: prefersReducedMotion ? 0 : strokeDashoffset,
+            opacity: 0.7,
+            willChange: "stroke-dashoffset",
+          }}
+        />
       </svg>
 
-      {/* Children render above the SVG via stacking context. Each section
-          should already have `relative` positioning. */}
       <div className="relative z-10">{children}</div>
     </div>
   );
