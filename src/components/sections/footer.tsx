@@ -4,7 +4,7 @@ import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/ui/logo";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { useContent } from "@/components/providers/content-provider";
-import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
+import { LiquidGlassShell } from "@alttavia/liquid-glass";
 
 export function Footer() {
   const { t, brand } = useContent();

@@ -6,7 +6,7 @@ import { Menu, X, ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/ui/logo";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
-import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
+import { LiquidGlassShell } from "@alttavia/liquid-glass";
 import { useContent } from "@/components/providers/content-provider";
 
 export function Navbar() {
@@ -38,7 +38,7 @@ export function Navbar() {
       >
         <LiquidGlassShell
           lightVariant
-          tintOpacity={0.55}
+          tintOpacity={0.18}
           blur={24}
           filter="glass-distortion-soft"
           borderRadius="9999px"
@@ -65,22 +65,13 @@ export function Navbar() {
 
             <div className="hidden lg:flex items-center gap-4">
               <LanguageSwitcher />
-              <LiquidGlassShell
-                lightVariant
-                tintOpacity={0.65}
-                blur={20}
-                filter="glass-distortion-soft"
-                borderRadius="9999px"
-                className="shrink-0"
+              <a
+                href="#contact"
+                className="inline-flex items-center gap-2 px-5 h-10 text-sm font-medium rounded-full bg-navy text-gold hover:text-gold-light transition-colors whitespace-nowrap shrink-0"
               >
-                <a
-                  href="#contact"
-                  className="inline-flex items-center gap-2 px-5 h-10 text-sm font-medium text-navy hover:text-gold-dark transition-colors whitespace-nowrap"
-                >
-                  {t.navCtaLabel}
-                  <ArrowUpRight className="size-3.5" aria-hidden />
-                </a>
-              </LiquidGlassShell>
+                {t.navCtaLabel}
+                <ArrowUpRight className="size-3.5" aria-hidden />
+              </a>
             </div>
 
             <div className="lg:hidden flex items-center gap-3">

@@ -7,7 +7,7 @@ import { Container } from "@/components/ui/container";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Reveal } from "@/components/ui/reveal";
 import { useContent } from "@/components/providers/content-provider";
-import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
+import { LiquidGlassShell } from "@alttavia/liquid-glass";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
 

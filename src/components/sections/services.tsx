@@ -5,7 +5,7 @@ import { ArrowUpRight, Check, FileText, Landmark } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Reveal } from "@/components/ui/reveal";
-import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
+import { LiquidGlassShell } from "@alttavia/liquid-glass";
 import { SpinningBadge } from "@/components/ui/spinning-badge";
 import { useContent } from "@/components/providers/content-provider";
 
@@ -22,7 +22,7 @@ export function Services() {
       className="relative py-24 lg:py-32 overflow-visible"
     >
       {/* Rotating sticker — decorative, partially above the section fold */}
-      <div className="absolute top-0 right-8 -translate-y-1/2 z-10 hidden sm:block">
+      <div className="absolute top-0 left-[90px] -translate-y-1/2 z-10 hidden sm:block">
         <SpinningBadge />
       </div>
 

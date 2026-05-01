@@ -9,7 +9,7 @@ import { Globe } from "@/components/ui/globe";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { Marquee } from "@/components/ui/marquee";
 import { useContent } from "@/components/providers/content-provider";
-import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
+import { LiquidGlassShell } from "@alttavia/liquid-glass";
 
 const icons = [UserCheck, Award, Languages, ShieldCheck];
 

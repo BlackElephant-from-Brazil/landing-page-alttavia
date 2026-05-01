@@ -7,7 +7,7 @@ import { Container } from "@/components/ui/container";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { HeroBlobs } from "@/components/ui/hero-blobs";
-import { LiquidGlassShell } from "@/components/ui/LiquidGlass";
+import { LiquidGlassShell } from "@alttavia/liquid-glass";
 import { useCountUp } from "@/hooks/useCountUp";
 import { useContent } from "@/components/providers/content-provider";
 
