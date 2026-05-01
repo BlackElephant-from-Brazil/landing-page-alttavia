@@ -5,14 +5,15 @@ import type { SpecularOptions } from "../gl/generate-map";
 import { useResizeObserver } from "../hooks/useResizeObserver";
 import { useFeatureDetect } from "../hooks/useFeatureDetect";
 import { useDisplacementMap } from "../hooks/useDisplacementMap";
+import { DebugOverlay } from "../debug/DebugOverlay";
 
 export type LiquidGlassProps = {
-  children: ReactNode;
+  children?: ReactNode;
   className?: string;
   contentClassName?: string;
   /** Bezel width in pixels. The ring around the edge that gets refracted. */
   bezelWidth?: number;
-  /** Squircle exponent -- 6 = Apple default. Higher = more rectangular corners. */
+  /** Squircle exponent -- 6 = Apple default. 2 = circle. Higher = more rectangular. */
   power?: number;
   /** Displacement strength multiplier. */
   strength?: number;
@@ -24,6 +25,8 @@ export type LiquidGlassProps = {
   tintOpacity?: number;
   borderRadius?: string;
   style?: React.CSSProperties;
+  /** Show displacement map + filter stats overlay. Dev only. */
+  debug?: boolean;
   /** @deprecated use bezelWidth/power/strength instead */
   filter?: string;
   /** @deprecated ignored -- kept for drop-in compatibility with LiquidGlassShell */
@@ -51,6 +54,7 @@ export function LiquidGlass({
   tintOpacity = 0.55,
   borderRadius = "24px",
   style,
+  debug = false,
 }: LiquidGlassProps) {
   const rawId = useId();
   // useId returns ":r0:" etc -- strip colons for valid SVG id
@@ -182,13 +186,17 @@ export function LiquidGlass({
       >
         {children}
       </div>
+
+      {/* Debug overlay -- dev only */}
+      {debug && maps && (
+        <DebugOverlay maps={maps} filterId={filterId} width={width} height={height} />
+      )}
     </div>
   );
 }
 
 /**
  * Drop-in alias for backwards compatibility with the Alttavia LiquidGlassShell import.
- * Session 2 will migrate all usages to LiquidGlass directly.
  */
 export { LiquidGlass as LiquidGlassShell };
 
