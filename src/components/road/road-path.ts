@@ -37,13 +37,6 @@ export const SECTION_IDS: readonly SectionId[] = [
   "hero",
   "services",
   "why",
-  "about",
-  "principles",
-  "faq",
-  "ctaBanner",
-  "contact",
-  "location",
-  "footer",
 ] as const;
 
 /**
@@ -72,84 +65,29 @@ const REFERENCE_HEIGHT = 7000;
 type Waypoint = [number, number]; // [x in 0–1000, yRatio in 0–1+]
 
 // Personality waypoints (see spec §5.2):
-//  1. Top center → sweep right through services
-//  2. Globe orbit (~270° anti-clockwise) in WhyUs around (right ~75%, mid)
-//  3. Sweep left → exit screen left in About
-//  4. Re-enter left → sweep right → exit right in Principles bottom
-//  5. CTA detour
-//  6. Location loop → straight descent into footer
+//  1. Top center → sweep left through hero
+//  2. Left side through services upper and services/WhyUs boundary
+//  3. Left edge through WhyUs mid and lower — end of visible portion
 const DESKTOP_WAYPOINTS: Waypoint[] = [
-  [500, 0.000],   // start top center
-  [720, 0.040],
-  [890, 0.080],   // services right side
-  [950, 0.130],   // entering WhyUs upper right
-  [820, 0.160],   // start orbit, descending into globe area
-  [710, 0.200],
-  [780, 0.230],   // orbit bottom-back
-  [900, 0.225],   // orbit right
-  [990, 0.190],   // orbit top-right
-  [890, 0.150],   // closing orbit
-  [780, 0.180],
-  [600, 0.220],
-  [350, 0.250],   // sweep left across About top
-  [80, 0.270],
-  [-80, 0.300],   // EXIT LEFT EDGE
-  [-80, 0.330],   // re-enter left (off-viewBox above means invisible bridge)
-  [120, 0.345],
-  [400, 0.360],
-  [700, 0.380],
-  [950, 0.400],
-  [1080, 0.420],  // EXIT RIGHT EDGE (Principles bottom)
-  [1080, 0.450],  // re-enter right
-  [880, 0.470],
-  [600, 0.500],
-  [350, 0.540],   // FAQ left-ish
-  [200, 0.580],
-  [120, 0.620],   // CTA detour: comes around card from left
-  [180, 0.660],   // under the card horizontally
-  [400, 0.665],
-  [620, 0.660],
-  [780, 0.690],
-  [800, 0.730],   // descending into Contact
-  [620, 0.760],
-  [430, 0.790],   // Location
-  [380, 0.820],
-  [450, 0.850],   // small loop in Location
-  [560, 0.870],
-  [560, 0.900],
-  [500, 0.940],
-  [500, 1.000],   // exits bottom (footer)
+  [500, 0.000],   // start top center (hero)
+  [380, 0.035],   // sweep left through hero
+  [200, 0.075],   // left side, services upper
+  [110, 0.130],   // settle left at services/WhyUs boundary
+  [90,  0.185],   // left edge, WhyUs upper
+  [90,  0.235],   // left side, WhyUs mid
+  [110, 0.270],   // WhyUs lower — end of visible portion
 ];
 
 const MOBILE_WAYPOINTS: Waypoint[] = [
-  // Start top-center, gentle S-curves down the page.
-  // X stays in ~150–850 range (well inside 375-430px viewport after scaling).
-  // No globe orbit, no off-screen exits — road is always visible inside sections.
+  // Start top-center, sweep left and descend the left side through services and WhyUs.
+  // X stays in ~120–500 range. No off-screen exits — road is always visible inside sections.
   [500, 0.000],   // top center (hero)
-  [640, 0.040],
-  [720, 0.085],   // sweep right in services upper
-  [680, 0.130],
-  [540, 0.175],   // center crossing (hero/services boundary)
-  [380, 0.210],
-  [250, 0.250],   // sweep left into WhyUs
-  [300, 0.295],
-  [480, 0.340],   // center cross (WhyUs mid)
-  [660, 0.380],
-  [740, 0.425],   // swing right (About upper)
-  [680, 0.465],
-  [500, 0.505],   // center (About mid)
-  [320, 0.545],
-  [220, 0.585],   // left arc (Principles)
-  [300, 0.625],
-  [480, 0.660],   // center cross (FAQ entry)
-  [640, 0.695],
-  [700, 0.735],   // right arc (FAQ lower)
-  [600, 0.770],
-  [460, 0.810],   // center approach (Contact)
-  [340, 0.845],
-  [380, 0.880],   // slight right (Location)
-  [480, 0.920],
-  [500, 1.000],   // exits bottom (footer)
+  [360, 0.040],   // sweep left
+  [200, 0.085],   // left side services
+  [140, 0.135],   // services lower
+  [120, 0.185],   // WhyUs left
+  [120, 0.235],   // WhyUs mid
+  [140, 0.270],   // WhyUs lower
 ];
 
 /**

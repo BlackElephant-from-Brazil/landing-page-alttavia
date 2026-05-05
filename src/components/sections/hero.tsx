@@ -154,7 +154,7 @@ export function Hero() {
               transition={{ duration: 0.8, delay: 0.85, ease: smooth }}
               className="hidden sm:block sm:absolute sm:-bottom-6 sm:-left-8 sm:max-w-[260px]"
             >
-              <div className="relative bg-white rounded-xl border border-black/[0.06] shadow-lg px-5 py-4 card-hover-atelier">
+              <div className="relative rounded-xl border border-white shadow-[0_8px_32px_rgba(0,0,0,0.18)] px-5 py-4 card-hover-atelier backdrop-blur-md bg-white/70">
                 <ConcentricRings
                   count={3}
                   size={14}
@@ -168,7 +168,7 @@ export function Hero() {
                     <div className="font-serif text-sm text-navy leading-tight">
                       {hero.cardTitle}
                     </div>
-                    <div className="text-xs text-navy-muted">
+                    <div className="text-xs text-navy-soft">
                       {hero.cardRole}
                     </div>
                   </div>

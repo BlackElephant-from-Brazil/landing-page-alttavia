@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/sections/navbar";
 import { Hero } from "@/components/sections/hero";
+import { HeroMarquee } from "@/components/sections/hero-marquee";
 import { Services } from "@/components/sections/services";
 import { HeroBlobs } from "@/components/ui/hero-blobs";
 import { WhyUs } from "@/components/sections/why-us";
@@ -11,29 +12,29 @@ import { Contact } from "@/components/sections/contact";
 import { Location } from "@/components/sections/location";
 import { Footer } from "@/components/sections/footer";
 import { WhatsappFloat } from "@/components/ui/whatsapp-float";
-import { RoadOverlay } from "@/components/road/road-overlay";
 
 export default function Home() {
   return (
     <>
       <Navbar />
-      <RoadOverlay>
-        <main className="flex-1">
-          <div className="relative overflow-hidden">
-            <HeroBlobs />
-            <Hero />
-            <Services />
-          </div>
-          <WhyUs />
-          <About />
-          <Principles />
-          <Faq />
-          <CtaBanner />
-          <Contact />
-          <Location />
-        </main>
-        <Footer />
-      </RoadOverlay>
+      <main className="flex-1">
+        <div className="relative overflow-hidden">
+          <HeroBlobs />
+          <Hero />
+        </div>
+        <HeroMarquee />
+        <div className="relative overflow-hidden">
+          <Services />
+        </div>
+        <WhyUs />
+        <About />
+        <Principles />
+        <Faq />
+        <CtaBanner />
+        <Contact />
+        <Location />
+      </main>
+      <Footer />
       <WhatsappFloat />
     </>
   );
