@@ -44,8 +44,10 @@ export function Hero() {
       className="relative overflow-hidden pt-28 sm:pt-32 lg:pt-40 pb-16 sm:pb-20 lg:pb-28 has-grain"
     >
       <Container size="wide" className="relative z-10">
-        <div className="grid gap-10 sm:gap-14 lg:gap-16 lg:grid-cols-12 items-center">
-          <div className="lg:col-span-7">
+        <div className="grid gap-8 sm:gap-14 lg:gap-16 lg:grid-cols-12 items-center">
+
+          {/* ── Text column ── desktop: left (col 7); mobile: below image */}
+          <div className="lg:col-span-7 order-2 lg:order-1 text-center lg:text-left">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -58,7 +60,7 @@ export function Hero() {
               initial={{ opacity: 0, y: 32 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.85, delay: 0.1, ease: smooth }}
-              className="mt-8 font-serif text-[clamp(2.2rem,4.4vw,3.2rem)] leading-[1.05] tracking-[-0.02em] text-navy"
+              className="mt-6 sm:mt-8 font-serif text-[clamp(2.2rem,4.4vw,3.2rem)] leading-[1.05] tracking-[-0.02em] text-navy"
             >
               {hero.titleBefore}{" "}
               <span className="relative inline-block italic text-gold-dark">
@@ -88,7 +90,7 @@ export function Hero() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.75, delay: 0.25, ease: smooth }}
-              className="mt-7 max-w-xl text-lg sm:text-xl text-navy-soft leading-relaxed"
+              className="mt-5 sm:mt-7 text-base sm:text-xl text-navy-soft leading-relaxed mx-auto lg:mx-0 max-w-xl"
             >
               {hero.subtitle}
             </motion.p>
@@ -97,11 +99,11 @@ export function Hero() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.4, ease: smooth }}
-              className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4"
+              className="mt-7 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center lg:items-start"
             >
               <a
                 href="#contact"
-                className="inline-flex items-center gap-2 px-8 h-14 text-base font-medium text-white bg-navy rounded-full hover:bg-gold hover:text-navy transition-colors whitespace-nowrap"
+                className="inline-flex items-center justify-center gap-2 px-8 h-14 text-base font-medium text-white bg-navy rounded-full hover:bg-gold hover:text-navy transition-colors whitespace-nowrap"
               >
                 {hero.ctaPrimary}
                 <ArrowUpRight className="size-4" aria-hidden />
@@ -109,7 +111,7 @@ export function Hero() {
 
               <a
                 href="#services"
-                className="inline-flex items-center gap-2 px-8 h-14 text-base font-medium text-navy rounded-full border border-navy/20 bg-white/80 hover:bg-white hover:border-navy/30 transition-colors whitespace-nowrap"
+                className="inline-flex items-center justify-center gap-2 px-8 h-14 text-base font-medium text-navy rounded-full border border-navy/20 bg-white/80 hover:bg-white hover:border-navy/30 transition-colors whitespace-nowrap"
               >
                 {hero.ctaSecondary}
               </a>
@@ -119,7 +121,7 @@ export function Hero() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.7, ease: smooth }}
-              className="mt-12 sm:mt-16 grid grid-cols-3 gap-5 sm:gap-8 lg:gap-12 max-w-sm sm:max-w-xl"
+              className="mt-10 sm:mt-16 grid grid-cols-3 gap-5 sm:gap-8 lg:gap-12 max-w-sm sm:max-w-xl mx-auto lg:mx-0"
             >
               {hero.stats.map((s) => (
                 <StatCounter key={s.label} number={s.number} label={s.label} />
@@ -127,20 +129,21 @@ export function Hero() {
             </motion.ul>
           </div>
 
+          {/* ── Image column ── desktop: right (col 5); mobile: first */}
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.3, ease: smooth }}
-            className="lg:col-span-5 relative"
+            className="lg:col-span-5 relative order-1 lg:order-2"
           >
-            <div className="relative aspect-[3/2] sm:aspect-[4/5] rounded-xl overflow-hidden shadow-[var(--shadow-long)] bg-champagne">
+            <div className="relative aspect-[4/3] sm:aspect-[4/5] rounded-xl overflow-hidden shadow-[var(--shadow-long)] bg-champagne">
               <Image
                 src="/patricia.webp"
                 alt="Patrícia Viana, founder of Alttavia Relocation"
                 fill
                 priority
                 sizes="(min-width: 1024px) 40vw, 90vw"
-                className="object-cover object-[55%_30%]"
+                className="object-cover object-[55%_20%]"
               />
               <div
                 aria-hidden
@@ -148,6 +151,32 @@ export function Hero() {
               />
             </div>
 
+            {/* Mobile-only: attorney card below the image (inline, no absolute) */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.75, ease: smooth }}
+              className="sm:hidden mt-3 flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-navy/10 shadow-[var(--shadow-soft)]"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-navy text-white shrink-0">
+                <ArrowUpRight className="size-3.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="font-serif text-sm text-navy leading-tight">
+                  {hero.cardTitle}
+                </div>
+                <div className="text-xs text-navy-soft">
+                  {hero.cardRole}
+                </div>
+              </div>
+              <ConcentricRings
+                count={2}
+                size={10}
+                className="ml-auto opacity-60 shrink-0"
+              />
+            </motion.div>
+
+            {/* Desktop-only: glass card overhanging the image */}
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
@@ -179,6 +208,7 @@ export function Hero() {
               </div>
             </motion.div>
           </motion.div>
+
         </div>
       </Container>
     </section>

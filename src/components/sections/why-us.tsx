@@ -39,15 +39,15 @@ export function WhyUs() {
       >
         <Globe />
       </div>
-      {/* Mobile globe — smaller, top-right corner, decorative only */}
+      {/* Mobile globe — bottom-left, hangs 30% below section */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-[30%] -top-[10%] w-[min(100vw,420px)] aspect-square opacity-30 sm:hidden z-0"
+        className="pointer-events-none absolute -left-[25%] -bottom-[22%] w-[min(130vw,520px)] aspect-square opacity-35 sm:hidden z-0"
         style={{
           maskImage:
-            "radial-gradient(circle at 30% 60%, black 40%, transparent 70%)",
+            "radial-gradient(circle at 70% 28%, black 42%, transparent 70%)",
           WebkitMaskImage:
-            "radial-gradient(circle at 30% 60%, black 40%, transparent 70%)",
+            "radial-gradient(circle at 70% 28%, black 42%, transparent 70%)",
         }}
       >
         <Globe />
