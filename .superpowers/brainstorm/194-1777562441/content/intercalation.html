@@ -1,0 +1,89 @@
+<h2>Como intercalar luz e navy?</h2>
+<p class="subtitle">Atelier boutique, 60% luz / 40% navy. WhyUs (globo) e Footer já são navy fixos. Os 4 momentos navy precisam estar bem espalhados — qual ritmo conta a melhor história?</p>
+
+<style>
+  .ribbon { display: flex; flex-direction: column; gap: 3px; padding: 18px; background: #F4EDDF; border-radius: 12px; }
+  .rib { padding: 8px 14px; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 500; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; }
+  .rib.light { background: #FAFAF7; color: #5B7199; border: 1px solid #E3DAD0; }
+  .rib.dark { background: #0E2A47; color: #E6B94A; }
+  .rib.cta-card-on-light { background: #FAFAF7; color: #5B7199; border: 1px solid #E3DAD0; position: relative; padding-right: 70px; }
+  .rib.cta-card-on-light::after { content: "card navy"; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 3px 8px; background: #0E2A47; color: #E6B94A; font-size: 8px; border-radius: 3px; letter-spacing: 0.1em; }
+  .rib.cta-card-on-dark { background: #0E2A47; color: #E6B94A; position: relative; padding-right: 80px; }
+  .rib.cta-card-on-dark::after { content: "card gold"; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 3px 8px; background: #D0A12B; color: #0E2A47; font-size: 8px; border-radius: 3px; letter-spacing: 0.1em; }
+  .pattern { font-family: monospace; font-size: 14px; letter-spacing: 0.32em; color: #A67D1E; margin: 4px 0 12px; }
+  .pattern-key { font-size: 10px; color: #5B7199; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 12px; }
+</style>
+
+<div class="cards">
+
+  <div class="card" data-choice="heartbeat" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; background: #FFFFFF;">
+      <div class="ribbon">
+        <div class="rib light">Hero</div>
+        <div class="rib light">Services</div>
+        <div class="rib dark">WhyUs · globo</div>
+        <div class="rib light">About</div>
+        <div class="rib dark">Principles · manifesto</div>
+        <div class="rib light">FAQ</div>
+        <div class="rib cta-card-on-light">CtaBanner</div>
+        <div class="rib light">Contact</div>
+        <div class="rib light">Location</div>
+        <div class="rib dark">Footer</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · Heartbeat</h3>
+      <p class="pattern-key">L L D L D L L L L D</p>
+      <p>Dois navys deliberados no miolo: <strong>WhyUs</strong> (globo · prova de mercado) e <strong>Principles</strong> (manifesto · oath). CtaBanner como card navy sobre luz. <em>Ritmo de respiração</em> — cada bloco navy vira uma tese isolada, com luz nos dois lados.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="crescendo" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; background: #FFFFFF;">
+      <div class="ribbon">
+        <div class="rib light">Hero</div>
+        <div class="rib light">Services</div>
+        <div class="rib dark">WhyUs · globo</div>
+        <div class="rib light">About</div>
+        <div class="rib light">Principles</div>
+        <div class="rib light">FAQ</div>
+        <div class="rib cta-card-on-light">CtaBanner</div>
+        <div class="rib light">Contact</div>
+        <div class="rib dark">Location · Lisboa noturna</div>
+        <div class="rib dark">Footer</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · Crescendo</h3>
+      <p class="pattern-key">L L D L L L L L D D</p>
+      <p>Abertura clara e longa, navy só uma vez no meio (WhyUs). Lá embaixo, dois navys consecutivos (<strong>Location</strong> noturna + <strong>Footer</strong>) fecham com peso institucional. <em>Edifício neoclássico</em> — leveza no térreo, gravidade no fechamento.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="bookend" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; background: #FFFFFF;">
+      <div class="ribbon">
+        <div class="rib dark">Hero · cinematic</div>
+        <div class="rib light">Services</div>
+        <div class="rib dark">WhyUs · globo</div>
+        <div class="rib light">About</div>
+        <div class="rib light">Principles</div>
+        <div class="rib light">FAQ</div>
+        <div class="rib cta-card-on-light">CtaBanner</div>
+        <div class="rib light">Contact</div>
+        <div class="rib light">Location</div>
+        <div class="rib dark">Footer</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · Bookend</h3>
+      <p class="pattern-key">D L D L L L L L L D</p>
+      <p>Hero dark (Patrícia em retrato sobre navy, "Mudar de continente" em destaque cinematic). WhyUs mantém o navy. Depois, longo passeio claro até o footer. <em>Cinema</em> — abre com força, deixa a jornada respirar.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top: 32px; padding: 20px 24px; background: #F4EDDF; border-radius: 12px; max-width: 720px; margin-left: auto; margin-right: auto;">
+  <p style="font-size: 13px; color: #5B7199; line-height: 1.7; margin: 0;"><strong style="color: #0E2A47;">Comum aos três:</strong> hover de cards, marquee de jurisdições e pulse em badges seguem a linguagem atelier boutique (concentric circles, micro-marks, gold como joia rara). A "estrada" cinza-claro que cruza todo o site se comporta diferente em cada ritmo — descrevo isso no próximo passo, depois que você escolher.</p>
+</div>

@@ -59,7 +59,8 @@
       "Bash(curl -s -o /tmp/page-es2.html -w \"ES %{http_code}, %{size_download}\\\\n\" http://localhost:3002/es)",
       "Bash(npx tsc *)",
       "PowerShell(npx tsc --noEmit 2>&1)",
-      "PowerShell(Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue)"
+      "PowerShell(Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue)",
+      "Bash(git *)"
     ]
   }
 }
