@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/sections/navbar";
 import { Hero } from "@/components/sections/hero";
 import { Services } from "@/components/sections/services";
+import { HeroBlobs } from "@/components/ui/hero-blobs";
 import { WhyUs } from "@/components/sections/why-us";
 import { About } from "@/components/sections/about";
 import { Principles } from "@/components/sections/principles";
@@ -18,8 +19,11 @@ export default function Home() {
       <Navbar />
       <RoadOverlay>
         <main className="flex-1">
-          <Hero />
-          <Services />
+          <div className="relative overflow-hidden">
+            <HeroBlobs />
+            <Hero />
+            <Services />
+          </div>
           <WhyUs />
           <About />
           <Principles />

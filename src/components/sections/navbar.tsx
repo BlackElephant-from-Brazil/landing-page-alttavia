@@ -9,10 +9,18 @@ import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { LiquidGlassShell } from "@alttavia/liquid-glass";
 import { useContent } from "@/components/providers/content-provider";
 
+// Vertical position of the navbar's visual center in the viewport (px).
+// Navbar is fixed top-4 (16px) + half of h-16 (32px) = 48px.
+const NAVBAR_CENTER_Y = 48;
+
+// Section IDs (or tag names) that have a dark (navy) background.
+const DARK_SECTION_SELECTORS = ["#why", "#principles", "footer"];
+
 export function Navbar() {
   const { t, brand } = useContent();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [onDarkBg, setOnDarkBg] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -26,9 +34,27 @@ export function Navbar() {
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
+  // Detect whether the navbar's vertical center overlaps a dark-bg section.
+  useEffect(() => {
+    const check = () => {
+      const isDark = DARK_SECTION_SELECTORS.some((sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.top <= NAVBAR_CENTER_Y && rect.bottom >= NAVBAR_CENTER_Y;
+      });
+      setOnDarkBg(isDark);
+    };
+
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    return () => window.removeEventListener("scroll", check);
+  }, []);
+
   return (
     <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(780px,90vw)]">
       <motion.div
+        initial={false}
         animate={{
           opacity: scrolled ? 1 : 0.93,
           scale: scrolled ? 1 : 0.992,
@@ -54,7 +80,12 @@ export function Navbar() {
                 <li key={item.href}>
                   <a
                     href={item.href}
-                    className="relative text-sm text-navy-soft hover:text-navy transition-colors duration-300 group"
+                    className={[
+                      "relative text-sm transition-colors duration-300 group",
+                      onDarkBg
+                        ? "text-white hover:text-gold-light"
+                        : "text-navy-soft hover:text-navy",
+                    ].join(" ")}
                   >
                     {item.label}
                     <span className="absolute -bottom-1 left-0 h-px w-0 bg-gold transition-all duration-300 group-hover:w-full" />
@@ -77,7 +108,12 @@ export function Navbar() {
             <div className="lg:hidden flex items-center gap-3">
               <LanguageSwitcher />
               <button
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-navy/10 text-navy hover:border-gold/40 transition-colors"
+                className={[
+                  "inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors",
+                  onDarkBg
+                    ? "text-white border-white/20 hover:border-gold/60"
+                    : "text-navy border-navy/10 hover:border-gold/40",
+                ].join(" ")}
                 aria-label={open ? t.closeMenuLabel : t.openMenuLabel}
                 aria-expanded={open}
                 onClick={() => setOpen((v) => !v)}

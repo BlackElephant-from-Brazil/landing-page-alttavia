@@ -54,7 +54,17 @@
       "Bash(cat eslint.config.mjs)",
       "Bash(cat eslint.config.js)",
       "Bash(cat .eslintrc.json)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(jobs -l)",
+      "Bash(npx tsc *)",
+      "Skill(update-config)",
+      "Bash(tasklist)",
+      "Bash(python -c \"import sys,json; lines=[l for l in sys.stdin.read\\(\\).split\\('\\\\n'\\) if l.strip\\(\\)]; [print\\(json.loads\\(l\\).get\\('timestamp',''\\),json.loads\\(l\\).get\\('level',''\\),json.loads\\(l\\).get\\('message',''\\)[:400]\\) for l in lines[-20:]]\")",
+      "Bash(timeout 10)",
+      "Bash(findstr /i \"ready error\")",
+      "WebFetch(domain:localhost)",
+      "Bash(curl *)",
+      "Bash(findstr /i \"road-path road-overlay error\")"
     ]
   }
 }

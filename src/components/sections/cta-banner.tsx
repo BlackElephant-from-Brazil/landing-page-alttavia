@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import { Container } from "@/components/ui/container";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
-import { LiquidGlassShell } from "@alttavia/liquid-glass";
 import { useContent } from "@/components/providers/content-provider";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
@@ -47,13 +46,7 @@ export function CtaBanner() {
             }}
           />
 
-          <LiquidGlassShell
-            lightVariant={false}
-            tintOpacity={0.20}
-            borderRadius="1.5rem"
-            filter="glass-distortion-soft"
-            contentClassName="px-7 py-12 sm:px-14 sm:py-20 lg:px-20 lg:py-24"
-          >
+          <div className="px-6 py-10 sm:px-14 sm:py-20 lg:px-20 lg:py-24">
             <div className="grid gap-8 lg:gap-10 lg:grid-cols-12 items-center">
               <div className="lg:col-span-8">
                 <h2 className="font-serif text-balance text-white">
@@ -64,38 +57,29 @@ export function CtaBanner() {
                 </p>
               </div>
               <div className="lg:col-span-4 lg:flex lg:justify-end">
-                <LiquidGlassShell
-                  lightVariant={false}
-                  tintOpacity={0.30}
-                  borderRadius="9999px"
-                  filter="glass-distortion-soft"
-                  enableHover
-                  contentClassName="px-8 py-3 flex items-center gap-2"
+                <a
+                  href="#contact"
+                  className="inline-flex items-center gap-2 px-8 py-3 text-navy bg-gold font-medium text-base rounded-full hover:bg-gold-dark transition-colors"
                 >
-                  <a
-                    href="#contact"
-                    className="flex items-center gap-2 text-white font-medium text-base"
+                  {ctaBanner.button}
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
                   >
-                    {ctaBanner.button}
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                    >
-                      <path d="M5 12h14" />
-                      <path d="m12 5 7 7-7 7" />
-                    </svg>
-                  </a>
-                </LiquidGlassShell>
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                </a>
               </div>
             </div>
-          </LiquidGlassShell>
+          </div>
         </motion.div>
       </Container>
     </section>

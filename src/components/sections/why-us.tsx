@@ -9,7 +9,6 @@ import { Globe } from "@/components/ui/globe";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { Marquee } from "@/components/ui/marquee";
 import { useContent } from "@/components/providers/content-provider";
-import { LiquidGlassShell } from "@alttavia/liquid-glass";
 
 const icons = [UserCheck, Award, Languages, ShieldCheck];
 
@@ -25,17 +24,30 @@ export function WhyUs() {
   return (
     <section
       id="why"
-      className="relative py-28 lg:py-36 bg-navy text-white overflow-hidden isolate"
+      className="relative py-20 sm:py-28 lg:py-36 bg-navy text-white overflow-hidden isolate"
     >
-      {/* Globe: bottom-left, only the upper-right quadrant peeks into view */}
+      {/* Globe: hidden on mobile (too large, causes layout issues), shown sm+ */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -left-[18%] -bottom-[15%] w-[min(195vw,1560px)] aspect-square opacity-70 sm:-left-[15%] sm:-bottom-[55%] sm:w-[min(150vw,1200px)] lg:-left-[22%] lg:-bottom-[65%] z-0"
+        className="pointer-events-none absolute hidden sm:block sm:-left-[15%] sm:-bottom-[55%] sm:w-[min(150vw,1200px)] lg:-left-[22%] lg:-bottom-[65%] aspect-square opacity-70 z-0"
         style={{
           maskImage:
             "radial-gradient(circle at 68% 32%, black 42%, transparent 72%)",
           WebkitMaskImage:
             "radial-gradient(circle at 68% 32%, black 42%, transparent 72%)",
+        }}
+      >
+        <Globe />
+      </div>
+      {/* Mobile globe — smaller, top-right corner, decorative only */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-[30%] -top-[10%] w-[min(100vw,420px)] aspect-square opacity-30 sm:hidden z-0"
+        style={{
+          maskImage:
+            "radial-gradient(circle at 30% 60%, black 40%, transparent 70%)",
+          WebkitMaskImage:
+            "radial-gradient(circle at 30% 60%, black 40%, transparent 70%)",
         }}
       >
         <Globe />
@@ -137,14 +149,7 @@ export function WhyUs() {
                   variants={staggerItem}
                   className="w-[82vw] sm:w-auto sm:min-w-0 snap-start flex-shrink-0"
                 >
-                  <LiquidGlassShell
-                    lightVariant={false}
-                    tintOpacity={0.18}
-                    filter="glass-distortion-soft"
-                    borderRadius="1rem"
-                    className="group card-hover-atelier-dark relative h-full"
-                    contentClassName="p-6 sm:p-8 flex flex-col"
-                  >
+                  <div className="group card-hover-atelier-dark relative h-full bg-white/[0.07] border border-white/[0.10] rounded-xl p-6 sm:p-8 flex flex-col">
                     <span
                       className="absolute top-4 right-5 font-serif text-3xl text-gold-light/30 leading-none italic select-none pointer-events-none"
                       aria-hidden
@@ -160,7 +165,7 @@ export function WhyUs() {
                     <p className="mt-3 text-sm sm:text-[0.95rem] text-white/75 leading-relaxed break-words">
                       {item.desc}
                     </p>
-                  </LiquidGlassShell>
+                  </div>
                 </motion.li>
               );
             })}

@@ -4,14 +4,13 @@ import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/ui/logo";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { useContent } from "@/components/providers/content-provider";
-import { LiquidGlassShell } from "@alttavia/liquid-glass";
 
 export function Footer() {
   const { t, brand } = useContent();
   const footer = t.footer;
 
   return (
-    <footer className="relative bg-navy text-white pt-20 pb-10">
+    <footer className="relative bg-navy text-white pt-14 sm:pt-20 pb-8 sm:pb-10">
       <Container size="wide" className="relative z-10">
         <div className="grid gap-10 lg:gap-16 lg:grid-cols-12">
           <div className="lg:col-span-5">
@@ -50,7 +49,7 @@ export function Footer() {
             </div>
           </div>
 
-          <div className="lg:col-span-7 grid gap-10 sm:grid-cols-3">
+          <div className="lg:col-span-7 grid grid-cols-2 gap-8 sm:grid-cols-3 sm:gap-10">
             {footer.columns.map((col) => (
               <div key={col.title}>
                 <h4 className="text-xs uppercase tracking-[0.28em] text-gold-light font-medium">
@@ -73,43 +72,35 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-14">
-          <LiquidGlassShell
-            lightVariant={false}
-            tintOpacity={0.12}
-            borderRadius="1rem"
-            filter="glass-distortion-soft"
-            contentClassName="p-6 sm:p-8 grid gap-6 sm:grid-cols-2"
-          >
-            <address className="not-italic text-xs text-white/75 leading-relaxed">
-              <span className="block uppercase tracking-[0.22em] text-gold-light mb-2">
-                {footer.officeLabel}
-              </span>
-              {brand.address.street}
-              <br />
-              {brand.address.zip} {t.cityLabel}, {t.country}
-            </address>
-            <div className="text-xs text-white/75 leading-relaxed sm:text-right">
-              <span className="block uppercase tracking-[0.22em] text-gold-light mb-2">
-                {footer.getInTouchLabel}
-              </span>
-              <a
-                href={`mailto:${brand.email}`}
-                className="hover:text-white transition-colors"
-              >
-                {brand.email}
-              </a>
-              <br />
-              <a
-                href={brand.whatsapp}
-                target="_blank"
-                rel="noopener"
-                className="hover:text-white transition-colors"
-              >
-                {brand.phone}
-              </a>
-            </div>
-          </LiquidGlassShell>
+        <div className="mt-10 sm:mt-14 bg-white/[0.06] border border-white/[0.10] rounded-xl p-5 sm:p-8 grid gap-5 sm:gap-6 sm:grid-cols-2">
+          <address className="not-italic text-xs text-white/75 leading-relaxed">
+            <span className="block uppercase tracking-[0.22em] text-gold-light mb-2">
+              {footer.officeLabel}
+            </span>
+            {brand.address.street}
+            <br />
+            {brand.address.zip} {t.cityLabel}, {t.country}
+          </address>
+          <div className="text-xs text-white/75 leading-relaxed sm:text-right">
+            <span className="block uppercase tracking-[0.22em] text-gold-light mb-2">
+              {footer.getInTouchLabel}
+            </span>
+            <a
+              href={`mailto:${brand.email}`}
+              className="hover:text-white transition-colors"
+            >
+              {brand.email}
+            </a>
+            <br />
+            <a
+              href={brand.whatsapp}
+              target="_blank"
+              rel="noopener"
+              className="hover:text-white transition-colors"
+            >
+              {brand.phone}
+            </a>
+          </div>
         </div>
 
         <div className="mt-10 pt-6 border-t border-white/15 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">

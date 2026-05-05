@@ -6,7 +6,6 @@ import { Mail, Phone, MapPin, Check } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Reveal } from "@/components/ui/reveal";
-import { LiquidGlassShell } from "@alttavia/liquid-glass";
 import { useContent } from "@/components/providers/content-provider";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
@@ -29,10 +28,10 @@ export function Contact() {
   return (
     <section
       id="contact"
-      className="relative py-24 lg:py-32 bg-cream-deep/50"
+      className="relative py-20 sm:py-24 lg:py-32"
     >
       <Container size="wide" className="relative z-10">
-        <div className="grid gap-14 lg:gap-20 lg:grid-cols-12 items-start">
+        <div className="grid gap-10 sm:gap-14 lg:gap-20 lg:grid-cols-12 items-start">
           <div className="lg:col-span-5">
             <Reveal>
               <Eyebrow align="centerOnMobile">{contact.eyebrow}</Eyebrow>
@@ -54,27 +53,27 @@ export function Contact() {
 
             <Reveal delay={0.3}>
               <ul className="mt-10 space-y-5">
-                <li className="flex items-start gap-4">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white border border-warm-line text-gold-dark">
+                <li className="flex items-start gap-3 sm:gap-4">
+                  <span className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full bg-white border border-warm-line text-gold-dark">
                     <Mail className="size-4" strokeWidth={1.5} />
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-xs uppercase tracking-wider text-navy-muted">
                       {contact.emailLabel}
                     </div>
                     <a
                       href={`mailto:${brand.email}`}
-                      className="mt-1 block text-navy hover:text-gold-dark transition-colors"
+                      className="mt-1 block text-sm sm:text-base text-navy hover:text-gold-dark transition-colors break-all"
                     >
                       {brand.email}
                     </a>
                   </div>
                 </li>
-                <li className="flex items-start gap-4">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white border border-warm-line text-gold-dark">
+                <li className="flex items-start gap-3 sm:gap-4">
+                  <span className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full bg-white border border-warm-line text-gold-dark">
                     <Phone className="size-4" strokeWidth={1.5} />
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-xs uppercase tracking-wider text-navy-muted">
                       {contact.phoneLabel}
                     </div>
@@ -82,21 +81,21 @@ export function Contact() {
                       href={brand.whatsapp}
                       target="_blank"
                       rel="noopener"
-                      className="mt-1 block text-navy hover:text-gold-dark transition-colors"
+                      className="mt-1 block text-sm sm:text-base text-navy hover:text-gold-dark transition-colors"
                     >
                       {brand.phone}
                     </a>
                   </div>
                 </li>
-                <li className="flex items-start gap-4">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white border border-warm-line text-gold-dark">
+                <li className="flex items-start gap-3 sm:gap-4">
+                  <span className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full bg-white border border-warm-line text-gold-dark">
                     <MapPin className="size-4" strokeWidth={1.5} />
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-xs uppercase tracking-wider text-navy-muted">
                       {contact.officeLabel}
                     </div>
-                    <address className="mt-1 not-italic text-navy leading-relaxed">
+                    <address className="mt-1 not-italic text-sm sm:text-base text-navy leading-relaxed">
                       {brand.address.street}<br />
                       {brand.address.zip} {t.cityLabel}
                     </address>
@@ -113,13 +112,8 @@ export function Contact() {
             transition={{ duration: 0.85, ease: smooth }}
             className="lg:col-span-7"
           >
-            <LiquidGlassShell
-              lightVariant
-              tintOpacity={0.50}
-              borderRadius="1.5rem"
-              filter="glass-distortion-soft"
-            >
-              <form onSubmit={handleSubmit} className="p-7 sm:p-10 lg:p-12">
+            <div className="bg-white rounded-2xl border border-black/[0.06] shadow-sm">
+              <form onSubmit={handleSubmit} className="p-6 sm:p-10 lg:p-12">
                 <div className="grid gap-5 sm:grid-cols-2">
                   <Field
                     name="name"
@@ -169,49 +163,39 @@ export function Contact() {
                   <p className="text-xs text-navy-muted max-w-sm">
                     {contact.formLabels.disclaimer}
                   </p>
-                  <LiquidGlassShell
-                    lightVariant
-                    tintOpacity={0.55}
-                    borderRadius="9999px"
-                    filter="glass-distortion-soft"
-                    enableHover
-                    className="w-full sm:w-auto shrink-0"
-                    contentClassName="px-8 py-3"
+                  <button
+                    type="submit"
+                    disabled={sent}
+                    className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-center px-8 py-3 bg-navy text-white font-medium text-base rounded-full hover:bg-gold hover:text-navy transition-colors whitespace-nowrap disabled:opacity-60"
                   >
-                    <button
-                      type="submit"
-                      disabled={sent}
-                      className="flex items-center gap-2 text-navy font-medium text-base whitespace-nowrap w-full justify-center"
-                    >
-                      {sent ? (
-                        <span className="inline-flex items-center gap-2">
-                          <Check className="size-4" />
-                          {contact.messageSent}
-                        </span>
-                      ) : (
-                        <>
-                          {contact.formLabels.submit}
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden
-                          >
-                            <path d="M5 12h14" />
-                            <path d="m12 5 7 7-7 7" />
-                          </svg>
-                        </>
-                      )}
-                    </button>
-                  </LiquidGlassShell>
+                    {sent ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Check className="size-4" />
+                        {contact.messageSent}
+                      </span>
+                    ) : (
+                      <>
+                        {contact.formLabels.submit}
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M5 12h14" />
+                          <path d="m12 5 7 7-7 7" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
                 </div>
               </form>
-            </LiquidGlassShell>
+            </div>
           </motion.div>
         </div>
       </Container>

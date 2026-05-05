@@ -153,6 +153,13 @@ async function renderPass(
   }
 
   const dataUrl = await canvasToDataUrl(canvas);
+
+  // Explicitly release the WebGL context so it doesn't count toward the browser's
+  // per-page limit. Without this, zombie contexts accumulate (GC timing is non-
+  // deterministic) and can evict other WebGL canvases (e.g. the cobe globe).
+  const loseExt = gl.getExtension("WEBGL_lose_context");
+  if (loseExt) loseExt.loseContext();
+
   return [dataUrl, maxVal];
 }
 

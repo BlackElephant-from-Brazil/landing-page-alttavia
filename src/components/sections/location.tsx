@@ -6,7 +6,6 @@ import { Container } from "@/components/ui/container";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Reveal } from "@/components/ui/reveal";
 import { useContent } from "@/components/providers/content-provider";
-import { LiquidGlassShell } from "@alttavia/liquid-glass";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
 
@@ -15,9 +14,9 @@ export function Location() {
   const location = t.location;
 
   return (
-    <section id="location" className="relative py-24 lg:py-32">
+    <section id="location" className="relative py-20 sm:py-24 lg:py-32">
       <Container size="wide" className="relative z-10">
-        <div className="grid gap-14 lg:gap-16 lg:grid-cols-12 items-center">
+        <div className="grid gap-8 sm:gap-14 lg:gap-16 lg:grid-cols-12 items-center">
           <div className="lg:col-span-5">
             <Reveal>
               <Eyebrow align="centerOnMobile">{location.eyebrow}</Eyebrow>
@@ -34,14 +33,7 @@ export function Location() {
             </Reveal>
 
             <Reveal delay={0.25}>
-              <LiquidGlassShell
-                lightVariant
-                tintOpacity={0.45}
-                borderRadius="1rem"
-                filter="glass-distortion-soft"
-                contentClassName="p-7 sm:p-9"
-                className="mt-9"
-              >
+              <div className="mt-7 sm:mt-9 bg-white rounded-xl border border-black/[0.06] shadow-sm p-5 sm:p-9">
                 <div className="space-y-5">
                   <div className="flex gap-4">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/60 border border-white/50 text-gold-dark">
@@ -62,7 +54,7 @@ export function Location() {
                     <div className="text-navy leading-relaxed">{t.officeHours}</div>
                   </div>
                 </div>
-              </LiquidGlassShell>
+              </div>
             </Reveal>
 
             <Reveal delay={0.32}>

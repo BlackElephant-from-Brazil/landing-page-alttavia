@@ -6,8 +6,6 @@ import { ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
-import { HeroBlobs } from "@/components/ui/hero-blobs";
-import { LiquidGlassShell } from "@alttavia/liquid-glass";
 import { useCountUp } from "@/hooks/useCountUp";
 import { useContent } from "@/components/providers/content-provider";
 
@@ -43,12 +41,10 @@ export function Hero() {
   return (
     <section
       id="top"
-      className="relative overflow-hidden pt-32 lg:pt-40 pb-20 lg:pb-28 has-grain"
+      className="relative overflow-hidden pt-28 sm:pt-32 lg:pt-40 pb-16 sm:pb-20 lg:pb-28 has-grain"
     >
-      <HeroBlobs />
-
       <Container size="wide" className="relative z-10">
-        <div className="grid gap-14 lg:gap-16 lg:grid-cols-12 items-center">
+        <div className="grid gap-10 sm:gap-14 lg:gap-16 lg:grid-cols-12 items-center">
           <div className="lg:col-span-7">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -101,51 +97,29 @@ export function Hero() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.4, ease: smooth }}
-              className="mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4"
+              className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4"
             >
-              <span
-                className="inline-flex animate-pulse-soft will-change-transform"
-                style={{
-                  ["--pulse-duration" as string]: "var(--pulse-duration-cta)",
-                  ["--pulse-scale" as string]: "1.02",
-                } as React.CSSProperties}
+              <a
+                href="#contact"
+                className="inline-flex items-center gap-2 px-8 h-14 text-base font-medium text-white bg-navy rounded-full hover:bg-gold hover:text-navy transition-colors whitespace-nowrap"
               >
-                <LiquidGlassShell
-                  lightVariant
-                  tintOpacity={0.55}
-                  filter="glass-distortion-soft"
-                  borderRadius="9999px"
-                >
-                  <a
-                    href="#contact"
-                    className="inline-flex items-center gap-2 px-8 h-14 text-base font-medium text-navy hover:text-gold-dark transition-colors whitespace-nowrap"
-                  >
-                    {hero.ctaPrimary}
-                    <ArrowUpRight className="size-4 text-gold" aria-hidden />
-                  </a>
-                </LiquidGlassShell>
-              </span>
+                {hero.ctaPrimary}
+                <ArrowUpRight className="size-4" aria-hidden />
+              </a>
 
-              <LiquidGlassShell
-                lightVariant
-                tintOpacity={0.45}
-                filter="glass-distortion-soft"
-                borderRadius="9999px"
+              <a
+                href="#services"
+                className="inline-flex items-center gap-2 px-8 h-14 text-base font-medium text-navy rounded-full border border-navy/20 bg-white/80 hover:bg-white hover:border-navy/30 transition-colors whitespace-nowrap"
               >
-                <a
-                  href="#services"
-                  className="inline-flex items-center gap-2 px-8 h-14 text-base font-medium text-navy hover:text-gold-dark transition-colors whitespace-nowrap"
-                >
-                  {hero.ctaSecondary}
-                </a>
-              </LiquidGlassShell>
+                {hero.ctaSecondary}
+              </a>
             </motion.div>
 
             <motion.ul
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.7, ease: smooth }}
-              className="mt-16 grid grid-cols-3 gap-8 sm:gap-12 max-w-xl"
+              className="mt-12 sm:mt-16 grid grid-cols-3 gap-5 sm:gap-8 lg:gap-12 max-w-sm sm:max-w-xl"
             >
               {hero.stats.map((s) => (
                 <StatCounter key={s.label} number={s.number} label={s.label} />
@@ -159,7 +133,7 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.3, ease: smooth }}
             className="lg:col-span-5 relative"
           >
-            <div className="relative aspect-[4/5] rounded-xl overflow-hidden shadow-[var(--shadow-long)] bg-champagne">
+            <div className="relative aspect-[3/2] sm:aspect-[4/5] rounded-xl overflow-hidden shadow-[var(--shadow-long)] bg-champagne">
               <Image
                 src="/patricia.webp"
                 alt="Patrícia Viana, founder of Alttavia Relocation"
@@ -178,15 +152,9 @@ export function Hero() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.85, ease: smooth }}
-              className="absolute -bottom-6 -left-4 sm:-left-8 max-w-[260px]"
+              className="hidden sm:block sm:absolute sm:-bottom-6 sm:-left-8 sm:max-w-[260px]"
             >
-              <LiquidGlassShell
-                lightVariant
-                tintOpacity={0.45}
-                filter="glass-distortion-soft"
-                borderRadius="1rem"
-                contentClassName="px-5 py-4"
-              >
+              <div className="relative bg-white rounded-xl border border-black/[0.06] shadow-lg px-5 py-4 card-hover-atelier">
                 <ConcentricRings
                   count={3}
                   size={14}
@@ -208,7 +176,7 @@ export function Hero() {
                 <p className="mt-3 text-xs text-navy-soft leading-relaxed">
                   {hero.cardDesc}
                 </p>
-              </LiquidGlassShell>
+              </div>
             </motion.div>
           </motion.div>
         </div>

@@ -6,14 +6,13 @@ import { Container } from "@/components/ui/container";
 import { Reveal, staggerContainer, staggerItem } from "@/components/ui/reveal";
 import { ConcentricRings } from "@/components/ui/concentric-rings";
 import { useContent } from "@/components/providers/content-provider";
-import { LiquidGlassShell } from "@alttavia/liquid-glass";
 
 export function Principles() {
   const { t } = useContent();
   const principles = t.principles;
 
   return (
-    <section id="principles" className="relative py-28 lg:py-36 bg-navy text-white overflow-hidden isolate">
+    <section id="principles" className="relative py-20 sm:py-28 lg:py-36 bg-navy text-white overflow-hidden isolate">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-40 right-[-15%] h-[520px] w-[520px] rounded-full blur-3xl opacity-25"
@@ -59,14 +58,7 @@ export function Principles() {
               variants={staggerItem}
               className="relative"
             >
-              <LiquidGlassShell
-                lightVariant={false}
-                tintOpacity={0.15}
-                filter="glass-distortion-soft"
-                borderRadius="1rem"
-                className="card-hover-atelier-dark group h-full"
-                contentClassName="p-7 lg:p-9 flex flex-col"
-              >
+              <div className="card-hover-atelier-dark group h-full bg-white/[0.07] border border-white/[0.10] rounded-xl p-6 sm:p-7 lg:p-9 flex flex-col relative">
                 <ConcentricRings
                   count={3}
                   size={20}
@@ -75,13 +67,13 @@ export function Principles() {
                   className="absolute top-3 left-3 opacity-90"
                 />
                 <Quote className="size-6 text-gold/30 ml-12" aria-hidden />
-                <blockquote className="mt-5 font-serif italic text-lg lg:text-xl text-white/95 leading-relaxed">
+                <blockquote className="mt-4 sm:mt-5 font-serif italic text-base sm:text-lg lg:text-xl text-white/95 leading-relaxed">
                   {item.quote}
                 </blockquote>
                 <div className="mt-auto pt-7 text-xs uppercase tracking-[0.22em] text-gold-light">
                   {item.attribution}
                 </div>
-              </LiquidGlassShell>
+              </div>
             </motion.li>
           ))}
         </motion.ul>

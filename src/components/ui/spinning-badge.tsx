@@ -1,64 +1,55 @@
-import { LiquidGlassShell } from "@alttavia/liquid-glass";
-
-const FULL_TEXT = "CERTIFIED LAWYERS · CERTIFIED LAWYERS · ";
+const FULL_TEXT = "LAWYERS · LAWYERS · LAWYERS · LAWYERS · ";
 
 export function SpinningBadge() {
   return (
-    <LiquidGlassShell
-      lightVariant
-      tintOpacity={0.45}
-      filter="glass-distortion-soft"
-      borderRadius="9999px"
-      className="w-[250px] h-[250px] items-center justify-center shrink-0"
-    >
+    <div className="relative w-[270px] h-[270px] shrink-0">
       <svg
-        viewBox="0 0 250 250"
-        width="250"
-        height="250"
-        className="absolute inset-0"
+        viewBox="0 0 270 270"
+        width="270"
+        height="270"
+        style={{ position: "absolute", top: 0, left: 0, display: "block" }}
         aria-hidden
       >
         <defs>
           <path
             id="spinning-badge-path"
-            d="M 125,125 m -100,0 a 100,100 0 1,1 200,0 a 100,100 0 1,1 -200,0"
+            d="M 135,135 m -108,0 a 108,108 0 1,1 216,0 a 108,108 0 1,1 -216,0"
           />
         </defs>
 
-        {/* Text rotates along the circle path */}
         <g>
           <animateTransform
             attributeName="transform"
             type="rotate"
-            from="0 125 125"
-            to="360 125 125"
+            from="0 135 135"
+            to="360 135 135"
             dur="14s"
             repeatCount="indefinite"
           />
           <text
-            fontSize="11"
+            fontSize="16"
             fill="var(--color-navy-muted)"
             letterSpacing="0.10em"
             fontFamily="var(--font-sans)"
             fontWeight="500"
           >
-            <textPath href="#spinning-badge-path" textLength="628" lengthAdjust="spacing">
+            <textPath href="#spinning-badge-path" textLength="679" lengthAdjust="spacing">
               {FULL_TEXT}
             </textPath>
           </text>
         </g>
 
-        {/* Icon stays fixed at center — no animation */}
-        <g transform="translate(101, 101)">
+        {/* Icon at center — fixed, not rotating */}
+        <g transform="translate(97, 97)">
           <svg
             x="0"
             y="0"
-            width="48"
-            height="48"
+            width="77"
+            height="77"
             viewBox="0 0 24 24"
             fill="none"
             stroke="var(--color-navy)"
-            strokeWidth="1.5"
+            strokeWidth="1.2"
             strokeLinecap="round"
             strokeLinejoin="round"
           >
@@ -70,6 +61,6 @@ export function SpinningBadge() {
           </svg>
         </g>
       </svg>
-    </LiquidGlassShell>
+    </div>
   );
 }

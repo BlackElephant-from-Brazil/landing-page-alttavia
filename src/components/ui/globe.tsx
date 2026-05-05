@@ -64,37 +64,57 @@ export function Globe({ className }: GlobeProps) {
     window.addEventListener("resize", onResize);
     onResize();
 
-    const globe = createGlobe(canvas, {
-      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
-      width: width * 2,
-      height: width * 2,
-      phi: phiRef.current,
-      theta: 0.25,
-      dark: 1,
-      diffuse: 1.3,
-      mapSamples: 18000,
-      mapBrightness: 7,
-      baseColor: [0.08, 0.16, 0.32],
-      markerColor: [0.95, 0.73, 0.22],
-      glowColor: [0.1, 0.18, 0.38],
-      markers: CITIES,
-      arcs: ARCS,
-      arcColor: [0.95, 0.73, 0.22],
-      arcWidth: 0.006,
-      arcHeight: 0.32,
-    });
-
     let rafId = 0;
-    const animate = () => {
-      phiRef.current += 0.0022;
-      globe.update({
-        phi: phiRef.current,
+    let globeInstance: ReturnType<typeof createGlobe> | null = null;
+
+    const init = () => {
+      globeInstance = createGlobe(canvas, {
+        devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
         width: width * 2,
         height: width * 2,
+        phi: phiRef.current,
+        theta: 0.25,
+        dark: 1,
+        diffuse: 1.3,
+        mapSamples: 18000,
+        mapBrightness: 7,
+        baseColor: [0.08, 0.16, 0.32],
+        markerColor: [0.95, 0.73, 0.22],
+        glowColor: [0.1, 0.18, 0.38],
+        markers: CITIES,
+        arcs: ARCS,
+        arcColor: [0.95, 0.73, 0.22],
+        arcWidth: 0.006,
+        arcHeight: 0.32,
       });
+
+      const animate = () => {
+        phiRef.current += 0.0022;
+        globeInstance?.update({
+          phi: phiRef.current,
+          width: width * 2,
+          height: width * 2,
+        });
+        rafId = requestAnimationFrame(animate);
+      };
       rafId = requestAnimationFrame(animate);
     };
-    rafId = requestAnimationFrame(animate);
+
+    // Recover if the browser evicts the WebGL context (e.g. due to context limit).
+    const handleContextLost = (e: Event) => {
+      e.preventDefault();
+      cancelAnimationFrame(rafId);
+      globeInstance?.destroy();
+      globeInstance = null;
+    };
+    const handleContextRestored = () => {
+      init();
+    };
+
+    canvas.addEventListener("webglcontextlost", handleContextLost);
+    canvas.addEventListener("webglcontextrestored", handleContextRestored);
+
+    init();
 
     // Subtle fade-in on mount
     canvas.style.opacity = "0";
@@ -105,8 +125,10 @@ export function Globe({ className }: GlobeProps) {
 
     return () => {
       cancelAnimationFrame(rafId);
-      globe.destroy();
+      globeInstance?.destroy();
       window.removeEventListener("resize", onResize);
+      canvas.removeEventListener("webglcontextlost", handleContextLost);
+      canvas.removeEventListener("webglcontextrestored", handleContextRestored);
     };
   }, []);
 

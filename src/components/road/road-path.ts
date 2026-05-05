@@ -122,68 +122,62 @@ const DESKTOP_WAYPOINTS: Waypoint[] = [
 ];
 
 const MOBILE_WAYPOINTS: Waypoint[] = [
-  [500, 0.000],
-  [620, 0.060],
-  [720, 0.110],
-  [780, 0.180],   // single curve near globe (no full orbit)
-  [620, 0.230],
-  [400, 0.270],
-  [220, 0.310],
-  [320, 0.380],
-  [500, 0.430],
-  [680, 0.490],
-  [620, 0.560],
-  [400, 0.620],
-  [300, 0.690],
-  [400, 0.750],
-  [520, 0.810],
-  [500, 0.880],
-  [500, 1.000],
+  // Start top-center, gentle S-curves down the page.
+  // X stays in ~150–850 range (well inside 375-430px viewport after scaling).
+  // No globe orbit, no off-screen exits — road is always visible inside sections.
+  [500, 0.000],   // top center (hero)
+  [640, 0.040],
+  [720, 0.085],   // sweep right in services upper
+  [680, 0.130],
+  [540, 0.175],   // center crossing (hero/services boundary)
+  [380, 0.210],
+  [250, 0.250],   // sweep left into WhyUs
+  [300, 0.295],
+  [480, 0.340],   // center cross (WhyUs mid)
+  [660, 0.380],
+  [740, 0.425],   // swing right (About upper)
+  [680, 0.465],
+  [500, 0.505],   // center (About mid)
+  [320, 0.545],
+  [220, 0.585],   // left arc (Principles)
+  [300, 0.625],
+  [480, 0.660],   // center cross (FAQ entry)
+  [640, 0.695],
+  [700, 0.735],   // right arc (FAQ lower)
+  [600, 0.770],
+  [460, 0.810],   // center approach (Contact)
+  [340, 0.845],
+  [380, 0.880],   // slight right (Location)
+  [480, 0.920],
+  [500, 1.000],   // exits bottom (footer)
 ];
 
 /**
  * Build the SVG path `d` string from waypoints using Catmull-Rom → cubic
- * Bézier conversion. This guarantees G1 continuity (matching tangents) at
- * every interior waypoint, so no kinks appear. Off-viewbox waypoints split
- * the path into separate sub-paths to produce the edge-exit/re-enter effect.
+ * Bézier conversion. Single continuous sub-path so stroke-dashoffset
+ * works globally; off-screen segments are invisible via section clip-paths.
  */
 export function buildPathD(variant: RoadVariant, totalHeight: number): string {
   const waypoints = variant === "desktop" ? DESKTOP_WAYPOINTS : MOBILE_WAYPOINTS;
   const scaleY = (yr: number) => yr * totalHeight;
 
-  // Split into visible segments; off-viewbox points act as breaks only.
-  const segments: [number, number][][] = [];
-  let seg: [number, number][] = [];
-  for (const [x, yr] of waypoints) {
-    if (x < -50 || x > 1050) {
-      if (seg.length) { segments.push(seg); seg = []; }
-    } else {
-      seg.push([x, scaleY(yr)]);
-    }
-  }
-  if (seg.length) segments.push(seg);
+  const pts: [number, number][] = waypoints.map(([x, yr]) => [x, scaleY(yr)]);
+  if (!pts.length) return "";
 
-  const cmds: string[] = [];
+  const cmds: string[] = [`M ${pts[0][0]} ${pts[0][1]}`];
 
-  for (const pts of segments) {
-    if (!pts.length) continue;
-    cmds.push(`M ${pts[0][0]} ${pts[0][1]}`);
-    if (pts.length === 1) continue;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
 
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[Math.max(0, i - 1)];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
 
-      // Catmull-Rom to cubic Bézier (tension = 1/6 ≈ standard smoothness)
-      const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
-      const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
-      const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
-      const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
-
-      cmds.push(`C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2[0]} ${p2[1]}`);
-    }
+    cmds.push(`C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2[0]} ${p2[1]}`);
   }
 
   return cmds.join(" ");
