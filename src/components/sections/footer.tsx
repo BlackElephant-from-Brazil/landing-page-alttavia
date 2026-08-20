@@ -96,6 +96,17 @@ export function Footer() {
             <p className="text-xs text-white/55">{footer.copyright(new Date().getFullYear())}</p>
             <p className="text-xs text-white/55 font-mono">{t.cityLabel}, {t.country}</p>
           </div>
+          <p className="mt-3 text-xs text-white/55">
+            Made with <span aria-hidden="true">❤️</span> by{' '}
+            <a
+              href="https://guyshore.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-gold-light transition-colors hover:text-gold"
+            >
+              guyshore.com
+            </a>
+          </p>
         </Container>
       </div>
     </footer>
