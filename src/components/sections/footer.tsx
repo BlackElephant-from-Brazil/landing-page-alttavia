@@ -116,6 +116,18 @@ export function Footer() {
             />
           </div>
         </div>
+
+        <p className="mt-4 text-xs text-white/65">
+          Made with <span aria-hidden="true">❤️</span> by{' '}
+          <a
+            className="font-semibold text-gold-light transition-colors hover:text-gold"
+            href="https://guyshore.com"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            guyshore.com
+          </a>
+        </p>
       </Container>
     </footer>
   );
