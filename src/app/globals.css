@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+@theme {
+  /* ------ Brand tokens (authoritative) ------ */
+  --color-white: #FFFFFF;
+  --color-paper: #FAFAF7;
+  --color-wheat: #E0CF9F;
+  --color-wheat-deep: #CFB67C;
+  --color-navy: #0E2A47;
+  --color-navy-deep: #081F66;
+  --color-navy-soft: #2D4B72;
+  --color-navy-muted: #5B7199;
+  --color-gold: #D0A12B;
+  --color-gold-dark: #A67D1E;
+  --color-gold-light: #E6B94A;
+  --color-clay: #DB3D34;
+
+  /* ------ Legacy aliases (map to brand tokens) ------ */
+  --color-cream: #FFFFFF;
+  --color-cream-deep: #FAFAF7;
+  --color-champagne: #F4EDDF;
+  --color-ink: #0E2A47;
+  --color-ink-soft: #2D4B72;
+  --color-ink-muted: #5B7199;
+  --color-rose-gold: #D0A12B;
+  --color-rose-gold-dark: #A67D1E;
+  --color-rose-gold-light: #E6B94A;
+  --color-warm-line: #E3DAD0;
+  --color-blush: #E6B94A;
+  --color-plum: #081F66;
+
+  /* ------ Fonts ------ */
+  /* --font-serif is injected by Next.js on <html>; fallbacks defined here for contexts where it isn't */
+  --font-serif: Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* ------ Radii ------ */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-xl: 36px;
+  --radius-2xl: 48px;
+
+  /* ------ Shadows (brand-tinted) ------ */
+  --shadow-soft: 0 2px 12px rgba(14, 42, 71, 0.05), 0 1px 3px rgba(14, 42, 71, 0.03);
+  --shadow-card: 0 10px 34px rgba(14, 42, 71, 0.09), 0 2px 8px rgba(14, 42, 71, 0.05);
+  --shadow-glow: 0 14px 44px rgba(208, 161, 43, 0.22);
+  --shadow-glass: 0 8px 32px rgba(8, 31, 102, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+
+  /* ------ Long shadows (atelier-boutique redesign) ------ */
+  --shadow-long: 0 20px 60px rgba(14, 42, 71, 0.12), 0 8px 20px rgba(14, 42, 71, 0.06);
+  --shadow-long-dark: 0 20px 60px rgba(0, 0, 0, 0.40), 0 8px 20px rgba(0, 0, 0, 0.20);
+  --shadow-long-hover: 0 28px 80px rgba(14, 42, 71, 0.16), 0 12px 28px rgba(14, 42, 71, 0.08);
+  --shadow-long-hover-dark: 0 28px 80px rgba(0, 0, 0, 0.48), 0 12px 28px rgba(0, 0, 0, 0.24);
+
+  /* ------ Road tokens ------ */
+  --road-color-light: #D4D4D4;
+  --road-color-dark: #E3DAD0;
+  --road-stroke: 40px;
+  --road-stroke-mobile: 22px;
+  --road-opacity: 0.6;
+  --road-color-hero: #D0A12B;
+  --marker-color: #D0A12B;
+  --marker-color-light: #E6B94A;
+
+  /* ------ Animation tokens ------ */
+  --ease-smooth: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --marquee-duration: 60s;
+  --pulse-duration: 2.5s;
+  --pulse-duration-cta: 3s;
+  --pulse-duration-float: 4s;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@layer base {
+  html, body {
+    overflow-x: clip;
+  }
+
+  body {
+    background: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, h5 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    line-height: 1.12;
+  }
+
+  h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); }
+  h2 { font-size: clamp(2rem, 4.5vw, 3.25rem); }
+  h3 { font-size: clamp(1.25rem, 2vw, 1.625rem); }
+
+  a { color: inherit; text-decoration: none; }
+}
+
+::selection { background: var(--color-gold); color: var(--color-white); }
+
+/* Subtle grain overlay helper */
+.has-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+/* Apple-like glass surface — tinted darker so text stays legible over busy backgrounds (globe, particles) */
+.glass-card {
+  background-color: rgba(8, 16, 40, 0.55);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03));
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 20px 60px rgba(8, 16, 40, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.glass-card:hover {
+  background-color: rgba(8, 16, 40, 0.45);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05));
+  border-color: rgba(208, 161, 43, 0.40);
+}
+
+/* Floating smoke particles (used by FAQ) */
+@keyframes float-up {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.8);
+    opacity: 0;
+  }
+  10% { opacity: var(--particle-opacity, 0.25); }
+  85% { opacity: var(--particle-opacity, 0.25); }
+  100% {
+    transform: translateY(-110vh) translateX(var(--particle-drift, 20px)) scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(var(--pulse-scale, 1.03)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@utility card-hover-atelier {
+  transition: transform 500ms var(--ease-smooth), box-shadow 500ms var(--ease-smooth), border-color 500ms var(--ease-smooth);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-long-hover);
+    border-color: rgba(208, 161, 43, 0.40);
+  }
+}
+
+@utility card-hover-atelier-dark {
+  transition: transform 500ms var(--ease-smooth), box-shadow 500ms var(--ease-smooth), border-color 500ms var(--ease-smooth);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-long-hover-dark);
+    border-color: rgba(208, 161, 43, 0.50);
+  }
+}
+
+@utility animate-pulse-soft {
+  animation: pulse-soft var(--pulse-duration) var(--ease-smooth) infinite;
+}
+
+/* Hero orbital blob animations */
+@keyframes blob-orbit-1 {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  25%  { transform: translate(-60px, 40px) scale(1.05); }
+  50%  { transform: translate(-30px, 80px) scale(0.97); }
+  75%  { transform: translate(40px, 30px) scale(1.03); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes blob-orbit-2 {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  33%  { transform: translate(50px, -40px) scale(1.06); }
+  66%  { transform: translate(-40px, -60px) scale(0.96); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes blob-orbit-3 {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  40%  { transform: translate(30px, 50px) scale(1.04); }
+  80%  { transform: translate(-50px, 20px) scale(0.98); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
