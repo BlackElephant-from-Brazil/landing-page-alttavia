@@ -45,7 +45,31 @@ Primary narrative lever in Hero, Why Us, About, CTA banner.
 ```
 Legacy aliases (`cream`, `ink`, `plum`, `rose-gold`, `blush`) are mapped to the brand tokens so existing className usages keep working — see the `@theme` block.
 
-## Section order (current page.tsx)
+## Branch `main-split-bank-and-nif` (bank.alttavia-relocation.com)
+
+A separate product: a single sales page for **NIF + remote bank account**, sold with
+Stripe checkout. It replaces `src/app/[locale]/page.tsx` on this branch only, so the
+ad destination is `bank.alttavia-relocation.com/en`. The main-site sections in
+`src/components/sections/` are left in place but unused here.
+
+- **Source of truth for the copy:** `~/Downloads/landing-copy-nif-conta-alttavia.md`
+  (sections 0 to 15). Implemented sections 1 to 14, in order.
+- **Content:** `src/content/bank-nif.ts`. Holds every string, all four
+  `STRIPE_LINKS` (placeholders), and the `PRICES` block. Prices come from the copy
+  document: NIF €99, bundle €397, bank €349, couple €497.
+- **Components:** `src/components/bank/*`, one file per section, plus
+  `rich-text.tsx` (renders the `**bold**` / `*italic*` markers used in the content).
+- **English only.** All locale routes render the same English copy; PT and ES come
+  after the campaign proves out.
+- **Mobile:** sticky bottom CTA (`sticky-cta.tsx`) appears past the hero and hides
+  over the final CTA. Featured pricing card is ordered first below `lg`.
+- **Assets:** `public/sicnot.svg` and `public/publico-jornal.webp` (press logos,
+  linked to the real articles), `public/patricia.webp`.
+- **Open before traffic:** real Stripe Payment Links, real Google reviews (the
+  `reviews` array is empty on purpose and renders labeled slots), real NIPC in the
+  footer, Stripe purchase event wired to Google Ads.
+
+## Section order (current page.tsx, main site branches)
 1. Navbar (scroll-reactive, mobile drawer, language switcher)
 2. Hero (animated underline on highlight, stats, floating attorney card)
 3. Services (2 expanded cards: NIF + Bank account)
@@ -94,7 +118,11 @@ Legacy aliases (`cream`, `ink`, `plum`, `rose-gold`, `blush`) are mapped to the 
 
 ## Repo & workflow
 - Remote: https://github.com/BlackElephant-from-Brazil/landing-page-alttavia
-- Branches: `main`, `main-split-a`, `develop-split-a` (active work).
+- Branches: `main`, `develop-split-a`, `develop-split-b` (main-site design variants),
+  `main-split-bank-and-nif` (the bank + NIF sales page, branched from the commit the
+  two split branches share).
+- Deploys go out through git: push the branch and let GitHub trigger Netlify. Never
+  the Netlify CLI or connector.
 - **Do not commit unless user asks.** Variant A is one of several parallel design variants.
 
 ## Update protocol for this skill

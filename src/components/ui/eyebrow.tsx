@@ -33,11 +33,25 @@ export function Eyebrow({ children, className, align = "center" }: EyebrowProps)
   );
 }
 
-export function EyebrowSolo({ children, className }: { children: React.ReactNode; className?: string }) {
+export function EyebrowSolo({
+  children,
+  className,
+  tracking = "tracking-[0.28em]",
+}: {
+  children: React.ReactNode;
+  className?: string;
+  /**
+   * `cn` is a plain join, not a Tailwind-aware merge, so passing a competing
+   * `tracking-*` through `className` leaves both classes on the element and
+   * lets stylesheet order decide. Long eyebrows override it here instead.
+   */
+  tracking?: string;
+}) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-3 text-[0.72rem] font-medium uppercase tracking-[0.28em] text-rose-gold-dark",
+        "inline-flex items-center gap-3 text-[0.72rem] font-medium uppercase text-rose-gold-dark",
+        tracking,
         className
       )}
     >

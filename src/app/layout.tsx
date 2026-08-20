@@ -20,7 +20,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: {
     default:
-      "Alttavia Relocation. NIF and Portuguese bank account, handled by licensed lawyers.",
+      "Alttavia Relocation. Portuguese NIF and bank accounts, opened remotely.",
     template: "%s · Alttavia Relocation",
   },
 };
