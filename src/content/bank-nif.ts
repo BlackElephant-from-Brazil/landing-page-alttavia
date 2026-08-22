@@ -1,8 +1,8 @@
 /**
  * Copy for the NIF + Portuguese bank account sales landing.
  *
- * Route: /[locale] on the bank.alttavia-relocation.com deploy, so the page the
- * ad points at is bank.alttavia-relocation.com/en.
+ * Route: /[locale] on the bank-nif-portugal.alttavia-relocation.com deploy, so
+ * the page the ad points at is bank-nif-portugal.alttavia-relocation.com/en.
  *
  * Language: American English only. This product is bought by D7 and D8
  * applicants who read English, so PT and ES versions come later.
@@ -96,7 +96,7 @@ export const TIMING_DISCLAIMER =
 export const CTA_LABEL = `Start my application · ${PRICES.bundle}`;
 
 /** Canonical origin. Used by the canonical tag, the sitemap and the JSON-LD. */
-export const SITE_URL = "https://bank.alttavia-relocation.com";
+export const SITE_URL = "https://bank-nif-portugal.alttavia-relocation.com";
 
 /** Contact details for this product. Confirmed by the client. */
 export const CONTACT = {

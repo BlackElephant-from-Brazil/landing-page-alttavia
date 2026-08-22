@@ -23,6 +23,9 @@ export const metadata: Metadata = {
       "Alttavia Relocation. Portuguese NIF and bank accounts, opened remotely.",
     template: "%s · Alttavia Relocation",
   },
+  // Proves ownership of this subdomain to Google Search Console, which treats it
+  // as a property separate from the main alttavia-relocation.com site.
+  verification: { google: "GctatLUPyt0rE4j5_mtzFEGTIKJTFFV-Q_XszLoC7V4" },
 };
 
 export default function RootLayout({
