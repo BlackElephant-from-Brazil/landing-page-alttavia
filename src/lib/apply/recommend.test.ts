@@ -163,7 +163,7 @@ describe("prices and countries", () => {
     const names = COUNTRIES.map((c) => c.name);
     expect([...names].sort((a, b) => a.localeCompare(b, "en"))).toEqual(names);
     expect(new Set(COUNTRIES.map((c) => c.code)).size).toBe(COUNTRIES.length);
-    expect(names.some((n) => /[—–]/.test(n))).toBe(false);
+    expect(names.some((n) => /[—–]| - /.test(n))).toBe(false);
   });
 
   it("EEA is the EU 27 plus Iceland, Liechtenstein and Norway", () => {
