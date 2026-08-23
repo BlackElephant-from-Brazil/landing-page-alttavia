@@ -45,18 +45,21 @@ Primary narrative lever in Hero, Why Us, About, CTA banner.
 ```
 Legacy aliases (`cream`, `ink`, `plum`, `rose-gold`, `blush`) are mapped to the brand tokens so existing className usages keep working — see the `@theme` block.
 
-## Branch `main-split-bank-and-nif` (bank.alttavia-relocation.com)
+## Branch `main-split-bank-and-nif` (bank-nif-portugal.alttavia-relocation.com)
 
-A separate product: a single sales page for **NIF + remote bank account**, sold with
-Stripe checkout. It replaces `src/app/[locale]/page.tsx` on this branch only, so the
-ad destination is `bank.alttavia-relocation.com/en`. The main-site sections in
-`src/components/sections/` are left in place but unused here.
+A separate product: a single sales page for **NIF + remote bank account**, sold
+through the /en/apply wizard and, later, Stripe checkout. It replaces
+`src/app/[locale]/page.tsx` on this branch only, so the ad destination is
+`bank-nif-portugal.alttavia-relocation.com/en`. The main-site sections in
+`src/components/sections/` are left in place but unused here. This branch deploys
+on every push (Netlify), so commit only coherent states.
 
 - **Source of truth for the copy:** `~/Downloads/landing-copy-nif-conta-alttavia.md`
   (sections 0 to 15). Implemented sections 1 to 14, in order.
-- **Content:** `src/content/bank-nif.ts`. Holds every string, all four
-  `STRIPE_LINKS` (placeholders), and the `PRICES` block. Prices come from the copy
-  document: NIF €99, bundle €397, bank €349, couple €497.
+- **Content:** `src/content/bank-nif.ts`. Holds every string, the `APPLY_LINKS`
+  block (every buy button goes to `/en/apply`, product cards add `?product=`), the
+  `PRICES` block and its numeric twin `PRICE_CENTS` (a test keeps them in sync).
+  Current prices: NIF €149, bundle €497, bank €399, couple €597, renewal €99.
 - **Components:** `src/components/bank/*`, one file per section, plus
   `rich-text.tsx` (renders the `**bold**` / `*italic*` markers used in the content).
 - **English only.** All locale routes render the same English copy; PT and ES come
@@ -65,9 +68,23 @@ ad destination is `bank.alttavia-relocation.com/en`. The main-site sections in
   over the final CTA. Featured pricing card is ordered first below `lg`.
 - **Assets:** `public/sicnot.svg` and `public/publico-jornal.webp` (press logos,
   linked to the real articles), `public/patricia.webp`.
-- **Open before traffic:** real Stripe Payment Links, real Google reviews (the
-  `reviews` array is empty on purpose and renders labeled slots), real NIPC in the
-  footer, Stripe purchase event wired to Google Ads.
+- **Apply wizard (`/en/apply`):** `src/app/[locale]/apply/page.tsx` (English only,
+  `robots: noindex`, disallowed in `robots.ts`). One question per screen: proof of
+  address country, who is applying (+ children checkbox), who already has a NIF,
+  bank account (joint / separate / none for couples), passports, visa (only when a
+  non EEA passport wants the bank). `src/lib/apply/recommend.ts` is the pure
+  decision table (tested in `recommend.test.ts`, run `npm test`); `steps.ts` owns
+  visibility, validation and the `?step=` clamp; `storage.ts` keeps answers in
+  sessionStorage (`alttavia_apply_v1`); `rules.ts` holds the business rules the
+  client can change (bank nationality blocklist, visas the bank accepts). Copy in
+  `src/content/apply.ts`, same house rules as `bank-nif.ts`. Components in
+  `src/components/apply/`. The result screen hands the order to WhatsApp with the
+  package written out until Stripe Checkout exists; that CTA is the only thing to
+  swap when it does.
+- **Open before traffic:** Stripe Checkout behind the wizard result, document upload
+  after payment, the answers from the client to the pending business questions (see
+  `../notes/pendencias.md` in the workspace), Stripe purchase event wired to Google
+  Ads. The `reviews` array holds two real Google reviews.
 
 ## Section order (current page.tsx, main site branches)
 1. Navbar (scroll-reactive, mobile drawer, language switcher)
@@ -85,7 +102,7 @@ ad destination is `bank.alttavia-relocation.com/en`. The main-site sections in
 
 ## i18n (PT / EN / ES)
 - Routing: `src/app/[locale]/` with `page.tsx` + `layout.tsx` reading `params.locale`.
-- Root `/` redirect: `src/app/page.tsx` reads cookie / Accept-Language and `redirect()`s to `/en|/pt|/es`.
+- Root `/` redirect: `src/app/page.tsx` reads the `alttavia_locale` cookie and `redirect()`s to `/en|/pt|/es` (default `en`).
 - Content: single `src/content/messages.ts` with `en`, `pt`, `es` keys (same shape, enforced by `Messages` type).
 - Brand data (email, phone, address street, social URLs) is locale-neutral in `src/content/brand.ts`.
 - Context: `ContentProvider` (`src/components/providers/content-provider.tsx`) exposes `{ locale, brand, t }` via `useContent()` hook. Every section uses it.
@@ -123,7 +140,9 @@ ad destination is `bank.alttavia-relocation.com/en`. The main-site sections in
   two split branches share).
 - Deploys go out through git: push the branch and let GitHub trigger Netlify. Never
   the Netlify CLI or connector.
-- **Do not commit unless user asks.** Variant A is one of several parallel design variants.
+- **Do not commit unless user asks.** `develop-split-a` and `develop-split-b` are parallel
+  design variants of the main site; `main-split-bank-and-nif` is the bank + NIF product.
+- Tooling: `npm run typecheck` (tsc), `npm run lint`, `npm test` (vitest, `src/**/*.test.ts`).
 
 ## Update protocol for this skill
 Update this file when:
