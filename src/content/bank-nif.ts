@@ -74,6 +74,27 @@ export const PRICES = {
 } as const;
 
 /**
+ * The same prices as integers in cents, for arithmetic (two NIFs, totals in the
+ * apply wizard, Stripe line items later). `PRICES` stays the display source of
+ * truth; a unit test checks that both tables agree.
+ */
+export const PRICE_CENTS = {
+  nifOnly: 14900,
+  bundle: 49700,
+  bankOnly: 39900,
+  couple: 59700,
+  renewal: 9900,
+  strategyCredit: 5000,
+} as const;
+
+/** Formats cents the way every price on the page is written: "€149". */
+export function formatEuro(cents: number): string {
+  const whole = Math.trunc(cents / 100);
+  const rest = cents % 100;
+  return rest === 0 ? `€${whole.toLocaleString("en-US")}` : `€${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+}
+
+/**
  * Delivery times. Every mention on the page and in the service terms reads from
  * here, so there is one place to change them.
  */
