@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/ui/logo";
 import { ButtonLink } from "@/components/ui/button";
-import { bankNif, STRIPE_LINKS } from "@/content/bank-nif";
+import { bankNif, APPLY_LINKS } from "@/content/bank-nif";
 import { cn } from "@/lib/cn";
 
 /**
@@ -56,7 +56,7 @@ export function SiteHeader() {
           is the buy button.
         */}
         <span className="hidden sm:block">
-          <ButtonLink href={STRIPE_LINKS.bundle} size="md">
+          <ButtonLink href={APPLY_LINKS.start} size="md">
             {header.cta}
           </ButtonLink>
         </span>

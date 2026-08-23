@@ -1,7 +1,7 @@
 import { Container } from "@/components/ui/container";
 import { Reveal } from "@/components/ui/reveal";
 import { ButtonLink } from "@/components/ui/button";
-import { bankNif, STRIPE_LINKS } from "@/content/bank-nif";
+import { bankNif, APPLY_LINKS } from "@/content/bank-nif";
 
 /**
  * Section 13. Same button label as the hero, word for word. A CTA that changes
@@ -43,7 +43,7 @@ export function FinalCta() {
           <Reveal delay={0.16}>
             <div className="mt-8">
               <ButtonLink
-                href={STRIPE_LINKS.bundle}
+                href={APPLY_LINKS.bundle}
                 size="lg"
                 variant="gold"
                 className="w-full sm:w-auto"

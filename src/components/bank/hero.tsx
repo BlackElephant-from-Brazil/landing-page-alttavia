@@ -5,7 +5,7 @@ import { ArrowDown, CreditCard, FileText, ShieldCheck } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { ButtonLink } from "@/components/ui/button";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
-import { bankNif, STRIPE_LINKS } from "@/content/bank-nif";
+import { bankNif, APPLY_LINKS } from "@/content/bank-nif";
 
 const smooth = [0.22, 0.61, 0.36, 1] as const;
 
@@ -108,7 +108,7 @@ export function Hero() {
               className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5"
             >
               <ButtonLink
-                href={STRIPE_LINKS.bundle}
+                href={APPLY_LINKS.bundle}
                 size="lg"
                 className="w-full sm:w-auto"
               >

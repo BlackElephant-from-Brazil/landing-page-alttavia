@@ -29,21 +29,26 @@
  */
 
 /**
- * Checkout destinations.
+ * Where every buy button goes: the /en/apply wizard, which asks a few
+ * questions and recommends one of the four products before handing over to
+ * checkout. Buttons that name a product carry it as `?product=` so the wizard
+ * can confirm or, when the answers say otherwise, explain what fits better.
  *
- * TODO(dev): these four point at the checkout being built, which takes payment
- * and then collects the document upload in the same flow. Nothing else in the
- * codebase holds a checkout URL, so this block is the only edit needed.
+ * The wizard ends on a WhatsApp handoff until Stripe Checkout exists; when it
+ * does, only the wizard result screen changes. Nothing else in the codebase
+ * holds a checkout URL.
  */
-export const STRIPE_LINKS = {
+export const APPLY_LINKS = {
+  /** Generic entry, no product preselected. Hero, header, sticky bar, final CTA. */
+  start: "/en/apply",
   /** NIF only */
-  nifOnly: "#checkout-nif-only",
+  nifOnly: "/en/apply?product=nif-only",
   /** NIF + bank account bundle */
-  bundle: "#checkout-nif-bank",
+  bundle: "/en/apply?product=bundle",
   /** Bank account only */
-  bankOnly: "#checkout-bank-only",
+  bankOnly: "/en/apply?product=bank-only",
   /** Couple package: 2 NIFs + joint account */
-  couple: "#checkout-couple",
+  couple: "/en/apply?product=couple",
 } as const;
 
 /**
@@ -436,7 +441,7 @@ export const bankNif = {
           `Renewal ${PRICES.renewal} a year, optional, cancel once you are resident`,
         ],
         cta: `Get my NIF · ${PRICES.nifOnly}`,
-        href: STRIPE_LINKS.nifOnly,
+        href: APPLY_LINKS.nifOnly,
       },
       {
         id: "bundle",
@@ -454,7 +459,7 @@ export const bankNif = {
           `NIF in ${TIMES.nif} · IBAN in ${TIMES.bank}`,
         ],
         cta: CTA_LABEL,
-        href: STRIPE_LINKS.bundle,
+        href: APPLY_LINKS.bundle,
       },
       {
         id: "bank-only",
@@ -472,13 +477,13 @@ export const bankNif = {
           "IBAN, debit card and online banking",
         ],
         cta: `Open my account · ${PRICES.bankOnly}`,
-        href: STRIPE_LINKS.bankOnly,
+        href: APPLY_LINKS.bankOnly,
       },
     ],
     couple: {
       text: `Moving as a couple? **2 NIFs plus a joint account for ${PRICES.couple}.** Children’s NIFs on request.`,
       cta: `Couple package · ${PRICES.couple}`,
-      href: STRIPE_LINKS.couple,
+      href: APPLY_LINKS.couple,
     },
     footnote: TIMING_DISCLAIMER,
   },
@@ -677,7 +682,7 @@ export const bankNif = {
     hint: "NIF + bank account",
     cta: "Start my application",
     price: PRICES.bundle,
-    href: STRIPE_LINKS.bundle,
+    href: APPLY_LINKS.bundle,
   },
 } as const;
 
