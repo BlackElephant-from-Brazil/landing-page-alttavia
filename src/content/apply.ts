@@ -20,6 +20,7 @@
 
 import {
   bankNif,
+  CHECKOUT_LINKS,
   CONTACT,
   formatEuro,
   PRICES,
@@ -136,8 +137,11 @@ export const applyCopy = {
     heading: "Here is what fits your answers.",
     whyTitle: "Why this one",
     totalLabel: "Total",
-    cta: (total: string) => `Continue on WhatsApp · ${total}`,
-    ctaHint: "You pay and upload your documents after we confirm the order. No video call, no account to create.",
+    cta: (total: string) => `Pay ${total} and start`,
+    ctaHint: "Secure payment through Stripe. You upload your two documents right after, and that is the last thing we need from you.",
+    /** Orders a Payment Link cannot take yet, so they go to WhatsApp instead. */
+    ctaManual: (total: string) => `Order on WhatsApp · ${total}`,
+    ctaManualHint: "Two NIFs on one order are arranged by message. We reply with a payment link the same business day.",
     docsTitle: "Have ready after payment",
     docs: {
       nif: ["Passport", "Proof of address"],
@@ -318,6 +322,50 @@ export function documentsFor(rec: ProductRecommendation, answers: Answers): stri
     docs.push(applyCopy.result.docs.partner);
   }
   return docs;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Checkout                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const LINK_BY_PRODUCT: Record<ProductId, string> = {
+  "nif-only": CHECKOUT_LINKS.nifOnly,
+  bundle: CHECKOUT_LINKS.bundle,
+  "bank-only": CHECKOUT_LINKS.bankOnly,
+  couple: CHECKOUT_LINKS.couple,
+};
+
+/**
+ * A short, readable tag that travels with the payment and shows up on the
+ * Stripe payment, so an order can be read back to the answers that produced
+ * it. Stripe accepts letters, digits, hyphens and underscores, up to 200
+ * characters, and this stays far under that.
+ *
+ * It carries no personal data, because the wizard collects none.
+ */
+export function checkoutReference(rec: ProductRecommendation, answers: Answers): string {
+  const parts = [
+    rec.product,
+    `q${rec.quantity}`,
+    answers.residence ?? "xx",
+    answers.applicants ?? "one",
+    answers.visa ?? "na",
+    answers.childrenNifs ? "kids" : "nokids",
+    rec.joint ? "joint" : "single",
+  ];
+  return parts.join("-").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 200);
+}
+
+/**
+ * Where the buy button goes. Null when this order cannot be sold by a Payment
+ * Link as it stands, which today is only two NIFs on one order: the link sells
+ * one, and quantity adjustment is off. The result screen falls back to
+ * WhatsApp for that case.
+ */
+export function checkoutUrl(rec: ProductRecommendation, answers: Answers): string | null {
+  if (rec.quantity !== 1) return null;
+  const base = LINK_BY_PRODUCT[rec.product];
+  return `${base}?client_reference_id=${encodeURIComponent(checkoutReference(rec, answers))}`;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -52,6 +52,26 @@ export const APPLY_LINKS = {
 } as const;
 
 /**
+ * Stripe Payment Links, one per product, verified against the live checkout on
+ * 2026-08-28: 149, 497, 399 and 597 euro, in that order.
+ *
+ * Hosted by Stripe, so there is no API key, no checkout route and no webhook
+ * on our side yet. The wizard sends the visitor straight here once it knows
+ * which product fits, passing `client_reference_id` so the payment can be
+ * matched back to the answers that produced it.
+ *
+ * Two NIFs for a couple with no bank account has no link: a Payment Link sells
+ * a fixed quantity, and quantity adjustment is off on these. That order goes to
+ * WhatsApp until a dedicated link exists.
+ */
+export const CHECKOUT_LINKS = {
+  nifOnly: "https://buy.stripe.com/7sY3cu2LB3wIgwW9oS63K0h",
+  bundle: "https://buy.stripe.com/14AeVcdqf1oA0xY44y63K0i",
+  bankOnly: "https://buy.stripe.com/28EaEWcmb6IUa8yeJc63K0j",
+  couple: "https://buy.stripe.com/00w7sKgCr9V61C27gK63K0k",
+} as const;
+
+/**
  * Every price on the page.
  *
  * Positioned deliberately above AnchorLess, the volume player this product is

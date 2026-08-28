@@ -1,9 +1,10 @@
-import { Check, FileText, Info, MessageCircle } from "lucide-react";
+import { Check, FileText, Info, Lock, MessageCircle } from "lucide-react";
 import { RichText } from "@/components/bank/rich-text";
 import { ButtonLink } from "@/components/ui/button";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import {
   applyCopy,
+  checkoutUrl,
   documentsFor,
   includesFor,
   orderName,
@@ -35,7 +36,10 @@ export function ResultCard({
   const product = PRODUCTS[rec.product];
   const total = orderTotal(rec);
   const picked = rec.preselected ? PRODUCTS[rec.preselected] : undefined;
-  const href = whatsappUrl(whatsappMessage(rec, answers));
+  // A Payment Link covers every order except two NIFs on one checkout, which
+  // is still arranged by message.
+  const payHref = checkoutUrl(rec, answers);
+  const href = payHref ?? whatsappUrl(whatsappMessage(rec, answers));
 
   return (
     <div>
@@ -82,10 +86,12 @@ export function ResultCard({
           variant="gold"
           className="mt-8 w-full"
         >
-          <MessageCircle className="size-4" aria-hidden />
-          {copy.cta(total)}
+          {payHref ? <Lock className="size-4" aria-hidden /> : <MessageCircle className="size-4" aria-hidden />}
+          {payHref ? copy.cta(total) : copy.ctaManual(total)}
         </ButtonLink>
-        <p className="mt-3 text-center text-[0.78rem] leading-relaxed text-white/55">{copy.ctaHint}</p>
+        <p className="mt-3 text-center text-[0.78rem] leading-relaxed text-white/55">
+          {payHref ? copy.ctaHint : copy.ctaManualHint}
+        </p>
       </article>
 
       <section className="mt-8">
@@ -143,7 +149,7 @@ export function ResultCard({
                   quantity: 1,
                   totalCents: totalCents(id, 1),
                 };
-                const altHref = whatsappUrl(whatsappMessage(altRec, answers));
+                const altHref = checkoutUrl(altRec, answers) ?? whatsappUrl(whatsappMessage(altRec, answers));
                 return (
                   <ButtonLink
                     key={id}
