@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Plain Node utilities, run by hand and never bundled. The Next presets
+    // load the React and type-aware rules for anything they are pointed at,
+    // which on these files takes minutes and reports nothing useful.
+    "scripts/**",
   ]),
 ]);
 

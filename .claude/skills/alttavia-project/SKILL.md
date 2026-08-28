@@ -78,9 +78,22 @@ on every push (Netlify), so commit only coherent states.
   sessionStorage (`alttavia_apply_v1`); `rules.ts` holds the business rules the
   client can change (bank nationality blocklist, visas the bank accepts). Copy in
   `src/content/apply.ts`, same house rules as `bank-nif.ts`. Components in
-  `src/components/apply/`. The result screen hands the order to WhatsApp with the
-  package written out until Stripe Checkout exists; that CTA is the only thing to
-  swap when it does.
+  `src/components/apply/`.
+- **Checkout: Stripe Payment Links, no API of ours.** `CHECKOUT_LINKS` in
+  `bank-nif.ts` holds one hosted link per product, verified against the live
+  checkout page (149, 497, 399, 597 euro). `checkoutUrl()` in `content/apply.ts`
+  appends a `client_reference_id` describing the order without personal data, so a
+  payment can be read back to the answers behind it. There is no checkout route, no
+  secret key and no webhook yet. Two NIFs on one order has no link, because a
+  Payment Link sells a fixed quantity, so that one case still goes to WhatsApp.
+- **After payment:** `/en/apply/success` (noindex) says what happens next and clears
+  the wizard's stored answers. It is only reached if each Payment Link is configured
+  in Stripe to redirect there, which is a dashboard setting, not code.
+- **Analytics:** `src/lib/analytics.ts` pushes funnel events to `window.dataLayer`
+  (`apply_step`, `apply_recommendation`, `begin_checkout`, `apply_exit`,
+  `purchase_landed`). `src/components/analytics.tsx` loads GTM only when
+  `NEXT_PUBLIC_GTM_ID` is set, so nothing third party runs until someone sets it.
+  No event carries personal data.
 - **Open before traffic:** Stripe Checkout behind the wizard result, document upload
   after payment, the answers from the client to the pending business questions (see
   `../notes/pendencias.md` in the workspace), Stripe purchase event wired to Google
@@ -143,6 +156,15 @@ on every push (Netlify), so commit only coherent states.
 - **Do not commit unless user asks.** `develop-split-a` and `develop-split-b` are parallel
   design variants of the main site; `main-split-bank-and-nif` is the bank + NIF product.
 - Tooling: `npm run typecheck` (tsc), `npm run lint`, `npm test` (vitest, `src/**/*.test.ts`).
+  `npm run dev` runs a `predev` that wipes `.next` only when it holds a production
+  build, because `next build` and `next dev` share that directory and dev on top of
+  build artefacts makes every route 404 with no error. `eslint` ignores `scripts/**`:
+  the Next presets take minutes on plain Node files and report nothing.
+- Environment: `.env.example` lists every variable the deploy will need, grouped by
+  phase (checkout, email, upload, analytics), all empty. `.env.local` mirrors it and
+  is gitignored. Nothing in the app reads an env var yet except `NEXT_PUBLIC_GTM_ID`.
+- `scripts/stripe-setup.mjs` creates the four products and prices from `PRICE_CENTS`
+  over the Stripe REST API, so the amounts in Stripe cannot drift from the page.
 
 ## Update protocol for this skill
 Update this file when:
