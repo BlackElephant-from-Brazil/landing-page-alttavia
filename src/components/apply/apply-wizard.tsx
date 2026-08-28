@@ -16,6 +16,7 @@ import type { StepProps } from "@/components/apply/steps/types";
 import { Progress } from "@/components/apply/ui/progress";
 import { WizardNav } from "@/components/apply/ui/wizard-nav";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
+import { trackExit, trackRecommendation, trackStep } from "@/lib/analytics";
 import { applyCopy } from "@/content/apply";
 import { recommend } from "@/lib/apply/recommend";
 import { clearAnswers, loadAnswers, saveAnswers } from "@/lib/apply/storage";
@@ -120,6 +121,21 @@ export function ApplyWizard() {
     setDirection(index > prevIndex ? 1 : -1);
     setPrevIndex(index);
   }
+
+  // One funnel event per screen the visitor actually reaches.
+  const screenId = index < steps.length ? steps[index]?.id : "result";
+  useEffect(() => {
+    if (!hydrated || !screenId) return;
+    if (screenId === "result") {
+      const rec = recommend(answers);
+      if (rec.kind === "exit") trackExit(rec.exit);
+      else trackRecommendation(rec.product, rec.quantity, rec.totalCents);
+    } else {
+      trackStep(index + 1, steps.length, screenId);
+    }
+    // Answers are read for the result payload only; the screen is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, screenId, index]);
 
   const goTo = (stepIndex: number) => {
     visited.current += 1;

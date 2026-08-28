@@ -156,6 +156,44 @@ export const applyCopy = {
     startOver: "Start over",
   },
 
+  /**
+   * Where Stripe sends the buyer after a successful payment. Reached only by
+   * people who have already paid, so it answers the one question they have:
+   * what happens now, and when.
+   */
+  success: {
+    meta: {
+      title: "Order received",
+      description: "What happens next on your Portuguese NIF and bank account order.",
+    },
+    eyebrow: "Payment received",
+    heading: "Your order is in.",
+    lead: "A receipt is on its way to the address you paid with. Here is the rest, in order.",
+    steps: [
+      {
+        title: "We read your order",
+        meta: "Within 1 business day",
+        body: "A member of the team checks what you bought against what you need, and emails you if anything looks off.",
+      },
+      {
+        title: "You send two documents",
+        meta: "5 minutes",
+        body: "That same email carries the upload link. **Passport and proof of address**, and for a bank account, proof of income or source of funds.",
+      },
+      {
+        title: "We file it and send it back",
+        meta: `NIF in ${TIMES.nif}`,
+        body: `Your NIF arrives by email in **${TIMES.nif}**. An account takes **${TIMES.bank}**, and the IBAN, card and online banking come with it.`,
+      },
+    ],
+    footnote: TIMING_DISCLAIMER,
+    helpTitle: "Nothing arrived, or something looks wrong?",
+    helpBody: `Check the spam folder first, then write to us. We answer on WhatsApp and at ${CONTACT.email}.`,
+    helpCta: "Write to us on WhatsApp",
+    helpMessage: "Hi, I just paid for my NIF or bank account order and would like to check on it.",
+    backHome: "Back to the main page",
+  },
+
   exits: {
     portugal: {
       heading: "This page is for people who have not moved yet.",

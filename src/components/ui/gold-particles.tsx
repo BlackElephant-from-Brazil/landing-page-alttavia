@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+
+import { useHydrated } from "@/lib/use-hydrated";
 
 type GoldParticlesProps = {
   count?: number;
@@ -48,8 +50,7 @@ export function GoldParticles({ count = 22, className = "" }: GoldParticlesProps
   // browser-normalized in ways the SSR HTML can't predict (animation shorthand
   // exploded into longhands, decimal precision trimmed), so we sidestep the
   // mismatch by mounting the decorative layer client-side only.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHydrated();
 
   if (!mounted) {
     return (

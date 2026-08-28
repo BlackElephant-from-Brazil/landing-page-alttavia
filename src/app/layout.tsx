@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Spectral, Inter } from "next/font/google";
+import { Analytics } from "@/components/analytics";
 import "./globals.css";
 
 const spectral = Spectral({
@@ -38,7 +39,10 @@ export default function RootLayout({
       className={`${spectral.variable} ${inter.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <Analytics />
+        {children}
+      </body>
     </html>
   );
 }

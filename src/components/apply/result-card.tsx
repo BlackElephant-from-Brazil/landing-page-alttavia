@@ -13,6 +13,7 @@ import {
   whatsappMessage,
   whatsappUrl,
 } from "@/content/apply";
+import { trackCheckoutClick } from "@/lib/analytics";
 import { totalCents } from "@/lib/apply/recommend";
 import type { Answers, Recommendation } from "@/lib/apply/types";
 
@@ -82,6 +83,7 @@ export function ResultCard({
           href={href}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => trackCheckoutClick(rec.product, rec.totalCents, payHref ? "stripe" : "whatsapp")}
           size="lg"
           variant="gold"
           className="mt-8 w-full"

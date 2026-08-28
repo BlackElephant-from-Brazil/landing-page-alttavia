@@ -9,6 +9,15 @@ import { cn } from "@/lib/cn";
 const LOCALE_COOKIE = "alttavia_locale";
 
 /**
+ * Writes the preference cookie. Kept at module scope: the browser document is
+ * not React state, and touching it from inside the component reads as a render
+ * side effect even though this only ever runs from a click.
+ */
+function persistLocale(target: Locale) {
+  document.cookie = `${LOCALE_COOKIE}=${target}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+}
+
+/**
  * Swaps the locale segment in the URL and sets the preference cookie
  * so the choice survives future visits.
  */
@@ -29,7 +38,7 @@ export function LanguageSwitcher({
     // Replace first path segment with the target locale.
     const rest = pathname.replace(/^\/[a-z]{2}(?=\/|$)/, "");
     const next = `/${target}${rest || ""}`;
-    document.cookie = `${LOCALE_COOKIE}=${target}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+    persistLocale(target);
     startTransition(() => {
       router.push(next);
       router.refresh();
