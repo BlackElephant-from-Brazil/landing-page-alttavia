@@ -8,8 +8,12 @@
  * Run it once with a test key and once with a live key. Test and live are
  * separate worlds in Stripe: separate products, prices, links and keys.
  *
- *   STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs
- *   STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs --live
+ *   npm run stripe:setup            reads STRIPE_SECRET_KEY from .env.local
+ *   npm run stripe:setup -- --live  same, for the live key
+ *
+ * Reading the key from .env.local rather than the command line keeps it out of
+ * your shell history, and works the same in cmd, PowerShell and bash, none of
+ * which agree on how to set a variable for one command.
  *
  * Safe to run again, and worth running again: it reuses anything already
  * tagged with the same `alttavia_product` metadata, and it repairs the
@@ -149,13 +153,37 @@ function readSiteUrl() {
   return match[1].replace(/\/+$/, "");
 }
 
-const KEY = process.env.STRIPE_SECRET_KEY;
+/**
+ * Minimal .env reader. An explicit environment variable still wins, so CI can
+ * override without editing a file.
+ */
+function readEnvFile(name) {
+  const values = {};
+  let source;
+  try {
+    source = readFileSync(join(ROOT, name), "utf8");
+  } catch {
+    return values;
+  }
+  for (const line of source.split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)$/);
+    if (!match) continue;
+    const value = match[2].trim().replace(/^["']|["']$/g, "");
+    if (value) values[match[1]] = value;
+  }
+  return values;
+}
+
+const fileEnv = readEnvFile(".env.local");
+const KEY = process.env.STRIPE_SECRET_KEY || fileEnv.STRIPE_SECRET_KEY;
 const live = process.argv.includes("--live");
 
 async function main() {
   if (!KEY) {
-    console.error("Set STRIPE_SECRET_KEY first.\n");
-    console.error("  STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs");
+    console.error("No STRIPE_SECRET_KEY found.\n");
+    console.error("Put it in .env.local:\n");
+    console.error("  STRIPE_SECRET_KEY=sk_test_...\n");
+    console.error("then run: npm run stripe:setup");
     process.exit(1);
   }
   const isLiveKey = KEY.startsWith("sk_live_");
