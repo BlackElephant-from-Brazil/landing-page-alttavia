@@ -111,10 +111,29 @@ async function stripe(path, { method = "GET", body } = {}) {
   return json;
 }
 
-/** Finds a product previously created by this script, if any. */
-async function findProduct(id) {
+/**
+ * Finds the product for this catalogue entry.
+ *
+ * First by our own metadata, then by exact name. The name fallback matters in
+ * live mode, where the four products were created by hand in the dashboard
+ * before this script existed: without it the script would quietly create a
+ * second "NIF + Bank Account" next to the real one, and repair the redirect on
+ * the wrong link. Adopting the existing product tags it so the next run finds
+ * it the fast way. Nothing else about it is touched.
+ */
+async function findProduct(id, name) {
   const { data } = await stripe("/products?limit=100&active=true");
-  return data.find((p) => p.metadata?.alttavia_product === id);
+  const tagged = data.find((p) => p.metadata?.alttavia_product === id);
+  if (tagged) return tagged;
+
+  const byName = data.find((p) => p.name === name);
+  if (!byName) return undefined;
+
+  console.log(`  adopted product ${name.padEnd(20)} ${byName.id} (created in the dashboard)`);
+  return stripe(`/products/${byName.id}`, {
+    method: "POST",
+    body: { "metadata[alttavia_product]": id },
+  });
 }
 
 /** Finds an active price on that product for the exact amount. */
@@ -210,7 +229,7 @@ async function main() {
       throw new Error(`PRICE_CENTS.${item.priceKey} is missing from bank-nif.ts`);
     }
 
-    let product = await findProduct(item.id);
+    let product = await findProduct(item.id, item.name);
     if (product) {
       console.log(`  reused product  ${item.name.padEnd(20)} ${product.id}`);
     } else {
@@ -276,12 +295,24 @@ async function main() {
   }
 
   if (isLiveKey) {
+    // The live links are hardcoded in bank-nif.ts, so a link Stripe just gave
+    // us that is not in there means the page is still sending buyers somewhere
+    // else. Silence here would look like success.
+    const source = readFileSync(join(ROOT, "src", "content", "bank-nif.ts"), "utf8");
+    const stale = linkLines.filter((line) => !source.includes(line.split("=")[1]));
+
     console.log("Set these in the Netlify environment:\n");
     console.log(envLines.join("\n"));
     console.log("");
     console.log("Leave the NEXT_PUBLIC_CHECKOUT_* variables UNSET in production.");
     console.log("The live links are the fallback baked into src/content/bank-nif.ts:\n");
     console.log(linkLines.map((l) => `  ${l}`).join("\n"));
+
+    if (stale.length) {
+      console.log("\n  ! These links are NOT in bank-nif.ts, so nothing points at them yet.");
+      console.log("    Update LIVE_CHECKOUT_LINKS there and redeploy, or the page keeps");
+      console.log("    selling through the old links.");
+    }
   } else {
     console.log("Paste this into .env.local so localhost never takes real money:\n");
     console.log([...linkLines, ...envLines].join("\n"));
