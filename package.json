@@ -10,7 +10,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "poa:preview": "tsx scripts/poa-preview.mjs"
+    "poa:preview": "tsx scripts/poa-preview.mjs",
+    "stripe:setup": "node scripts/stripe-setup.mjs"
   },
   "dependencies": {
     "cobe": "^2.0.1",

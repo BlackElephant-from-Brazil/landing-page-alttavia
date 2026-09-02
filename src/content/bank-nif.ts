@@ -64,12 +64,33 @@ export const APPLY_LINKS = {
  * a fixed quantity, and quantity adjustment is off on these. That order goes to
  * WhatsApp until a dedicated link exists.
  */
-export const CHECKOUT_LINKS = {
+const LIVE_CHECKOUT_LINKS = {
   nifOnly: "https://buy.stripe.com/7sY3cu2LB3wIgwW9oS63K0h",
   bundle: "https://buy.stripe.com/14AeVcdqf1oA0xY44y63K0i",
   bankOnly: "https://buy.stripe.com/28EaEWcmb6IUa8yeJc63K0j",
   couple: "https://buy.stripe.com/00w7sKgCr9V61C27gK63K0k",
 } as const;
+
+/**
+ * The links above are LIVE and take real money, so they are the fallback and
+ * never the thing a developer hits by accident: set the four NEXT_PUBLIC_
+ * variables in .env.local to Stripe's test links and localhost charges
+ * nothing. Production leaves them unset and gets the live links.
+ *
+ * They are NEXT_PUBLIC_ because the result screen is a client component; the
+ * URLs end up in the HTML either way, which is what a payment link is for.
+ */
+export const CHECKOUT_LINKS = {
+  nifOnly: process.env.NEXT_PUBLIC_CHECKOUT_NIF_ONLY || LIVE_CHECKOUT_LINKS.nifOnly,
+  bundle: process.env.NEXT_PUBLIC_CHECKOUT_BUNDLE || LIVE_CHECKOUT_LINKS.bundle,
+  bankOnly: process.env.NEXT_PUBLIC_CHECKOUT_BANK_ONLY || LIVE_CHECKOUT_LINKS.bankOnly,
+  couple: process.env.NEXT_PUBLIC_CHECKOUT_COUPLE || LIVE_CHECKOUT_LINKS.couple,
+} as const;
+
+/** True when the four links in use are Stripe's test-mode ones. */
+export function usingTestCheckout(): boolean {
+  return Object.values(CHECKOUT_LINKS).every((url) => url.includes("/test_"));
+}
 
 /**
  * Every price on the page.

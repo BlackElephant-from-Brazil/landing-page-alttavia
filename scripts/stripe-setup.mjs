@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 /**
- * Creates the four Bank + NIF products in Stripe and prints the env block to
+ * Sets up everything the checkout needs on the Stripe side: the four products,
+ * their prices, and a hosted payment link each, every link pointing back at
+ * our success page when the buyer finishes. Then it prints the env block to
  * paste into .env.local (local) or the Netlify dashboard (production).
  *
  * Run it once with a test key and once with a live key. Test and live are
- * separate worlds in Stripe: separate products, separate prices, separate ids.
+ * separate worlds in Stripe: separate products, prices, links and keys.
  *
  *   STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs
  *   STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs --live
  *
- * Safe to run again: it looks for products already tagged with the same
- * `alttavia_product` metadata and reuses them instead of creating duplicates.
+ * Safe to run again, and worth running again: it reuses anything already
+ * tagged with the same `alttavia_product` metadata, and it repairs the
+ * redirect on links that are missing it. Nothing is duplicated.
  *
  * Amounts are read from PRICE_CENTS in src/content/bank-nif.ts so Stripe can
  * never charge an amount the page does not show. Change the price there first.
@@ -41,6 +44,7 @@ const CATALOGUE = [
     id: "nif-only",
     priceKey: "nifOnly",
     env: "STRIPE_PRICE_NIF_ONLY",
+    linkEnv: "NEXT_PUBLIC_CHECKOUT_NIF_ONLY",
     name: "NIF only",
     description: "Portuguese tax number, filed with Finanças, with 12 months of tax representation included.",
   },
@@ -48,6 +52,7 @@ const CATALOGUE = [
     id: "bundle",
     priceKey: "bundle",
     env: "STRIPE_PRICE_BUNDLE",
+    linkEnv: "NEXT_PUBLIC_CHECKOUT_BUNDLE",
     name: "NIF + Bank Account",
     description: "Portuguese tax number and a Portuguese bank account, sequenced correctly, with 12 months of tax representation included.",
   },
@@ -55,6 +60,7 @@ const CATALOGUE = [
     id: "bank-only",
     priceKey: "bankOnly",
     env: "STRIPE_PRICE_BANK_ONLY",
+    linkEnv: "NEXT_PUBLIC_CHECKOUT_BANK_ONLY",
     name: "Bank Account only",
     description: "Portuguese bank account with Novo Banco for someone who already holds a NIF.",
   },
@@ -62,6 +68,7 @@ const CATALOGUE = [
     id: "couple",
     priceKey: "couple",
     env: "STRIPE_PRICE_COUPLE",
+    linkEnv: "NEXT_PUBLIC_CHECKOUT_COUPLE",
     name: "Couple package",
     description: "Two Portuguese tax numbers and one joint bank account, from one checkout.",
   },
@@ -112,6 +119,36 @@ async function findPrice(productId, amount) {
   return data.find((p) => p.unit_amount === amount && p.currency === "eur" && p.type === "one_time");
 }
 
+/** Finds an active payment link selling exactly this price. */
+async function findPaymentLink(priceId) {
+  const { data } = await stripe("/payment_links?limit=100&active=true");
+  for (const link of data) {
+    const { data: items } = await stripe(`/payment_links/${link.id}/line_items?limit=5`);
+    if (items.some((i) => i.price?.id === priceId)) return link;
+  }
+  return undefined;
+}
+
+/** True when the link already returns the buyer to our success page. */
+function redirectsTo(link, url) {
+  return link.after_completion?.type === "redirect" && link.after_completion.redirect?.url === url;
+}
+
+/**
+ * Where Stripe returns the buyer once payment succeeds. Always the production
+ * page, in both modes: Stripe will not redirect to localhost, and the page is
+ * a static explanation of what happens next, so a test buyer seeing it is
+ * harmless.
+ */
+const SUCCESS_URL = readSiteUrl() + "/en/apply/success";
+
+function readSiteUrl() {
+  const source = readFileSync(join(ROOT, "src", "content", "bank-nif.ts"), "utf8");
+  const match = source.match(/export const SITE_URL = "([^"]+)"/);
+  if (!match) throw new Error("Could not find SITE_URL in bank-nif.ts");
+  return match[1].replace(/\/+$/, "");
+}
+
 const KEY = process.env.STRIPE_SECRET_KEY;
 const live = process.argv.includes("--live");
 
@@ -137,6 +174,7 @@ async function main() {
   console.log(`\nStripe ${mode} mode\n`);
 
   const envLines = [];
+  const linkLines = [];
 
   for (const item of CATALOGUE) {
     const amount = cents[item.priceKey];
@@ -175,12 +213,51 @@ async function main() {
       console.log(`  created price   ${(amount / 100).toFixed(2).padStart(20)} ${price.id}`);
     }
 
+    // The payment link is what the wizard actually sends buyers to, and the
+    // redirect is what makes them land on our success page instead of
+    // Stripe's generic confirmation.
+    let link = await findPaymentLink(price.id);
+    if (!link) {
+      link = await stripe("/payment_links", {
+        method: "POST",
+        body: {
+          "line_items[0][price]": price.id,
+          "line_items[0][quantity]": "1",
+          "after_completion[type]": "redirect",
+          "after_completion[redirect][url]": SUCCESS_URL,
+          "metadata[alttavia_product]": item.id,
+        },
+      });
+      console.log(`  created link    ${item.name.padEnd(20)} ${link.url}`);
+    } else if (!redirectsTo(link, SUCCESS_URL)) {
+      link = await stripe(`/payment_links/${link.id}`, {
+        method: "POST",
+        body: {
+          "after_completion[type]": "redirect",
+          "after_completion[redirect][url]": SUCCESS_URL,
+        },
+      });
+      console.log(`  fixed redirect  ${item.name.padEnd(20)} ${link.url}`);
+    } else {
+      console.log(`  reused link     ${item.name.padEnd(20)} ${link.url}`);
+    }
+
     envLines.push(`${item.env}=${price.id}`);
+    linkLines.push(`${item.linkEnv}=${link.url}`);
     console.log("");
   }
 
-  console.log("Paste this into .env.local (test) or the Netlify environment (live):\n");
-  console.log(envLines.join("\n"));
+  if (isLiveKey) {
+    console.log("Set these in the Netlify environment:\n");
+    console.log(envLines.join("\n"));
+    console.log("");
+    console.log("Leave the NEXT_PUBLIC_CHECKOUT_* variables UNSET in production.");
+    console.log("The live links are the fallback baked into src/content/bank-nif.ts:\n");
+    console.log(linkLines.map((l) => `  ${l}`).join("\n"));
+  } else {
+    console.log("Paste this into .env.local so localhost never takes real money:\n");
+    console.log([...linkLines, ...envLines].join("\n"));
+  }
   console.log("");
 }
 

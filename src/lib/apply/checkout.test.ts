@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { checkoutReference, checkoutUrl } from "@/content/apply";
-import { CHECKOUT_LINKS, PRICE_CENTS } from "@/content/bank-nif";
+import { CHECKOUT_LINKS, PRICE_CENTS, usingTestCheckout } from "@/content/bank-nif";
 import { recommend } from "./recommend";
 import type { Answers } from "./types";
 
@@ -50,6 +50,12 @@ describe("payment link routing", () => {
   it("has a distinct link per product", () => {
     const links = Object.values(CHECKOUT_LINKS);
     expect(new Set(links).size).toBe(links.length);
+  });
+
+  it("falls back to the live links when no env override is set", () => {
+    // Guards the default: an unconfigured build must not silently point at
+    // test links and take no money.
+    expect(usingTestCheckout()).toBe(false);
   });
 
   it("points every link at Stripe over https", () => {
