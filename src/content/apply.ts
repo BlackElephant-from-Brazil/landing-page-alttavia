@@ -29,7 +29,7 @@ import {
   TIMING_DISCLAIMER,
 } from "@/content/bank-nif";
 import { countryByCode } from "@/lib/apply/countries";
-import { includesBank, includesNif, totalCents } from "@/lib/apply/recommend";
+import { includesBank, totalCents } from "@/lib/apply/recommend";
 import type { ServiceRow } from "@/lib/db/types";
 import type {
   Answers,
@@ -140,7 +140,7 @@ export const applyCopy = {
     whyTitle: "Why this one",
     totalLabel: "Total",
     cta: (total: string) => `Continue · ${total}`,
-    ctaHint: "Next, your email and a 6 digit code to open your client area. Secure payment through Stripe comes right after, then you upload your two documents.",
+    ctaHint: "Next, your email and a 6 digit code to open your client area. Secure payment through Stripe comes right after, then you upload your documents.",
     ctaPending: "Saving your application",
     docsTitle: "Have ready after payment",
     docs: {
@@ -197,9 +197,9 @@ export const applyCopy = {
         body: "A member of the team checks what you bought against what you need, and emails you if anything looks off.",
       },
       {
-        title: "You send two documents",
+        title: "You send your documents",
         meta: "5 minutes",
-        body: "That same email carries the upload link. **Passport and proof of address**, and for a bank account, proof of income or source of funds.",
+        body: "Open your client area and upload them there: **passport and proof of address**, plus the bank's documents if you ordered an account.",
       },
       {
         title: "We file it and send it back",
@@ -464,10 +464,11 @@ export function serviceFor(services: readonly ServiceRow[], product: ProductId):
 }
 
 /** Documents to have ready, derived from what the order contains. */
-export function documentsFor(rec: ProductRecommendation, answers: Answers): string[] {
+export function documentsFor(rec: ProductRecommendation): string[] {
   const docs: string[] = [...applyCopy.result.docs.nif];
   if (includesBank(rec.product)) docs.push(...applyCopy.result.docs.bank);
-  if (answers.applicants === "two" && (includesNif(rec.product) || rec.joint)) {
+  // Same rule as applicantsFor() in recommend.ts, which the dashboard uses.
+  if (rec.quantity === 2 || rec.joint) {
     docs.push(applyCopy.result.docs.partner);
   }
   return docs;

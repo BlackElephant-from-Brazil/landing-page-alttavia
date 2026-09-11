@@ -150,6 +150,16 @@ export function includesNif(product: ProductId): boolean {
   return product !== "bank-only";
 }
 
+/**
+ * How many people send documents for this order: two for the couple package,
+ * two NIFs on one order and any joint account (the bank wants both holders'
+ * files), one otherwise. The result screen and the dashboard both read it,
+ * so the partner's document list appears in the same cases on both.
+ */
+export function applicantsFor(order: Pick<Extract<Recommendation, { kind: "product" }>, "quantity" | "joint">): 1 | 2 {
+  return order.joint || order.quantity === 2 ? 2 : 1;
+}
+
 export function includesBank(product: ProductId): boolean {
   return product !== "nif-only";
 }

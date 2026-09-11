@@ -59,6 +59,10 @@ export function SuccessPanel() {
         ))}
       </ol>
 
+      <ButtonLink href="/en/dashboard" size="lg" className="mt-8">
+        Open my client area
+      </ButtonLink>
+
       <p className="mt-10 text-[0.8rem] leading-relaxed text-navy-muted">{copy.footnote}</p>
 
       <section className="mt-10 rounded-lg border border-navy/10 bg-white p-6 shadow-[var(--shadow-soft)]">

@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 
-import { getStripe } from "@/lib/stripe/client";
+import { getStripe, isLiveMode } from "@/lib/stripe/client";
 import { settleVerifiedSession, verifyPaidSession } from "@/lib/stripe/confirm";
 
 /**
@@ -51,6 +51,12 @@ export async function POST(request: Request) {
   } catch (err) {
     console.warn("POST /api/stripe/webhook: signature verification failed:", err);
     return Response.json({ error: "Invalid signature." }, { status: 400 });
+  }
+
+  // A test event reaching a live deploy (or the reverse) is signed correctly
+  // but belongs to the other world; it must never touch an order here.
+  if (event.livemode !== isLiveMode()) {
+    return Response.json({ received: true, ignored: "mode mismatch" });
   }
 
   if (!PAID_EVENTS.has(event.type)) {

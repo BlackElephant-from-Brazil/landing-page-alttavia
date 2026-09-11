@@ -206,7 +206,7 @@ from (values
   ('bank-only', 'bank_statements',   'Bank statements or annual income statement',
     'The last 3 months of statements, or your annual income statement.', 5),
   ('bank-only', 'employment_proof',  'Proof of profession',
-    'Employer statement or pay slip issued within the last 6 months. If self employed: commercial register excerpt, validated annual tax return and proof of services provided.', 6),
+    'Employer statement or payslip issued within the last 6 months. If self employed: commercial register excerpt, validated annual tax return and proof of services provided.', 6),
 
   -- bundle: we supply the Portuguese NIF, so it is not asked for
   ('bundle',    'passport',          'Passport',
@@ -218,7 +218,7 @@ from (values
   ('bundle',    'bank_statements',   'Bank statements or annual income statement',
     'The last 3 months of statements, or your annual income statement.', 4),
   ('bundle',    'employment_proof',  'Proof of profession',
-    'Employer statement or pay slip issued within the last 6 months. If self employed: commercial register excerpt, validated annual tax return and proof of services provided.', 5),
+    'Employer statement or payslip issued within the last 6 months. If self employed: commercial register excerpt, validated annual tax return and proof of services provided.', 5),
 
   -- couple: same list as the bundle, one of each per applicant
   ('couple',    'passport',          'Passport',
@@ -230,7 +230,7 @@ from (values
   ('couple',    'bank_statements',   'Bank statements or annual income statement',
     'The last 3 months of statements, or your annual income statement.', 4),
   ('couple',    'employment_proof',  'Proof of profession',
-    'Employer statement or pay slip issued within the last 6 months. If self employed: commercial register excerpt, validated annual tax return and proof of services provided.', 5)
+    'Employer statement or payslip issued within the last 6 months. If self employed: commercial register excerpt, validated annual tax return and proof of services provided.', 5)
 ) as v(slug, key, label, note, position)
 join public.services s on s.slug = v.slug
 on conflict (service_id, key) do update set

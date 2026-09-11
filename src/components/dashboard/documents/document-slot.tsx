@@ -211,6 +211,7 @@ export function DocumentSlot({
             href={`/api/documents/${current.id}`}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label={`View ${label}`}
             className="rounded-sm text-sm font-medium text-navy underline-offset-4 transition-colors duration-200 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             View

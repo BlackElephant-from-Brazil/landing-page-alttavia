@@ -2,14 +2,21 @@ import { MessageCircle } from "lucide-react";
 
 import { ButtonLink } from "@/components/ui/button";
 import { applyCopy, whatsappUrl } from "@/content/apply";
+import { CONTACT } from "@/content/bank-nif";
 
 /**
- * The small "write to us" box at the foot of the dashboard. Same copy and
- * same WhatsApp handoff as the order success screen, so a client who has
- * seen one recognises the other.
+ * The small "write to us" box at the foot of the dashboard. Same WhatsApp
+ * handoff as the order success screen, with its own copy: the client is
+ * looking at their order, not wondering whether a receipt arrived.
  */
+const copy = {
+  helpTitle: "Questions about your order?",
+  helpBody: `Write to us on WhatsApp or at ${CONTACT.email} and we answer the same business day.`,
+  helpCta: applyCopy.success.helpCta,
+  helpMessage: applyCopy.success.helpMessage,
+} as const;
+
 export function HelpBox() {
-  const copy = applyCopy.success;
   return (
     <section aria-labelledby="help-heading" className="rounded-lg border border-navy/10 bg-white p-6 shadow-[var(--shadow-soft)]">
       <h2 id="help-heading" className="font-serif text-lg text-navy">

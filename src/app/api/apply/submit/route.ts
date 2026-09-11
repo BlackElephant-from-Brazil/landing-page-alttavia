@@ -1,8 +1,8 @@
 import { alternativeFor } from "@/content/apply";
 import { SEED_QUESTIONS } from "@/lib/apply/questions";
-import { recommend } from "@/lib/apply/recommend";
+import { applicantsFor, recommend } from "@/lib/apply/recommend";
 import { sanitizeAnswers } from "@/lib/apply/storage";
-import { isComplete, peopleCount, pruneAnswers } from "@/lib/apply/steps";
+import { isComplete, pruneAnswers } from "@/lib/apply/steps";
 import { isProductId, type ProductId } from "@/lib/apply/types";
 import { getActiveQuestions, getServiceBySlug } from "@/lib/db/queries";
 import type { QuestionRow } from "@/lib/db/types";
@@ -83,6 +83,18 @@ export async function POST(request: Request) {
       return fail(500, SAVE_ERROR);
     }
 
+    // The table, PRICE_CENTS and the Stripe price must agree before an order
+    // exists, or the checkout would be verified against a total the buyer
+    // never saw. A drift is a deploy mistake, so it stops the order here.
+    const totalCents = service.price_cents * order.quantity;
+    const currency = service.currency || "eur";
+    if (totalCents !== order.totalCents) {
+      console.error(
+        `POST /api/apply/submit: price drift for ${product} x${order.quantity}: services table gives ${totalCents}, PRICE_CENTS gives ${order.totalCents}`,
+      );
+      return fail(500, SAVE_ERROR);
+    }
+
     const submissionId = crypto.randomUUID();
     const rows = await questionRows(admin);
     // The seeded keys are the ones the FK on user_answers.question_key can
@@ -115,9 +127,9 @@ export async function POST(request: Request) {
         answers_snapshot: answers,
         quantity: order.quantity,
         joint: order.joint,
-        applicants: peopleCount(answers),
-        total_cents: order.totalCents,
-        currency: service.currency || "eur",
+        applicants: applicantsFor(order),
+        total_cents: totalCents,
+        currency,
         stage_key: "awaiting_payment",
       })
       .select("id")

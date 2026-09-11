@@ -93,8 +93,8 @@ export const EMPLOYMENT_DOCUMENTS: Record<EmploymentStatus, readonly RequiredDoc
     {
       id: "bank-employer-statement",
       group: "employment",
-      label: "Employer statement or pay slip",
-      note: "A statement on company letterhead attesting your profession, stamped and signed by HR, or a pay slip issued within the last 6 months.",
+      label: "Employer statement or payslip",
+      note: "A statement on company letterhead attesting your profession, stamped and signed by HR, or a payslip issued within the last 6 months.",
       perApplicant: true,
     },
   ],

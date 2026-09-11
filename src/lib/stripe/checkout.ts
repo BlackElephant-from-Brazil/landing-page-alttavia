@@ -72,6 +72,20 @@ export async function createCheckoutForOrder(
 
   if (priceId) {
     const stripe = getStripe();
+
+    // A buyer who clicked Pay, closed Stripe and clicked again should land on
+    // the session they already have, not on a second one that could also be
+    // paid. An open session with a url is reused; anything else is expired
+    // (best effort) before a new one is created.
+    if (order.stripe_checkout_session_id) {
+      const existingId = order.stripe_checkout_session_id;
+      const existing = await stripe.checkout.sessions.retrieve(existingId).catch(() => null);
+      if (existing && existing.status === "open" && existing.url) {
+        return { url: existing.url };
+      }
+      await stripe.checkout.sessions.expire(existingId).catch(() => {});
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [{ price: priceId, quantity: order.quantity }],
@@ -108,10 +122,12 @@ export async function createCheckoutForOrder(
   if (order.quantity !== 1) {
     // A Payment Link sells a fixed quantity of one. Sending two NIFs there
     // would charge one and leave the order unconfirmable, which is the bug
-    // Checkout Sessions exist to fix.
-    throw new Error(
-      `createCheckoutForOrder: order ${order.id} needs quantity ${order.quantity}, which a payment link cannot sell; set a ${mode} price id for ${service.slug}`,
+    // Checkout Sessions exist to fix. The buyer gets a real message and a
+    // way to pay; the log names the fix.
+    console.error(
+      `createCheckoutForOrder: order ${order.id} needs quantity ${order.quantity}, which a payment link cannot sell; run stripe:setup --live to set a ${mode} price id for ${service.slug}`,
     );
+    throw new CheckoutError(409, "Write to us on WhatsApp to pay for two NIFs.");
   }
 
   const url = new URL(link);

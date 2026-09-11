@@ -279,7 +279,16 @@ create table public.user_service_deliverables (
 ```
 
 Also `create table public.schema_migrations (name text primary key, applied_at timestamptz not null default now());`
-in the migrate script itself, before anything else.
+in the migrate script itself, before anything else (with RLS enabled and no policies).
+
+Amended by `0004_hardening.sql` after the 2026-09-11 review: `user_services.user_id`
+and `user_answers.user_id` reference `public.users(id)` **on delete restrict**
+(deleting an account that has orders must fail loudly; anonymise the profile
+instead), `user_services (service_id, stage_key)` is a foreign key into
+`service_stages`, a partial unique index keeps one live document per slot
+(`status in ('uploaded','approved')`), and seed migrations (`*_seed_*.sql`)
+re-run on every `npm run db:migrate` so copy and price edits reach the
+database.
 
 ### Row level security
 

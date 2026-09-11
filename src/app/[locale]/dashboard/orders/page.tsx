@@ -28,7 +28,7 @@ export default async function OrdersPage({ params }: Props) {
     <div>
       <EyebrowSolo>Client area</EyebrowSolo>
       <h1 className="mt-4 font-serif text-[clamp(1.8rem,4vw,2.5rem)] leading-tight text-navy">Orders</h1>
-      <p className="mt-4 max-w-xl text-[0.98rem] leading-relaxed text-navy-soft">This page is under construction.</p>
+      <p className="mt-4 max-w-xl text-[0.98rem] leading-relaxed text-navy-soft">Your order history will appear here. For now, your current order is on the Dashboard.</p>
       <Link
         href={DASHBOARD_PATH}
         className="mt-8 inline-flex items-center gap-2 rounded-sm text-sm font-medium text-navy-soft underline-offset-4 transition-colors duration-200 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-paper"

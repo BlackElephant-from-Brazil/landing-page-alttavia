@@ -10,7 +10,9 @@ import { cn } from "@/lib/cn";
 /**
  * Second screen of the email code login: the 6 digit code Supabase sent to
  * `email`. The field submits on its own the moment six digits are in, and a
- * Verify button covers paste or autofill that lands short. On success
+ * Verify button covers paste or autofill that lands short. The input has no
+ * maxLength: handleChange strips non digits and caps the length itself, so a
+ * pasted "123 456" becomes 123456 instead of being cut at "123 45". On success
  * @supabase/ssr has already written the session cookies, so the caller only
  * has to navigate (`onVerified`).
  *
@@ -119,10 +121,11 @@ export function CodeStep({ email, onVerified, onChangeEmail, className }: CodeSt
       const supabase = createClient();
       const { error: authError } = await supabase.auth.verifyOtp({ email, token, type: "email" });
       if (authError) {
+        const limited = authError.code === "over_request_rate_limit" || authError.status === 429;
         const rejected =
           authError.code === "otp_expired" ||
           (authError.status !== undefined && authError.status >= 400 && authError.status < 500);
-        setError(rejected ? copy.errors.wrong : copy.errors.generic);
+        setError(limited ? copy.errors.rateLimited : rejected ? copy.errors.wrong : copy.errors.generic);
         setCode("");
         inputRef.current?.focus();
         return;
@@ -200,7 +203,6 @@ export function CodeStep({ email, onVerified, onChangeEmail, className }: CodeSt
           inputMode="numeric"
           autoComplete="one-time-code"
           pattern="[0-9]{6}"
-          maxLength={CODE_LENGTH}
           required
           value={code}
           onChange={handleChange}
@@ -224,7 +226,7 @@ export function CodeStep({ email, onVerified, onChangeEmail, className }: CodeSt
         <Button
           type="submit"
           size="lg"
-          disabled={pending || code.length !== CODE_LENGTH}
+          disabled={pending}
           className="mt-6 w-full sm:w-auto sm:min-w-[11rem]"
         >
           {pending ? copy.verifying : copy.verify}
@@ -237,7 +239,6 @@ export function CodeStep({ email, onVerified, onChangeEmail, className }: CodeSt
           type="button"
           onClick={() => void resend()}
           disabled={cooldown > 0 || resending || pending}
-          aria-live="polite"
           className={linkClass}
         >
           {cooldown > 0 ? copy.resendIn(cooldown) : copy.resend}

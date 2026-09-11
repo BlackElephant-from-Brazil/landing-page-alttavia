@@ -48,7 +48,7 @@ export function DocumentList({ order, docs, uploaded }: Props) {
         )}
       </div>
       <p className="mt-3 max-w-prose text-[0.95rem] leading-relaxed text-navy-soft">
-        Upload one file per line. We check each one and write to you if anything needs a second look.
+        Upload one file per document. We check each one and write to you if anything needs a second look.
       </p>
 
       {slots.length === 0 ? (

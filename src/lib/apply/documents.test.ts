@@ -30,11 +30,11 @@ describe("required documents", () => {
     const employed = requiredDocuments("bundle", "employed").map((d) => d.label);
     const selfEmployed = requiredDocuments("bundle", "self-employed").map((d) => d.label);
 
-    expect(employed).toContain("Employer statement or pay slip");
+    expect(employed).toContain("Employer statement or payslip");
     expect(employed).not.toContain("Commercial register excerpt");
     expect(selfEmployed).toContain("Commercial register excerpt");
     expect(selfEmployed).toContain("Annual tax return");
-    expect(selfEmployed).not.toContain("Employer statement or pay slip");
+    expect(selfEmployed).not.toContain("Employer statement or payslip");
   });
 
   it("only asks the bank's written questions when an account is on the order", () => {

@@ -37,7 +37,7 @@ export async function markOrderPaid(userServiceId: string, input: MarkPaidInput)
 
   const { data: order, error: orderError } = await admin
     .from("user_services")
-    .select("id, service_id, stage_key, total_cents, currency, paid_at")
+    .select("id, service_id, stage_key, total_cents, currency, paid_at, stripe_checkout_session_id")
     .eq("id", userServiceId)
     .maybeSingle();
   if (orderError) throw new Error(`markOrderPaid: ${orderError.message}`);
@@ -45,10 +45,19 @@ export async function markOrderPaid(userServiceId: string, input: MarkPaidInput)
 
   const current = order as Pick<
     UserServiceRow,
-    "id" | "service_id" | "stage_key" | "total_cents" | "currency" | "paid_at"
+    "id" | "service_id" | "stage_key" | "total_cents" | "currency" | "paid_at" | "stripe_checkout_session_id"
   >;
 
   if (current.paid_at) {
+    if (input.sessionId !== current.stripe_checkout_session_id) {
+      // Money arrived twice for one order. Nothing is written; someone has
+      // to refund the second payment by hand, so it is logged loudly.
+      console.error("second payment on a paid order, refund needed", {
+        userServiceId,
+        paidSession: current.stripe_checkout_session_id,
+        newSession: input.sessionId,
+      });
+    }
     return { changed: false, stageKey: current.stage_key };
   }
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { PRICES, PRICE_CENTS, formatEuro } from "@/content/bank-nif";
 import { COUNTRIES, isEea } from "./countries";
-import { recommend } from "./recommend";
+import { applicantsFor, recommend } from "./recommend";
 import type { Answers, Recommendation } from "./types";
 
 /** A non EEA resident with a non EEA passport and a D7 in progress: the typical buyer. */
@@ -146,6 +146,50 @@ describe("recommend: reasons", () => {
   it("names the partner when only the partner needs a NIF", () => {
     const rec = recommend({ ...base, applicants: "two", hasNif: [true, false], bank: "joint", passport: ["US", "US"] });
     expect(rec.kind === "product" && rec.reasons).toContain("partnerNeedsNif");
+  });
+});
+
+describe("applicantsFor: how many people send documents", () => {
+  const two = { ...base, applicants: "two" as const, passport: ["US", "US"] };
+
+  function product(a: Answers) {
+    const rec = recommend(a);
+    if (rec.kind !== "product") throw new Error(`expected a product, got exit ${rec.exit}`);
+    return rec;
+  }
+
+  it("is 1 when only one partner needs a NIF and there is no account", () => {
+    const rec = product({ ...two, hasNif: [true, false], bank: "none" });
+    expect(rec.product).toBe("nif-only");
+    expect(rec.quantity).toBe(1);
+    expect(applicantsFor(rec)).toBe(1);
+  });
+
+  it("is 2 for the couple package", () => {
+    const rec = product({ ...two, hasNif: [false, false], bank: "joint" });
+    expect(rec.product).toBe("couple");
+    expect(applicantsFor(rec)).toBe(2);
+  });
+
+  it("is 2 for two NIFs on one order", () => {
+    const rec = product({ ...two, hasNif: [false, false], bank: "none" });
+    expect(rec.product).toBe("nif-only");
+    expect(rec.quantity).toBe(2);
+    expect(applicantsFor(rec)).toBe(2);
+  });
+
+  it("is 2 for a joint bundle", () => {
+    const rec = product({ ...two, hasNif: [true, false], bank: "joint" });
+    expect(rec.product).toBe("bundle");
+    expect(rec.joint).toBe(true);
+    expect(applicantsFor(rec)).toBe(2);
+  });
+
+  it("is 1 for a single bundle", () => {
+    const rec = product(base);
+    expect(rec.product).toBe("bundle");
+    expect(rec.joint).toBe(false);
+    expect(applicantsFor(rec)).toBe(1);
   });
 });
 

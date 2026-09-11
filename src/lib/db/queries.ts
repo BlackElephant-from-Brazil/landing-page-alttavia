@@ -81,12 +81,20 @@ export async function getServiceDocs(db: Db, serviceId: string): Promise<Service
   return (data ?? []) as ServiceDocRow[];
 }
 
-/** The user's most recent order, or null when they have none. */
+/**
+ * The order the dashboard should show, or null when the user has none.
+ *
+ * Orders that are finished are left out. Among the rest, a paid order wins
+ * over a newer unpaid one, so a client who started a second application by
+ * mistake still sees the order they are paying for; then the newest.
+ */
 export async function getLatestUserService(db: Db, userId: string): Promise<UserServiceRow | null> {
   const { data, error } = await db
     .from("user_services")
     .select("*")
     .eq("user_id", userId)
+    .is("completed_at", null)
+    .order("paid_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

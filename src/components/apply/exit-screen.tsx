@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { applyCopy, whatsappUrl } from "@/content/apply";
@@ -21,10 +22,17 @@ export function ExitScreen({
   const message = notes.includes("childrenNifs")
     ? `${copy.message} We also need NIFs for children.`
     : copy.message;
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // Same as the result card: the heading takes focus when the screen appears.
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true });
+  }, []);
 
   return (
     <div>
       <h2
+        ref={headingRef}
         tabIndex={-1}
         className="font-serif text-[clamp(1.6rem,3.3vw,2.25rem)] leading-tight text-balance text-navy outline-none"
       >

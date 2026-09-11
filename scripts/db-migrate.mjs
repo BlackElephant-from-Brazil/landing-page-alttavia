@@ -6,6 +6,9 @@
  *   npm run db:migrate            apply every file not yet recorded
  *   npm run db:migrate -- --dry   list what would run, change nothing
  *
+ * Files with "_seed_" in the name run every time, recorded or not; their
+ * inserts are upserts, so a seed edit needs no new file.
+ *
  * There is no database URL and no psql involved: every file is posted to the
  * Supabase Management API (POST /v1/projects/{ref}/database/query) with the
  * personal access token read from .env.local (SUPABASE_ACCESS_TOKEN). An
@@ -34,7 +37,17 @@ const CREATE_LEDGER = `
 create table if not exists public.schema_migrations (
   name        text primary key,
   applied_at  timestamptz not null default now()
-);`;
+);
+alter table public.schema_migrations enable row level security;`;
+
+/**
+ * Seed files run on every migrate, recorded or not. Their inserts are all
+ * `on conflict do update`, so a copy edit in a seed reaches the database
+ * without a new migration file.
+ */
+function isSeed(name) {
+  return name.includes("_seed_");
+}
 
 /**
  * Minimal .env reader, the same one scripts/stripe-setup.mjs uses. CRLF
@@ -125,22 +138,27 @@ async function main() {
 
   let pending = 0;
   for (const name of files) {
-    if (applied.has(name)) {
+    const seed = isSeed(name);
+    const rerun = seed && applied.has(name);
+    if (applied.has(name) && !seed) {
       console.log(`  skipped   ${name}  (already applied)`);
       continue;
     }
     pending += 1;
     if (dry) {
-      console.log(`  would run ${name}`);
+      console.log(`  would run ${name}${rerun ? "  (seed, runs every time)" : ""}`);
       continue;
     }
 
     const sql = readFileSync(join(MIGRATIONS_DIR, name), "utf8");
     // Recorded in the same request, so a failing file is never marked applied.
-    const record = `insert into public.schema_migrations (name) values ('${name.replace(/'/g, "''")}');`;
+    const quoted = `'${name.replace(/'/g, "''")}'`;
+    const record = seed
+      ? `insert into public.schema_migrations (name) values (${quoted}) on conflict (name) do update set applied_at = now();`
+      : `insert into public.schema_migrations (name) values (${quoted});`;
     try {
       await query(`${sql}\n\n${record}`);
-      console.log(`  applied   ${name}`);
+      console.log(`  ${rerun ? "reran    " : "applied  "} ${name}`);
     } catch (err) {
       console.error(`  FAILED    ${name}\n`);
       console.error(`${err.message}\n`);

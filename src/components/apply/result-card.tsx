@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ArrowRight, Check, FileText, Info } from "lucide-react";
 import { RichText } from "@/components/bank/rich-text";
 import { Button } from "@/components/ui/button";
@@ -55,11 +56,19 @@ export function ResultCard({
   const service = serviceFor(services, rec.product);
   const total = orderTotal(rec);
   const picked = rec.preselected ? serviceFor(services, rec.preselected) : undefined;
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // The screen replaces a question; a screen reader hears the result instead
+  // of staying on a button that no longer exists.
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true });
+  }, []);
 
   return (
     <div>
       <EyebrowSolo>{copy.eyebrow}</EyebrowSolo>
       <h2
+        ref={headingRef}
         tabIndex={-1}
         className="mt-4 font-serif text-[clamp(1.6rem,3.3vw,2.25rem)] leading-tight text-balance text-navy outline-none"
       >
@@ -143,7 +152,7 @@ export function ResultCard({
       <section className="mt-8">
         <h3 className="text-xs uppercase tracking-wider text-navy-muted">{copy.docsTitle}</h3>
         <ul className="mt-3 flex flex-wrap gap-2">
-          {documentsFor(rec, answers).map((doc) => (
+          {documentsFor(rec).map((doc) => (
             <li
               key={doc}
               className="inline-flex items-center gap-2 rounded-full border border-navy/10 bg-white px-3.5 py-1.5 text-[0.85rem] text-navy"
