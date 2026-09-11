@@ -1,0 +1,142 @@
+import { EyebrowSolo } from "@/components/ui/eyebrow";
+import type { ServiceDocRow, UserDocumentRow, UserServiceRow } from "@/lib/db/types";
+
+import { DocumentSlot, type SlotDocument } from "./document-slot";
+
+/**
+ * The documents section of the dashboard, shown once an order is paid.
+ *
+ * Server component: it takes the order, the service's document list and
+ * every upload attempt so far, and lays out one slot per document and per
+ * applicant. Two applicants get one group each ("You", "Your partner");
+ * documents the service needs only once sit under a third group. A slot
+ * shows the latest attempt for its document and applicant; earlier rows stay
+ * in the table as history and are not shown.
+ */
+
+type Props = {
+  order: UserServiceRow;
+  docs: ServiceDocRow[];
+  uploaded: UserDocumentRow[];
+};
+
+type Slot = {
+  doc: ServiceDocRow;
+  applicantIndex: 0 | 1;
+  current?: SlotDocument;
+};
+
+const APPLICANT_LABELS = ["You", "Your partner"] as const;
+const SHARED_LABEL = "For both of you";
+
+export function DocumentList({ order, docs, uploaded }: Props) {
+  const applicants = order.applicants === 2 ? 2 : 1;
+  const slots = buildSlots(docs, uploaded, applicants);
+  const received = slots.filter((s) => s.current?.status === "uploaded" || s.current?.status === "approved").length;
+
+  return (
+    <section aria-labelledby="documents-heading">
+      <EyebrowSolo>Documents</EyebrowSolo>
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <h2 id="documents-heading" className="font-serif text-[clamp(1.4rem,2.6vw,1.85rem)] leading-tight text-navy">
+          Send your documents
+        </h2>
+        {slots.length > 0 && (
+          <p className="text-sm text-navy-muted">
+            {received} of {slots.length} received
+          </p>
+        )}
+      </div>
+      <p className="mt-3 max-w-prose text-[0.95rem] leading-relaxed text-navy-soft">
+        Upload one file per line. We check each one and write to you if anything needs a second look.
+      </p>
+
+      {slots.length === 0 ? (
+        <p className="mt-6 rounded-lg border border-navy/10 bg-white px-5 py-4 text-[0.95rem] text-navy-soft shadow-[var(--shadow-soft)]">
+          Nothing to upload for this service.
+        </p>
+      ) : applicants === 2 ? (
+        <div className="mt-8 space-y-10">
+          {APPLICANT_LABELS.map((heading, index) => (
+            <Group
+              key={heading}
+              heading={heading}
+              order={order}
+              slots={slots.filter((s) => s.doc.per_applicant && s.applicantIndex === index)}
+            />
+          ))}
+          <Group heading={SHARED_LABEL} order={order} slots={slots.filter((s) => !s.doc.per_applicant)} />
+        </div>
+      ) : (
+        <SlotList order={order} slots={slots} className="mt-6" />
+      )}
+    </section>
+  );
+}
+
+function Group({ heading, order, slots }: { heading: string; order: UserServiceRow; slots: Slot[] }) {
+  if (slots.length === 0) return null;
+  return (
+    <div>
+      <h3 className="text-xs font-medium uppercase tracking-[0.18em] text-gold-dark">{heading}</h3>
+      <SlotList order={order} slots={slots} className="mt-3" />
+    </div>
+  );
+}
+
+function SlotList({ order, slots, className }: { order: UserServiceRow; slots: Slot[]; className?: string }) {
+  return (
+    <ul className={`${className ?? ""} space-y-4`.trim()}>
+      {slots.map(({ doc, applicantIndex, current }) => (
+        <DocumentSlot
+          // The key carries the latest row and its status, so a slot mounts
+          // fresh when a refresh brings a new upload or a review back.
+          key={`${doc.id}:${applicantIndex}:${current?.id ?? "none"}:${current?.status ?? ""}`}
+          userServiceId={order.id}
+          serviceDocId={doc.id}
+          applicantIndex={applicantIndex}
+          label={doc.label}
+          note={doc.required ? doc.note : ["Optional.", doc.note].filter(Boolean).join(" ")}
+          acceptedMime={doc.accepted_mime}
+          maxBytes={doc.max_bytes}
+          current={current}
+        />
+      ))}
+    </ul>
+  );
+}
+
+/** One slot per document and applicant, in `position` order, each with its latest attempt. */
+function buildSlots(docs: ServiceDocRow[], uploaded: UserDocumentRow[], applicants: 1 | 2): Slot[] {
+  const sorted = [...docs].sort((a, b) => a.position - b.position);
+  const slots: Slot[] = [];
+  for (const doc of sorted) {
+    const count = doc.per_applicant ? applicants : 1;
+    for (let index = 0; index < count; index++) {
+      const applicantIndex = index as 0 | 1;
+      const latest = latestFor(uploaded, doc.id, applicantIndex);
+      slots.push({
+        doc,
+        applicantIndex,
+        current: latest
+          ? {
+              id: latest.id,
+              status: latest.status,
+              fileName: latest.file_name,
+              rejectionReason: latest.rejection_reason,
+            }
+          : undefined,
+      });
+    }
+  }
+  return slots;
+}
+
+function latestFor(uploaded: UserDocumentRow[], serviceDocId: string, applicantIndex: 0 | 1): UserDocumentRow | null {
+  let latest: UserDocumentRow | null = null;
+  for (const row of uploaded) {
+    if (row.service_doc_id !== serviceDocId || row.applicant_index !== applicantIndex) continue;
+    if (!latest || row.created_at > latest.created_at) latest = row;
+  }
+  return latest;
+}

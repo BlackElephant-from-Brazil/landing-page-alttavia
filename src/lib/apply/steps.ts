@@ -1,9 +1,16 @@
-import { isCountryCode, isEea } from "./countries";
+import { buildSteps, peopleCount, SEED_QUESTIONS, type QuestionStep } from "./questions";
 import type { Answers, Applicants, BankChoice, Visa } from "./types";
 
 /**
  * The wizard's screens, in order. Pure data so the wizard, the progress bar
  * and the deep link clamp all agree on what "step 3" means.
+ *
+ * Since the questions moved to the database, the steps are built from
+ * question rows by `buildSteps()` in ./questions.ts. `STEPS` is the build of
+ * the seed rows, which is what the wizard used to hardcode and what it falls
+ * back to when the database cannot be read. Every helper below takes an
+ * optional step list so the wizard can pass the one built from live rows;
+ * without it they work on `STEPS` exactly as before.
  *
  * `visibleWhen` hides screens that do not apply (partner rows, the visa screen
  * for all EEA passports). `isValid` gates the Continue button and is also how
@@ -15,13 +22,12 @@ import type { Answers, Applicants, BankChoice, Visa } from "./types";
  * of the next screen.
  */
 
+/** The keys of the six seeded questions. Rows added later carry other keys. */
 export type StepId = "residence" | "who" | "has-nif" | "bank" | "passport" | "visa";
 
-export type Step = {
-  id: StepId;
-  visibleWhen: (a: Answers) => boolean;
-  isValid: (a: Answers) => boolean;
-};
+export type Step = QuestionStep;
+
+export { peopleCount };
 
 export const APPLICANT_OPTIONS: readonly Applicants[] = ["one", "two", "more"];
 export const BANK_OPTIONS_SINGLE: readonly BankChoice[] = ["yes", "none"];
@@ -40,80 +46,37 @@ export const VISA_OPTIONS: readonly Visa[] = [
   "none",
 ];
 
-export function peopleCount(a: Answers): 1 | 2 {
-  return a.applicants === "two" ? 2 : 1;
-}
-
-function everyPerson(a: Answers, check: (i: number) => boolean): boolean {
-  return Array.from({ length: peopleCount(a) }, (_, i) => i).every(check);
-}
-
-export const STEPS: readonly Step[] = [
-  {
-    id: "residence",
-    visibleWhen: () => true,
-    isValid: (a) => isCountryCode(a.residence),
-  },
-  {
-    id: "who",
-    visibleWhen: () => true,
-    isValid: (a) => a.applicants !== undefined && APPLICANT_OPTIONS.includes(a.applicants),
-  },
-  {
-    id: "has-nif",
-    visibleWhen: (a) => a.applicants !== "more",
-    isValid: (a) => everyPerson(a, (i) => typeof a.hasNif?.[i] === "boolean"),
-  },
-  {
-    id: "bank",
-    visibleWhen: (a) => a.applicants !== "more",
-    isValid: (a) => {
-      const options = a.applicants === "two" ? BANK_OPTIONS_COUPLE : BANK_OPTIONS_SINGLE;
-      return a.bank !== undefined && options.includes(a.bank);
-    },
-  },
-  {
-    id: "passport",
-    visibleWhen: (a) => a.applicants !== "more" && a.bank !== "separate",
-    isValid: (a) => everyPerson(a, (i) => isCountryCode(a.passport?.[i])),
-  },
-  {
-    id: "visa",
-    // Only the bank cares about the visa, and only for non EEA passports.
-    visibleWhen: (a) =>
-      a.applicants !== "more" &&
-      (a.bank === "yes" || a.bank === "joint") &&
-      Array.from({ length: peopleCount(a) }, (_, i) => a.passport?.[i]).some((p) => !isEea(p)),
-    isValid: (a) => a.visa !== undefined && VISA_OPTIONS.includes(a.visa),
-  },
-];
+export const STEPS: readonly Step[] = buildSteps(SEED_QUESTIONS);
 
 /** Steps that apply to these answers, in order. */
-export function visibleSteps(a: Answers): Step[] {
-  return STEPS.filter((s) => s.visibleWhen(a));
+export function visibleSteps(a: Answers, steps: readonly Step[] = STEPS): Step[] {
+  return steps.filter((s) => s.visibleWhen(a));
 }
 
 /**
  * The furthest screen this visitor may be on: the first visible step whose
  * answer is missing, or one past the last step (the result) when all are in.
  */
-export function maxReachable(a: Answers): number {
-  const steps = visibleSteps(a);
-  const firstInvalid = steps.findIndex((s) => !s.isValid(a));
-  return firstInvalid === -1 ? steps.length : firstInvalid;
+export function maxReachable(a: Answers, steps: readonly Step[] = STEPS): number {
+  const visible = visibleSteps(a, steps);
+  const firstInvalid = visible.findIndex((s) => !s.isValid(a));
+  return firstInvalid === -1 ? visible.length : firstInvalid;
 }
 
 /** True when every visible step is answered, so the result can be shown. */
-export function isComplete(a: Answers): boolean {
-  return maxReachable(a) === visibleSteps(a).length;
+export function isComplete(a: Answers, steps: readonly Step[] = STEPS): boolean {
+  return maxReachable(a, steps) === visibleSteps(a, steps).length;
 }
 
 /**
  * Trims answers that belong to screens no longer visible, so a visitor who
  * goes back and switches from "me and my partner" to "just me" does not carry
  * a partner's passport into the engine.
+ *
+ * Knows the six seeded fields by name. A question added in the database is
+ * not pruned here; see the note at the top of ./questions.ts.
  */
-export function pruneAnswers(a: Answers): Answers {
+export function pruneAnswers(a: Answers, steps: readonly Step[] = STEPS): Answers {
   const people = peopleCount(a);
   const next: Answers = { ...a };
   if (a.applicants === "more") {
@@ -129,6 +92,7 @@ export function pruneAnswers(a: Answers): Answers {
     const options = people === 2 ? BANK_OPTIONS_COUPLE : BANK_OPTIONS_SINGLE;
     if (!options.includes(next.bank)) delete next.bank;
   }
-  if (!STEPS.find((s) => s.id === "visa")!.visibleWhen(next)) delete next.visa;
+  const visa = steps.find((s) => s.id === "visa") ?? STEPS.find((s) => s.id === "visa");
+  if (visa && !visa.visibleWhen(next)) delete next.visa;
   return next;
 }

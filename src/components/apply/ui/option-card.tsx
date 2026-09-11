@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * A selectable card backed by a native radio input, so keyboard, screen reader
- * and form semantics come for free: arrow keys move between options, Space
+ * and form semantics come built in: arrow keys move between options, Space
  * selects, Enter submits the surrounding form.
  *
  * Visual language borrowed from the featured pricing card: navy fill and gold

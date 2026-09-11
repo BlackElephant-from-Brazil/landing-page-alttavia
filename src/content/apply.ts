@@ -23,12 +23,14 @@ import {
   CHECKOUT_LINKS,
   CONTACT,
   formatEuro,
+  PRICE_CENTS,
   PRICES,
   TIMES,
   TIMING_DISCLAIMER,
 } from "@/content/bank-nif";
 import { countryByCode } from "@/lib/apply/countries";
-import { includesBank, includesNif } from "@/lib/apply/recommend";
+import { includesBank, includesNif, totalCents } from "@/lib/apply/recommend";
+import type { ServiceRow } from "@/lib/db/types";
 import type {
   Answers,
   Applicants,
@@ -64,7 +66,7 @@ export const applyCopy = {
 
   intro: {
     eyebrow: "Start my application",
-    lead: "A few questions so we recommend the right package. No account to create, nothing to upload yet.",
+    lead: "A few questions so we recommend the right package. Nothing to upload yet.",
   },
 
   steps: {
@@ -137,11 +139,9 @@ export const applyCopy = {
     heading: "Here is what fits your answers.",
     whyTitle: "Why this one",
     totalLabel: "Total",
-    cta: (total: string) => `Pay ${total} and start`,
-    ctaHint: "Secure payment through Stripe. You upload your two documents right after, and that is the last thing we need from you.",
-    /** Orders a Payment Link cannot take yet, so they go to WhatsApp instead. */
-    ctaManual: (total: string) => `Order on WhatsApp · ${total}`,
-    ctaManualHint: "Two NIFs on one order are arranged by message. We reply with a payment link the same business day.",
+    cta: (total: string) => `Continue · ${total}`,
+    ctaHint: "Next, your email and a 6 digit code to open your client area. Secure payment through Stripe comes right after, then you upload your two documents.",
+    ctaPending: "Saving your application",
     docsTitle: "Have ready after payment",
     docs: {
       nif: ["Passport", "Proof of address"],
@@ -154,6 +154,27 @@ export const applyCopy = {
     keepPicked: (picked: string, price: string) => `Keep ${picked} · ${price}`,
     footnote: TIMING_DISCLAIMER,
     startOver: "Start over",
+  },
+
+  /**
+   * The two screens after the result: email, then the 6 digit code. They
+   * open the client area where the order is paid and the documents are
+   * uploaded. The form components carry their own field copy; this is what
+   * the wizard wraps around them.
+   */
+  account: {
+    eyebrow: "Your client area",
+    emailHeading: "Where should we send your code?",
+    emailLead: (order: string, total: string) =>
+      `Your order is ${order} for ${total}. Enter your email and we send a 6 digit code. No password needed.`,
+    emailSubmit: "Send my code",
+    savingHeading: "Opening your client area",
+    savingLead: "One moment. Your answers are being saved to your account.",
+    errors: {
+      save: "Your application could not be saved. Please try again.",
+      retry: "Try again",
+      signedOut: "Your session ended. Enter your email again to continue.",
+    },
   },
 
   /**
@@ -312,9 +333,11 @@ type ProductRecommendation = Extract<Recommendation, { kind: "product" }>;
 
 /**
  * The feature list for this exact order. Joint orders and double NIF orders
- * are not the pricing card verbatim, so they are rewritten here.
+ * are not the pricing card verbatim, so they are rewritten here. Everything
+ * else reads the service row's `includes` when one is passed, and the
+ * pricing card otherwise.
  */
-export function includesFor(rec: ProductRecommendation): readonly string[] {
+export function includesFor(rec: ProductRecommendation, service?: ServiceRow): readonly string[] {
   if (rec.product === "nif-only" && rec.quantity === 2) {
     return [
       "Two official NIFs, filed directly with Finanças",
@@ -339,17 +362,105 @@ export function includesFor(rec: ProductRecommendation): readonly string[] {
       "IBAN, debit card and online banking",
     ];
   }
+  const fromRow = service?.includes;
+  if (Array.isArray(fromRow) && fromRow.length > 0) return fromRow;
   return PRODUCTS[rec.product].includes;
 }
 
 /** "NIF only · x2" when two are ordered. */
-export function orderName(rec: ProductRecommendation): string {
-  const name = PRODUCTS[rec.product].name;
+export function orderName(rec: ProductRecommendation, service?: ServiceRow): string {
+  const name = service?.name || PRODUCTS[rec.product].name;
   return rec.quantity === 2 ? `${name} · x2` : name;
 }
 
 export function orderTotal(rec: ProductRecommendation): string {
   return formatEuro(rec.totalCents);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Alternatives                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How many units of `product` these answers buy. The same rule the engine
+ * applies to its own recommendation: NIF only is sold per adult without a
+ * NIF, everything else is one unit for the household. Two adults without
+ * NIFs who pick NIF only over the couple package are therefore charged two,
+ * never one.
+ */
+export function quantityFor(product: ProductId, answers: Answers): 1 | 2 {
+  if (product !== "nif-only") return 1;
+  const people = answers.applicants === "two" ? 2 : 1;
+  const missing = Array.from({ length: people }, (_, i) => answers.hasNif?.[i] !== true).filter(Boolean).length;
+  return missing >= 2 ? 2 : 1;
+}
+
+/**
+ * The order for `product` chosen from `rec.valid`: quantity from the rule
+ * above, joint only when the product opens an account and the household asked
+ * for a joint one. For `rec.product` itself it equals the engine's own order.
+ * Both the result screen and POST /api/apply/submit build alternatives here,
+ * so the browser and the server can never price the same choice differently.
+ */
+export function alternativeFor(rec: ProductRecommendation, product: ProductId, answers: Answers): ProductRecommendation {
+  const quantity = quantityFor(product, answers);
+  return {
+    ...rec,
+    product,
+    quantity,
+    totalCents: totalCents(product, quantity),
+    joint: includesBank(product) && answers.bank === "joint",
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Services                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const SEED_TIME = "2026-09-11T00:00:00.000Z";
+
+function fallbackService(product: Product, position: number, cents: number): ServiceRow {
+  return {
+    id: `4a7e1d2c-000${position}-4b8f-9c1d-0a1b2c3d4e0${position}`,
+    slug: product.id,
+    name: product.name,
+    tagline: product.summary,
+    description: null,
+    price_cents: cents,
+    currency: "eur",
+    includes: [...product.includes],
+    timeline: product.time,
+    supports_quantity: product.id === "nif-only",
+    stripe_price_id_test: null,
+    stripe_price_id_live: null,
+    stripe_payment_link_test: null,
+    stripe_payment_link_live: null,
+    position,
+    active: true,
+    created_at: SEED_TIME,
+    updated_at: SEED_TIME,
+  };
+}
+
+/**
+ * The four services as `public.services` rows, built from PRODUCTS and
+ * PRICE_CENTS. The apply page passes these to the wizard when the database
+ * cannot be read, so the result screen renders the same copy either way.
+ */
+export const FALLBACK_SERVICES: readonly ServiceRow[] = [
+  fallbackService(PRODUCTS["nif-only"], 1, PRICE_CENTS.nifOnly),
+  fallbackService(PRODUCTS.bundle, 2, PRICE_CENTS.bundle),
+  fallbackService(PRODUCTS["bank-only"], 3, PRICE_CENTS.bankOnly),
+  fallbackService(PRODUCTS.couple, 4, PRICE_CENTS.couple),
+];
+
+/** The row for a product, from the list given or from the fallback when it is missing there. */
+export function serviceFor(services: readonly ServiceRow[], product: ProductId): ServiceRow {
+  return (
+    services.find((s) => s.slug === product) ??
+    FALLBACK_SERVICES.find((s) => s.slug === product) ??
+    fallbackService(PRODUCTS[product], 0, totalCents(product, 1))
+  );
 }
 
 /** Documents to have ready, derived from what the order contains. */
@@ -395,10 +506,13 @@ export function checkoutReference(rec: ProductRecommendation, answers: Answers):
 }
 
 /**
- * Where the buy button goes. Null when this order cannot be sold by a Payment
- * Link as it stands, which today is only two NIFs on one order: the link sells
- * one, and quantity adjustment is off. The result screen falls back to
- * WhatsApp for that case.
+ * The Payment Link for this order, or null when a link cannot sell it (two
+ * NIFs on one order: a link sells one, and quantity adjustment is off).
+ *
+ * The result screen no longer links here: orders are created by
+ * POST /api/apply/submit and paid from the dashboard through a Checkout
+ * Session, which sells quantity 2. Kept for the link routing test and as a
+ * reference for the live Payment Links.
  */
 export function checkoutUrl(rec: ProductRecommendation, answers: Answers): string | null {
   if (rec.quantity !== 1) return null;
@@ -411,8 +525,9 @@ export function checkoutUrl(rec: ProductRecommendation, answers: Answers): strin
 /* -------------------------------------------------------------------------- */
 
 /**
- * Until checkout exists, the result screen hands the order to WhatsApp with
- * the package already written out, so the firm replies with a payment link.
+ * A WhatsApp message with the package already written out. The result screen
+ * no longer uses it (orders go through the account); kept for the exit
+ * screens' sibling helpers and for a manual handoff when one is needed.
  */
 export function whatsappMessage(rec: ProductRecommendation, answers: Answers): string {
   const people = answers.applicants === "two" ? "2 applicants" : "1 applicant";
