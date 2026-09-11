@@ -286,9 +286,15 @@ and `user_answers.user_id` reference `public.users(id)` **on delete restrict**
 (deleting an account that has orders must fail loudly; anonymise the profile
 instead), `user_services (service_id, stage_key)` is a foreign key into
 `service_stages`, a partial unique index keeps one live document per slot
-(`status in ('uploaded','approved')`), and seed migrations (`*_seed_*.sql`)
-re-run on every `npm run db:migrate` so copy and price edits reach the
-database.
+(`status in ('uploaded','approved')`). Seed migrations (`*_seed_*.sql`) run
+**once** like every other file; `npm run db:migrate -- --seed` re-runs them,
+which overwrites whatever the admin service editor changed, so use it only on
+a fresh project. Since 2026-09-11 the services table is the source of truth
+for services (edited at `/admin/services`); the four application form slugs
+keep slug and price locked, because `recommend()` and the landing page price
+them from code. `0006_admin_hardening.sql` revokes every write grant from
+`anon` and `authenticated` (only `update (full_name, phone)` on `users`
+remains), so RLS is no longer the only thing between a client and a write.
 
 ### Row level security
 
