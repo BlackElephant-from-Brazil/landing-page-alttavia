@@ -1,12 +1,18 @@
+import type { Metadata } from "next";
+
 import { PasswordForm } from "@/components/admin/settings/password-form";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
+import { requireAdminPage } from "@/lib/supabase/admin-user";
+
+export const metadata: Metadata = { title: "Settings" };
 
 /**
  * /admin/settings. Contract (docs/admin-contract.md) section 7: change the
  * password, and a note about two factor authentication, which is not
  * turned on for the Supabase project yet.
  */
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  await requireAdminPage();
   return (
     <div>
       <EyebrowSolo>Alttavia · Admin</EyebrowSolo>

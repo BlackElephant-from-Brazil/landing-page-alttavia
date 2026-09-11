@@ -65,7 +65,7 @@ export function StageTimeline({
                 className={cn(
                   "relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full border font-serif text-base shadow-[var(--shadow-soft)]",
                   done && "border-navy bg-navy text-white",
-                  current && "border-gold bg-gold text-white ring-4 ring-gold/20",
+                  current && "border-gold bg-gold text-navy ring-4 ring-gold/20",
                   !done && !current && "border-navy/15 bg-white text-navy-muted",
                 )}
               >

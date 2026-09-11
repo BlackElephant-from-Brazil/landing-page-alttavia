@@ -1,6 +1,7 @@
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import type { ServiceDocRow, UserDocumentRow, UserServiceRow } from "@/lib/db/types";
 
+import { latestDocument } from "../order-status";
 import { DocumentSlot, type SlotDocument } from "./document-slot";
 
 /**
@@ -10,8 +11,9 @@ import { DocumentSlot, type SlotDocument } from "./document-slot";
  * every upload attempt so far, and lays out one slot per document and per
  * applicant. Two applicants get one group each ("You", "Your partner");
  * documents the service needs only once sit under a third group. A slot
- * shows the latest attempt for its document and applicant; earlier rows stay
- * in the table as history and are not shown.
+ * shows the latest finished attempt for its document and applicant (a
+ * pending row only when it is the only one, see `latestDocument`); earlier
+ * rows stay in the table as history and are not shown.
  */
 
 type Props = {
@@ -114,7 +116,7 @@ function buildSlots(docs: ServiceDocRow[], uploaded: UserDocumentRow[], applican
     const count = doc.per_applicant ? applicants : 1;
     for (let index = 0; index < count; index++) {
       const applicantIndex = index as 0 | 1;
-      const latest = latestFor(uploaded, doc.id, applicantIndex);
+      const latest = latestDocument(uploaded, doc.id, applicantIndex);
       slots.push({
         doc,
         applicantIndex,
@@ -130,13 +132,4 @@ function buildSlots(docs: ServiceDocRow[], uploaded: UserDocumentRow[], applican
     }
   }
   return slots;
-}
-
-function latestFor(uploaded: UserDocumentRow[], serviceDocId: string, applicantIndex: 0 | 1): UserDocumentRow | null {
-  let latest: UserDocumentRow | null = null;
-  for (const row of uploaded) {
-    if (row.service_doc_id !== serviceDocId || row.applicant_index !== applicantIndex) continue;
-    if (!latest || row.created_at > latest.created_at) latest = row;
-  }
-  return latest;
 }

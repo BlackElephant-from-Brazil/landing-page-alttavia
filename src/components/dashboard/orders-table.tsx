@@ -18,7 +18,7 @@ const ORDER_PATH = "/en/dashboard/orders";
 const FALLBACK_NAME = "Your order";
 
 const STATUS_CLASS: Record<OrderStatus, string> = {
-  awaiting_payment: "bg-gold/15 text-gold-dark",
+  awaiting_payment: "bg-gold/15 text-[#7A5A12]",
   in_progress: "bg-navy/5 text-navy-soft",
   completed: "bg-navy text-white",
 };

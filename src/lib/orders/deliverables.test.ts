@@ -111,7 +111,7 @@ beforeEach(() => {
   presignUpload.mockImplementation(async ({ key }: { key: string }) => ({ url: `https://r2.example/${key}`, expiresIn: 300 }));
   headObjectSize.mockReset();
   for (const key of Object.keys(tables)) delete tables[key];
-  tables.user_services = [{ id: ORDER_ID, service_id: SERVICE_ID }];
+  tables.user_services = [{ id: ORDER_ID, service_id: SERVICE_ID, paid_at: "2026-09-10T09:00:00.000Z" }];
   tables.service_deliverables = [
     { id: TEMPLATE_ID, service_id: SERVICE_ID, label: "NIF certificate" },
     { id: OTHER_TEMPLATE_ID, service_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", label: "Account confirmation" },
@@ -187,6 +187,14 @@ describe("createDeliverableUpload", () => {
       code: "order_not_found",
       status: 404,
     });
+  });
+
+  it("refuses a file on an unpaid order", async () => {
+    tables.user_services = [{ id: ORDER_ID, service_id: SERVICE_ID, paid_at: null }];
+
+    await expect(upload()).rejects.toMatchObject({ code: "order_unpaid", status: 409, message: "Payment first." });
+    expect(presignUpload).not.toHaveBeenCalled();
+    expect(writes).toHaveLength(0);
   });
 
   it("refuses a template that belongs to another service", async () => {

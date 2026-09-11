@@ -8,11 +8,12 @@
  * what email clients render. Every value that comes from a person (a
  * rejection reason, a note) is escaped before it lands in the HTML.
  *
- * Copy follows the house rules in src/content/bank-nif.ts: short, British
- * English, no dashes as punctuation, one thing to do, one link to do it.
+ * Copy follows the house rules in the header of src/content/bank-nif.ts:
+ * short, no dashes as punctuation, one thing to do, one link to do it.
  *
- * `dashboardUrl(origin)` builds the link: NEXT_PUBLIC_SITE_URL when set,
- * else the origin the route handler saw, else the production site.
+ * `dashboardUrl(origin, path)` builds the link: NEXT_PUBLIC_SITE_URL when
+ * set, else the production site when NODE_ENV is production, else the
+ * origin the route handler saw.
  */
 
 export type EmailContent = {
@@ -35,7 +36,11 @@ const WHITE = "#FFFFFF";
 
 /** The absolute dashboard URL for a link inside an email. */
 export function dashboardUrl(origin?: string | null, path: string = DASHBOARD_PATH): string {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL || origin || PRODUCTION_ORIGIN).replace(/\/+$/, "");
+  const production = process.env.NODE_ENV === "production";
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || (production ? PRODUCTION_ORIGIN : origin) || PRODUCTION_ORIGIN).replace(
+    /\/+$/,
+    "",
+  );
   return `${base}${path}`;
 }
 
@@ -141,11 +146,11 @@ function build(subject: string, layout: Layout): EmailContent {
 
 /** A document was rejected: which one, why, and where to upload a new file. */
 export function documentRejected(input: { docLabel: string; reason: string; dashboardUrl: string }): EmailContent {
-  return build(`A new upload is needed: ${input.docLabel}`, {
+  return build(`A new file is needed: ${input.docLabel}`, {
     eyebrow: "Your order",
     heading: `We need a new ${input.docLabel}`,
     paragraphs: [
-      `We reviewed the ${input.docLabel} you sent and could not accept it.`,
+      `We reviewed your ${input.docLabel} and could not accept it.`,
       "Upload a new file from your dashboard and we carry on from there.",
     ],
     quote: { label: "Reason", body: input.reason },

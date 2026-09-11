@@ -16,8 +16,12 @@ import { useCallback, useEffect, useRef, type MouseEvent, type SyntheticEvent } 
  * `router.replace`, the server renders without the modal, and the element
  * unmounts. Esc arrives as the `cancel` event and is redirected the same
  * way. A click on the backdrop (the dialog element itself, outside the
- * panel) closes too.
+ * panel) closes too, but only when both the mousedown and the click landed
+ * there: a drag that starts inside the panel and ends on the backdrop, as
+ * when selecting text, is not a close.
  *
+ * The element that had focus when the modal opened (the table row's link,
+ * usually) gets it back on unmount, when it is still in the document.
  * `body` scroll is locked while mounted and restored on unmount.
  */
 export function Modal({
@@ -30,6 +34,8 @@ export function Modal({
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  const pressedOnBackdrop = useRef(false);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -44,7 +50,12 @@ export function Modal({
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog || dialog.open) return;
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialog.showModal();
+    return () => {
+      const previous = opener.current;
+      if (previous && previous.isConnected) previous.focus();
+    };
   }, []);
 
   useEffect(() => {
@@ -60,8 +71,14 @@ export function Modal({
     close();
   }
 
+  function handleBackdropDown(event: MouseEvent<HTMLDialogElement>) {
+    pressedOnBackdrop.current = event.target === event.currentTarget;
+  }
+
   function handleBackdrop(event: MouseEvent<HTMLDialogElement>) {
-    if (event.target === event.currentTarget) close();
+    const pressed = pressedOnBackdrop.current;
+    pressedOnBackdrop.current = false;
+    if (pressed && event.target === event.currentTarget) close();
   }
 
   return (
@@ -69,6 +86,7 @@ export function Modal({
       ref={ref}
       aria-labelledby={titleId}
       onCancel={handleCancel}
+      onMouseDown={handleBackdropDown}
       onClick={handleBackdrop}
       className="m-auto w-[min(56rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-hidden rounded-lg border border-navy/10 bg-white p-0 text-navy shadow-[var(--shadow-card)] backdrop:bg-navy/50 backdrop:backdrop-blur-[2px]"
     >

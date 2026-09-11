@@ -284,7 +284,7 @@ describe("upsertService", () => {
 
   /** nif-only as the seed left it, so an update has something to reconcile. */
   function seedExisting() {
-    tables.services = [{ id: SERVICE_ID, slug: "nif-only", name: "NIF only" }];
+    tables.services = [{ id: SERVICE_ID, slug: "nif-only", name: "NIF only", price_cents: 14900 }];
     tables.service_stages = [
       { id: "st1", service_id: SERVICE_ID, key: "awaiting_payment", label: "Awaiting payment", position: 1, is_terminal: false },
       { id: "st2", service_id: SERVICE_ID, key: "documents", label: "Documents", position: 2, is_terminal: false },
@@ -421,6 +421,35 @@ describe("upsertService", () => {
       upsertService(db, valid({ deliverables: [{ key: "summary", label: "Summary", kind: "report" }] }), SERVICE_ID),
     ).rejects.toMatchObject({ code: "deliverable_in_use", status: 409 });
     expect(log).toHaveLength(0);
+  });
+
+  it("keeps the slug and the price of an application form service in code", async () => {
+    seedExisting();
+
+    await expect(upsertService(db, valid({ slug: "nif-solo" }), SERVICE_ID)).rejects.toMatchObject({
+      code: "slug_locked",
+      status: 409,
+      message: "This slug is used by the application form and cannot change.",
+    });
+    await expect(upsertService(db, valid({ price_cents: 15900 }), SERVICE_ID)).rejects.toMatchObject({
+      code: "price_locked",
+      status: 409,
+      message: "Prices of the four application form services change in code, not here.",
+    });
+    expect(log).toHaveLength(0);
+
+    // The same slug and price with any other change still saves.
+    const saved = await upsertService(db, valid({ name: "NIF only, renamed" }), SERVICE_ID);
+    expect(saved.name).toBe("NIF only, renamed");
+  });
+
+  it("lets a service outside the application form change its slug and price", async () => {
+    seedExisting();
+    tables.services = [{ id: SERVICE_ID, slug: "niss-only", name: "NISS only", price_cents: 9900 }];
+
+    const saved = await upsertService(db, valid({ slug: "niss", price_cents: 12900 }), SERVICE_ID);
+    expect(saved.slug).toBe("niss");
+    expect(saved.price_cents).toBe(12900);
   });
 
   it("answers 404 when updating an unknown service", async () => {

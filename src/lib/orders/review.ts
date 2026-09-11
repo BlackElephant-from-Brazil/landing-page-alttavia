@@ -129,7 +129,11 @@ export async function reviewDocument(
     }
     const email = (userData as Pick<UserRow, "email"> | null)?.email;
     if (email) {
-      const content = documentRejected({ docLabel: label, reason: trimmedReason, dashboardUrl: dashboardUrl(origin) });
+      const content = documentRejected({
+        docLabel: label,
+        reason: trimmedReason,
+        dashboardUrl: dashboardUrl(origin, `/en/dashboard/orders/${order.id}`),
+      });
       const sent = await sendEmail({ to: email, ...content });
       emailed = sent.ok;
     }

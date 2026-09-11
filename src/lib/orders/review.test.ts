@@ -162,9 +162,10 @@ describe("reviewDocument", () => {
     expect(sendEmail).toHaveBeenCalledTimes(1);
     const email = sendEmail.mock.calls[0][0];
     expect(email.to).toBe("client@example.com");
-    expect(email.subject).toContain("Passport");
+    expect(email.subject).toBe("A new file is needed: Passport");
+    expect(email.text).toContain("We reviewed your Passport and could not accept it.");
     expect(email.text).toContain("The scan is cut off.");
-    expect(email.text).toContain("http://localhost:3000/en/dashboard");
+    expect(email.text).toContain(`http://localhost:3000/en/dashboard/orders/${ORDER_ID}`);
   });
 
   it("reports a rejection whose email was not accepted", async () => {

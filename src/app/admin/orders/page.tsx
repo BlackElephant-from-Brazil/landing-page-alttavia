@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DataTable, Pill, type Column } from "@/components/admin/data-table";
@@ -10,7 +11,10 @@ import { EyebrowSolo } from "@/components/ui/eyebrow";
 import { cn } from "@/lib/cn";
 import { listOrders, listServicesForAdmin } from "@/lib/db/admin-queries";
 import type { AdminOrderRow, OrderStatusFilter } from "@/lib/db/types";
+import { requireAdminPage } from "@/lib/supabase/admin-user";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = { title: "Orders" };
 
 /**
  * /admin/orders. Contract (docs/admin-contract.md) section 7: every order,
@@ -43,6 +47,7 @@ type Props = {
 };
 
 export default async function OrdersPage({ searchParams }: Props) {
+  await requireAdminPage();
   const params = await searchParams;
   const status = statusParam(firstParam(params, "status"));
   const serviceSlug = firstParam(params, "service");

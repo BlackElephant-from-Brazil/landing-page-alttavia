@@ -5,7 +5,7 @@ import { AdminShell } from "@/components/admin/shell";
 import { getUserWithRole } from "@/lib/supabase/admin-user";
 
 export const metadata: Metadata = {
-  title: "Admin",
+  title: { default: "Admin", template: "%s · Admin" },
   robots: { index: false, follow: false },
 };
 

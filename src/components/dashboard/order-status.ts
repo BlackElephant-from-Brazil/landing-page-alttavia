@@ -22,9 +22,38 @@ export function orderStatus(order: Pick<UserServiceRow, "paid_at" | "completed_a
   return "awaiting_payment";
 }
 
-/** "11 September 2026", the way a lawyer's letter writes it. */
+/** "11 September 2026", the way a lawyer's letter writes it, in the firm's time zone. */
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Lisbon",
+  });
+}
+
+/**
+ * The row a document slot shows: the newest row that is not `pending`, or
+ * the pending one when it is the only row. A pending row is an upload that
+ * never finished; it must not hide the reviewed file under it. Same rule as
+ * the latest status in admin_order_summary.
+ */
+export function latestDocument(
+  documents: readonly UserDocumentRow[],
+  serviceDocId: string,
+  applicantIndex: 0 | 1,
+): UserDocumentRow | null {
+  let latest: UserDocumentRow | null = null;
+  let pending: UserDocumentRow | null = null;
+  for (const row of documents) {
+    if (row.service_doc_id !== serviceDocId || row.applicant_index !== applicantIndex) continue;
+    if (row.status === "pending") {
+      if (!pending || row.created_at > pending.created_at) pending = row;
+      continue;
+    }
+    if (!latest || row.created_at > latest.created_at) latest = row;
+  }
+  return latest ?? pending;
 }
 
 export type RejectedSlot = {
@@ -40,8 +69,10 @@ const APPLICANT_LABELS = ["You", "Your partner"] as const;
 /**
  * Slots whose newest upload was rejected and not replaced, in document
  * order, then by applicant. A slot is one document and one applicant; the
- * latest row decides, so a rejected file that was replaced by a new upload
- * no longer counts. Same rule as `docs_rejected` in admin_order_summary.
+ * latest row decides (see `latestDocument`), so a rejected file that was
+ * replaced by a new upload no longer counts and an upload that never
+ * finished does not hide it. Same rule as `docs_rejected` in
+ * admin_order_summary.
  */
 export function rejectedSlots(
   docs: readonly ServiceDocRow[],
@@ -54,11 +85,7 @@ export function rejectedSlots(
     const count = doc.per_applicant ? people : 1;
     for (let index = 0; index < count; index++) {
       const applicantIndex = index as 0 | 1;
-      let latest: UserDocumentRow | null = null;
-      for (const row of documents) {
-        if (row.service_doc_id !== doc.id || row.applicant_index !== applicantIndex) continue;
-        if (!latest || row.created_at > latest.created_at) latest = row;
-      }
+      const latest = latestDocument(documents, doc.id, applicantIndex);
       if (latest?.status === "rejected") {
         out.push({
           docId: doc.id,

@@ -88,6 +88,9 @@ async function emailCompleted(db: ReturnType<typeof createAdminClient>, userId: 
   const email = (userResult.data as Pick<UserRow, "email"> | null)?.email;
   const service = (orderResult.data as { services: Pick<ServiceRow, "name"> | null } | null)?.services;
   if (!email) return;
-  const content = orderCompleted({ serviceName: service?.name ?? "service", dashboardUrl: dashboardUrl(origin) });
+  const content = orderCompleted({
+    serviceName: service?.name ?? "service",
+    dashboardUrl: dashboardUrl(origin, `/en/dashboard/orders/${orderId}`),
+  });
   await sendEmail({ to: email, ...content });
 }

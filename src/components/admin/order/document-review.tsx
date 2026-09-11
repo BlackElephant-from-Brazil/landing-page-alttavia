@@ -15,6 +15,7 @@ import { dangerActionClass, fieldClass, outlineActionClass, primaryActionClass, 
 export function DocumentReview({ documentId, label }: { documentId: string; label: string }) {
   const { pending, error, run, clear } = useAction();
   const reasonId = useId();
+  const reasonHintId = `${reasonId}-hint`;
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
 
@@ -71,9 +72,13 @@ export function DocumentReview({ documentId, label }: { documentId: string; labe
             maxLength={2000}
             disabled={pending}
             autoFocus
+            aria-describedby={reasonHintId}
             placeholder="What is wrong with the file and what to send instead."
             className={`${fieldClass} mt-1.5`}
           />
+          <p id={reasonHintId} className="mt-1.5 text-[0.8rem] leading-relaxed text-navy-muted">
+            The client reads this word for word, on their dashboard and by email.
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <button type="submit" disabled={pending || !reason.trim()} className={dangerActionClass}>
               Reject and notify

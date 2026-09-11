@@ -82,7 +82,7 @@ export async function addNote(
     if (userError) console.error(`addNote: owner lookup failed for ${order.id}: ${userError.message}`);
     const email = (userData as Pick<UserRow, "email"> | null)?.email;
     if (email) {
-      const content = pendencyPosted({ body: text, dashboardUrl: dashboardUrl(origin) });
+      const content = pendencyPosted({ body: text, dashboardUrl: dashboardUrl(origin, `/en/dashboard/orders/${order.id}`) });
       const sent = await sendEmail({ to: email, ...content });
       emailed = sent.ok;
     }

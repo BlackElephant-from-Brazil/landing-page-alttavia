@@ -1,5 +1,7 @@
 import "server-only";
 
+import { redirect } from "next/navigation";
+
 import type { UserRole } from "@/lib/db/types";
 
 import { createClient } from "./server";
@@ -15,13 +17,21 @@ import { getUser, type SessionUser } from "./user";
  * phone only). No JWT claim is involved, so a role change is seen on the
  * next request.
  *
- *   const user = await getUserWithRole();   // pages: decide where to send them
+ *   const user = await getUserWithRole();   // layouts: decide where to send them
  *   const admin = await requireAdmin();      // routes: throws 401 or 403
+ *   await requireAdminPage();                // admin pages: redirects to the login instead
  *
  * Route handlers wrap the call and hand the error to adminErrorResponse():
  *
  *   try { await requireAdmin(); } catch (e) { return adminErrorResponse(e); }
+ *
+ * requireAdminPage() is the belt and braces guard every admin page and the
+ * order modal call on their first line, on top of the layout's check: a
+ * page rendered outside the layout (or a layout edit that drops the check)
+ * still never renders for a client or a visitor.
  */
+
+const ADMIN_LOGIN_PATH = "/admin/login";
 
 export type SessionUserWithRole = SessionUser & { role: UserRole };
 export type AdminUser = SessionUser & { role: "admin" };
@@ -63,6 +73,18 @@ export async function requireAdmin(): Promise<AdminUser> {
   if (!user) throw new AdminAuthError(401);
   if (user.role !== "admin") throw new AdminAuthError(403);
   return { ...user, role: "admin" };
+}
+
+/** requireAdmin() for a page: an AdminAuthError becomes a redirect to /admin/login. */
+export async function requireAdminPage(): Promise<AdminUser> {
+  let admin: AdminUser;
+  try {
+    admin = await requireAdmin();
+  } catch (error) {
+    if (error instanceof AdminAuthError) redirect(ADMIN_LOGIN_PATH);
+    throw error;
+  }
+  return admin;
 }
 
 /**

@@ -1,6 +1,7 @@
+import { isProductId } from "@/lib/apply/types";
 import { getServiceForAdmin } from "@/lib/db/admin-queries";
 import type { Db } from "@/lib/db/queries";
-import type { DeliverableKind, ServiceWithConfig } from "@/lib/db/types";
+import type { DeliverableKind, ServiceRow, ServiceWithConfig } from "@/lib/db/types";
 import { extensionFor } from "@/lib/r2/keys";
 
 /**
@@ -21,7 +22,11 @@ import { extensionFor } from "@/lib/r2/keys";
  * (service_id, key): rows in the input are upserted, rows no longer present
  * are deleted. Before anything is written, it refuses (409, with the count)
  * to delete a stage an order still sits on, a document slot a client has
- * uploaded to, or a deliverable that has been returned on an order. There
+ * uploaded to, or a deliverable that has been returned on an order. The four
+ * services the application form sells (`isProductId`) keep their slug and
+ * their price in code (`PRICE_CENTS` in src/content/bank-nif.ts, checked by
+ * /api/apply/submit), so a different slug or price on one of them is
+ * refused with 409 as well. There
  * is no transaction across the PostgREST calls, so the checks come first
  * and the writes after; a failure half way is logged by the route and the
  * editor shows the saved state on reload.
@@ -307,7 +312,14 @@ export function validateServiceInput(body: unknown): ValidationResult {
 // Writes
 // ---------------------------------------------------------------------------
 
-export type ServiceErrorCode = "service_not_found" | "slug_taken" | "stage_in_use" | "doc_in_use" | "deliverable_in_use";
+export type ServiceErrorCode =
+  | "service_not_found"
+  | "slug_taken"
+  | "slug_locked"
+  | "price_locked"
+  | "stage_in_use"
+  | "doc_in_use"
+  | "deliverable_in_use";
 
 export class ServiceError extends Error {
   readonly code: ServiceErrorCode;
@@ -368,9 +380,24 @@ export async function upsertService(db: Db, input: ServiceInput, id?: string): P
   let removedDocs: ChildRow[] = [];
   let removedDeliverables: ChildRow[] = [];
   if (id) {
-    const { data: existing, error: existingError } = await db.from("services").select("id").eq("id", id).maybeSingle();
+    const { data: existing, error: existingError } = await db
+      .from("services")
+      .select("id, slug, price_cents")
+      .eq("id", id)
+      .maybeSingle();
     if (existingError) dbFail("upsertService services", existingError);
     if (!existing) throw new ServiceError("service_not_found", 404, "Service not found.");
+
+    // The four application form services keep their slug and price in code.
+    const stored = existing as Pick<ServiceRow, "id" | "slug" | "price_cents">;
+    if (isProductId(stored.slug)) {
+      if (input.slug !== stored.slug) {
+        throw new ServiceError("slug_locked", 409, "This slug is used by the application form and cannot change.");
+      }
+      if (input.price_cents !== stored.price_cents) {
+        throw new ServiceError("price_locked", 409, "Prices of the four application form services change in code, not here.");
+      }
+    }
 
     const [oldStages, oldDocs, oldDeliverables] = await Promise.all([
       childRows(db, "service_stages", id),

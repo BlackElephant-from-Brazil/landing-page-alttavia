@@ -8,6 +8,7 @@ import type {
   UserServiceDeliverableRow,
   UserServiceNoteRow,
 } from "@/lib/db/types";
+import { requireAdminPage } from "@/lib/supabase/admin-user";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/cn";
 
@@ -51,6 +52,7 @@ const copy = {
 } as const;
 
 export async function OrderModal({ orderId }: { orderId: string | undefined }) {
+  await requireAdminPage();
   if (!orderId) return null;
 
   if (!isUuid(orderId)) {
@@ -97,7 +99,6 @@ function stageLabel(detail: AdminOrderDetail, key: string): string {
 
 function Header({ detail }: { detail: AdminOrderDetail }) {
   const { order, user, service } = detail;
-  const status = order.completed_at ? "Completed" : order.paid_at ? "Paid" : "Open";
   const name = order.quantity === 2 ? `${service.name} x2` : service.name;
 
   return (
@@ -109,7 +110,7 @@ function Header({ detail }: { detail: AdminOrderDetail }) {
       <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-[0.85rem] sm:grid-cols-4">
         <Fact label="Service" value={name} />
         <Fact label="Amount" value={formatEuro(order.total_cents)} />
-        <Fact label="Paid on" value={order.paid_at ? formatDate(order.paid_at) : status} />
+        <Fact label="Paid on" value={order.paid_at ? formatDate(order.paid_at) : "Not yet"} />
         <Fact label="Stage" value={stageLabel(detail, order.stage_key)} />
       </dl>
       {(user.full_name || user.phone) && (
@@ -186,9 +187,11 @@ function StageSection({ detail }: { detail: AdminOrderDetail }) {
       </ol>
       <div className="mt-4">
         <StageControls
+          key={order.stage_key}
           orderId={order.id}
           stages={ordered}
           currentKey={order.stage_key}
+          paid={!!order.paid_at}
           unapprovedRequired={unapprovedRequired}
         />
       </div>

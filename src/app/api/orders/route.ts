@@ -58,10 +58,11 @@ export async function POST(request: Request) {
       return fail(422, "This service is sold one at a time.");
     }
 
-    // The couple package is one unit for two people; NIF only x2 is two
-    // units for two people; everything else is one unit for one person.
-    // Same rule as applicantsFor() in src/lib/apply/recommend.ts.
-    const applicants = service.slug === "couple" ? 2 : quantity;
+    // The couple package is one unit for two people on a joint account; NIF
+    // only x2 is two units for two people; everything else is one unit for
+    // one person. Same rule as applicantsFor() in src/lib/apply/recommend.ts.
+    const joint = service.slug === "couple";
+    const applicants = joint ? 2 : quantity;
     const totalCents = service.price_cents * quantity;
     const currency = service.currency || "eur";
 
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
         submission_id: null,
         answers_snapshot: {},
         quantity,
-        joint: false,
+        joint,
         applicants,
         total_cents: totalCents,
         currency,

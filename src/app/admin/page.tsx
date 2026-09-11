@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { MonthlyChart } from "@/components/admin/charts/monthly-chart";
@@ -13,7 +14,10 @@ import { RangeControls } from "@/components/admin/range-controls";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import { getOverview, listOrders, listPendingReviews } from "@/lib/db/admin-queries";
 import type { AdminDocumentRow, AdminOrderRow } from "@/lib/db/types";
+import { requireAdminPage } from "@/lib/supabase/admin-user";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = { title: "Overview" };
 
 /**
  * /admin, the overview. Contract (docs/admin-contract.md) section 7.
@@ -36,6 +40,7 @@ type Props = {
 };
 
 export default async function OverviewPage({ searchParams }: Props) {
+  await requireAdminPage();
   const params = await searchParams;
   const range = resolveRange(params);
   const orderId = firstParam(params, "order");

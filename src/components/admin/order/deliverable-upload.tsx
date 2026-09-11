@@ -148,7 +148,7 @@ export function DeliverableUpload({
               disabled={pending}
               className={`${fieldClass} mt-1 h-10 py-0 normal-case tracking-normal`}
             >
-              <option value="">Not from the list</option>
+              <option value="">Other file</option>
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.label}

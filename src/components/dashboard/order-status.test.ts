@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import type { ServiceDocRow, UserDocumentRow, UserServiceNoteRow } from "@/lib/db/types";
 
-import { hasAnswers, orderStatus, rejectedSlots, reportParagraphs, slotName, splitNotes } from "./order-status";
+import {
+  hasAnswers,
+  latestDocument,
+  orderStatus,
+  rejectedSlots,
+  reportParagraphs,
+  slotName,
+  splitNotes,
+} from "./order-status";
 
 function doc(id: string, position: number, perApplicant = true): ServiceDocRow {
   return {
@@ -82,6 +90,14 @@ describe("rejectedSlots", () => {
     expect(rejectedSlots(docs, documents, 1)).toEqual([]);
   });
 
+  it("still lists a rejected file when a newer upload never finished", () => {
+    const documents = [
+      upload("a", "passport", 0, "rejected", "2026-09-01T00:00:00Z", "Expired"),
+      upload("b", "passport", 0, "pending", "2026-09-03T00:00:00Z"),
+    ];
+    expect(rejectedSlots(docs, documents, 1).map((s) => s.reason)).toEqual(["Expired"]);
+  });
+
   it("ignores the partner's slots on a single applicant order", () => {
     const documents = [upload("a", "passport", 1, "rejected", "2026-09-01T00:00:00Z", "x")];
     expect(rejectedSlots(docs, documents, 1)).toEqual([]);
@@ -91,6 +107,25 @@ describe("rejectedSlots", () => {
     const slot = { label: "Passport", applicantIndex: 1 as const };
     expect(slotName(slot, 2)).toBe("Passport (Your partner)");
     expect(slotName(slot, 1)).toBe("Passport");
+  });
+});
+
+describe("latestDocument", () => {
+  it("prefers the newest row that is not pending", () => {
+    const documents = [
+      upload("old", "passport", 0, "rejected", "2026-09-01T00:00:00Z"),
+      upload("new", "passport", 0, "uploaded", "2026-09-02T00:00:00Z"),
+      upload("stuck", "passport", 0, "pending", "2026-09-03T00:00:00Z"),
+      upload("other", "passport", 1, "approved", "2026-09-04T00:00:00Z"),
+    ];
+    expect(latestDocument(documents, "passport", 0)?.id).toBe("new");
+    expect(latestDocument(documents, "passport", 1)?.id).toBe("other");
+  });
+
+  it("shows a pending row only when it is the only one", () => {
+    const only = [upload("stuck", "passport", 0, "pending", "2026-09-03T00:00:00Z")];
+    expect(latestDocument(only, "passport", 0)?.id).toBe("stuck");
+    expect(latestDocument(only, "proof_of_address", 0)).toBeNull();
   });
 });
 

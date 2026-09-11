@@ -94,8 +94,12 @@ const STAGES = [
   stage("documents", 2),
 ];
 
-function seed(stageKey: string, completedAt: string | null = null) {
-  tables.user_services = [{ id: ORDER_ID, service_id: SERVICE_ID, stage_key: stageKey, completed_at: completedAt }];
+const PAID_AT = "2026-09-10T09:00:00.000Z";
+
+function seed(stageKey: string, completedAt: string | null = null, paidAt: string | null = PAID_AT) {
+  tables.user_services = [
+    { id: ORDER_ID, service_id: SERVICE_ID, stage_key: stageKey, completed_at: completedAt, paid_at: paidAt },
+  ];
   tables.service_stages = STAGES.map((s) => ({ ...s }));
 }
 
@@ -208,6 +212,25 @@ describe("advanceStage", () => {
     const result = await advanceStage(ORDER_ID, ACTOR_ID, { stageKey: "documents" });
 
     expect(result).toEqual({ stageKey: "documents", completed: false });
+    expect(writes).toHaveLength(0);
+  });
+
+  it("keeps an unpaid order on the first stage", async () => {
+    seed("awaiting_payment", null, null);
+
+    await expect(advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" })).rejects.toMatchObject({
+      name: "StageError",
+      code: "unpaid",
+      status: 409,
+      message: "Payment first.",
+    });
+    await expect(advanceStage(ORDER_ID, ACTOR_ID, { stageKey: "nif_ready" })).rejects.toMatchObject({ code: "unpaid" });
+    expect(writes).toHaveLength(0);
+    expect(order().stage_key).toBe("awaiting_payment");
+
+    // Naming the first stage itself is still allowed: nothing to write.
+    const result = await advanceStage(ORDER_ID, ACTOR_ID, { stageKey: "awaiting_payment" });
+    expect(result).toEqual({ stageKey: "awaiting_payment", completed: false });
     expect(writes).toHaveLength(0);
   });
 

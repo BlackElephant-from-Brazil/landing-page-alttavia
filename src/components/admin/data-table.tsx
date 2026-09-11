@@ -123,10 +123,10 @@ export function Pill({ tone, children }: { tone: "muted" | "gold" | "navy" | "cl
     <span
       className={cn(
         "inline-flex h-6 items-center whitespace-nowrap rounded-full px-2.5 text-[0.68rem] font-medium uppercase tracking-[0.12em]",
-        tone === "muted" && "bg-navy/5 text-navy-muted",
-        tone === "gold" && "bg-gold/15 text-gold-dark",
+        tone === "muted" && "bg-navy/5 text-navy-soft",
+        tone === "gold" && "bg-gold/15 text-[#7A5A12]",
         tone === "navy" && "bg-navy text-white",
-        tone === "clay" && "bg-clay/10 text-clay",
+        tone === "clay" && "bg-clay/10 text-[#B52D25]",
       )}
     >
       {children}

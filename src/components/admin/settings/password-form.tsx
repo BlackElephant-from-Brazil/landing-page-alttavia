@@ -29,7 +29,8 @@ const copy = {
   errors: {
     short: `Use at least ${MIN_LENGTH} characters.`,
     mismatch: "The two entries do not match.",
-    weak: "That password was not accepted. Try a longer one.",
+    weak: "Choose a password that is harder to guess.",
+    rejected: "That password was not accepted. Try a longer one.",
     generic: "Something went wrong on our side.",
   },
 } as const;
@@ -75,7 +76,9 @@ export function PasswordForm() {
       const { error: authError } = await supabase.auth.updateUser({ password });
       if (authError) {
         const rejected = authError.status !== undefined && authError.status >= 400 && authError.status < 500;
-        setError(rejected ? copy.errors.weak : copy.errors.generic);
+        setError(
+          authError.code === "weak_password" ? copy.errors.weak : rejected ? copy.errors.rejected : copy.errors.generic,
+        );
         return;
       }
       setPassword("");

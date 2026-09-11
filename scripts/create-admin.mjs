@@ -5,6 +5,10 @@
  *   npm run admin:create                                   info@alttavia-relocation.com
  *   npm run admin:create -- someone@example.com            another address
  *   npm run admin:create -- someone@example.com --reset-password
+ *   npm run admin:create -- someone@example.com --reset-password --promote
+ *
+ * Run it in your own terminal, never through an agent: the password is
+ * printed to the screen and would land in the agent's transcript.
  *
  * What it does, in order:
  *
@@ -23,7 +27,9 @@
  * If the auth user already exists the script stops with exit code 1 and
  * says how to reset instead; with --reset-password it generates a new
  * password, sets it with `auth.admin.updateUserById`, and still makes sure
- * the role is admin.
+ * the role is admin. A reset on an account whose role is client (a customer
+ * who signed up on the site) is refused unless --promote is given as well,
+ * so a typo in the email never turns a client into an admin.
  *
  * Reads from .env.local (see .env.example): NEXT_PUBLIC_SUPABASE_URL,
  * SUPABASE_SECRET_KEY, SUPABASE_ACCESS_TOKEN. An explicit environment
@@ -75,6 +81,7 @@ const ACCESS_TOKEN = env("SUPABASE_ACCESS_TOKEN");
 
 const args = process.argv.slice(2);
 const resetPassword = args.includes("--reset-password");
+const promote = args.includes("--promote");
 const email = (args.find((arg) => !arg.startsWith("--")) ?? DEFAULT_EMAIL).trim().toLowerCase();
 
 /**
@@ -170,6 +177,11 @@ async function main() {
     const rows = await query(`select id from auth.users where lower(email) = lower(${literal(email)}) limit 1;`);
     const id = rows?.[0]?.id;
     if (!id) throw new Error(`Supabase says ${email} exists but it is not in auth.users.`);
+    const profile = await query(`select role from public.users where id = ${literal(id)} limit 1;`);
+    if (profile?.[0]?.role !== "admin" && !promote) {
+      console.error(`\n${email} is a client account; pass --promote to make it an admin\n`);
+      process.exit(1);
+    }
     const updated = await supabase.auth.admin.updateUserById(id, { password, email_confirm: true });
     if (updated.error) throw new Error(`updateUserById failed: ${updated.error.message}`);
     action = "password reset";

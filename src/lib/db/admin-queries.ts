@@ -74,6 +74,20 @@ function emailNeedle(q: string): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * The slice of a PostgREST filter builder that listOrders chains on. The
+ * builder's own generics are too deep to constrain a type parameter with,
+ * so the helper casts to this and back.
+ */
+type Filterable = {
+  is(column: string, value: null): Filterable;
+  not(column: string, operator: string, value: unknown): Filterable;
+  eq(column: string, value: unknown): Filterable;
+  ilike(column: string, pattern: string): Filterable;
+  gte(column: string, value: string): Filterable;
+  filter(column: string, operator: "lt" | "lte", value: string): Filterable;
+};
+
+/**
  * The orders table: filtered, ordered and paginated in the database, with
  * the joined counts from the view. Open orders sort by `created_at`, the
  * rest by `paid_at`, newest first. `total` is the count before pagination.
@@ -87,29 +101,44 @@ export async function listOrders(
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(filters.pageSize ?? DEFAULT_PAGE_SIZE)));
   const dateColumn = status === "paid" || status === "completed" ? "paid_at" : "created_at";
 
-  let query = db.from("admin_order_summary").select("*", { count: "exact" });
+  // The same filters twice: once for the page, once (head only) for the
+  // total when the page is past the end.
+  function filtered<T>(query: T): T {
+    let q = query as unknown as Filterable;
+    if (status === "open") q = q.is("paid_at", null);
+    if (status === "paid") q = q.not("paid_at", "is", null).is("completed_at", null);
+    if (status === "completed") q = q.not("completed_at", "is", null);
 
-  if (status === "open") query = query.is("paid_at", null);
-  if (status === "paid") query = query.not("paid_at", "is", null).is("completed_at", null);
-  if (status === "completed") query = query.not("completed_at", "is", null);
+    if (filters.serviceSlug) q = q.eq("service_slug", filters.serviceSlug);
 
-  if (filters.serviceSlug) query = query.eq("service_slug", filters.serviceSlug);
+    const needle = filters.q ? emailNeedle(filters.q) : "";
+    if (needle) q = q.ilike("user_email", `%${needle}%`);
 
-  const needle = filters.q ? emailNeedle(filters.q) : "";
-  if (needle) query = query.ilike("user_email", `%${needle}%`);
-
-  if (filters.from) query = query.gte(dateColumn, filters.from);
-  if (filters.to) {
-    const end = rangeEnd(filters.to);
-    query = query.filter(dateColumn, end.op, end.value);
+    if (filters.from) q = q.gte(dateColumn, filters.from);
+    if (filters.to) {
+      const end = rangeEnd(filters.to);
+      q = q.filter(dateColumn, end.op, end.value);
+    }
+    return q as unknown as T;
   }
 
   const from = (page - 1) * pageSize;
-  const { data, error, count } = await query
+  const { data, error, count } = await filtered(db.from("admin_order_summary").select("*", { count: "exact" }))
     .order(dateColumn, { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .range(from, from + pageSize - 1);
-  if (error) fail("listOrders", error);
+
+  if (error) {
+    // PGRST103: the requested range starts past the last row (a page that
+    // no longer exists after a filter change). Answer an empty page with the
+    // real total so the pager can step back, instead of failing.
+    if (error.code !== "PGRST103") fail("listOrders", error);
+    const { count: total, error: countError } = await filtered(
+      db.from("admin_order_summary").select("id", { count: "exact", head: true }),
+    );
+    if (countError) fail("listOrders", countError);
+    return { rows: [], total: total ?? 0 };
+  }
 
   return { rows: (data ?? []) as AdminOrderRow[], total: count ?? 0 };
 }

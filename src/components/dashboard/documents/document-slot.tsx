@@ -55,10 +55,10 @@ const UPLOAD_FAILED = "The upload did not finish. Try again.";
 type PillKind = "waiting" | "uploaded" | "approved" | "rejected";
 
 const PILL: Record<PillKind, { label: string; className: string }> = {
-  waiting: { label: "Waiting for file", className: "bg-navy/5 text-navy-muted" },
-  uploaded: { label: "Uploaded", className: "bg-gold/15 text-gold-dark" },
+  waiting: { label: "Waiting for file", className: "bg-navy/5 text-navy-soft" },
+  uploaded: { label: "Uploaded", className: "bg-gold/15 text-[#7A5A12]" },
   approved: { label: "Approved", className: "bg-navy text-white" },
-  rejected: { label: "Rejected", className: "bg-clay/10 text-clay" },
+  rejected: { label: "Rejected", className: "bg-clay/10 text-[#B52D25]" },
 };
 
 function pillFor(status: DocumentStatus | undefined): PillKind {

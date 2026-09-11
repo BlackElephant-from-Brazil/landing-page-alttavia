@@ -5,9 +5,12 @@
  *
  *   npm run db:migrate            apply every file not yet recorded
  *   npm run db:migrate -- --dry   list what would run, change nothing
+ *   npm run db:migrate -- --seed  also rerun the *_seed_* files
  *
- * Files with "_seed_" in the name run every time, recorded or not; their
- * inserts are upserts, so a seed edit needs no new file.
+ * Seeds do not rerun on their own. Without --seed every file, seeds included,
+ * runs once and is recorded. --seed reruns *_seed_* files; the service editor
+ * is the source of truth for services once live, so only use --seed on a
+ * fresh project or when you accept overwriting edits.
  *
  * There is no database URL and no psql involved: every file is posted to the
  * Supabase Management API (POST /v1/projects/{ref}/database/query) with the
@@ -40,13 +43,17 @@ create table if not exists public.schema_migrations (
 );
 alter table public.schema_migrations enable row level security;`;
 
+const dry = process.argv.includes("--dry");
+const rerunSeeds = process.argv.includes("--seed");
+
 /**
- * Seed files run on every migrate, recorded or not. Their inserts are all
- * `on conflict do update`, so a copy edit in a seed reaches the database
- * without a new migration file.
+ * A seed file counts as a seed only under --seed. Their inserts are all
+ * `on conflict do update`, so rerunning one overwrites what the service
+ * editor changed since; without the flag a seed is an ordinary migration
+ * that runs once.
  */
 function isSeed(name) {
-  return name.includes("_seed_");
+  return rerunSeeds && name.includes("_seed_");
 }
 
 /**
@@ -72,7 +79,6 @@ function readEnvFile(name) {
 
 const fileEnv = readEnvFile(".env.local");
 const TOKEN = process.env.SUPABASE_ACCESS_TOKEN || fileEnv.SUPABASE_ACCESS_TOKEN;
-const dry = process.argv.includes("--dry");
 
 /** Posts one query and returns the rows. Throws with the Supabase message. */
 async function query(sql) {
@@ -146,7 +152,7 @@ async function main() {
     }
     pending += 1;
     if (dry) {
-      console.log(`  would run ${name}${rerun ? "  (seed, runs every time)" : ""}`);
+      console.log(`  would run ${name}${rerun ? "  (seed, rerun under --seed)" : ""}`);
       continue;
     }
 

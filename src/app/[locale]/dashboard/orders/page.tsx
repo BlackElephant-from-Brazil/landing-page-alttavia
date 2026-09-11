@@ -66,7 +66,7 @@ export default async function OrdersPage({ params }: Props) {
 
       <OrdersTable orders={orders} services={services} />
 
-      <ServiceGallery services={catalogue} />
+      <ServiceGallery services={catalogue} orders={orders} orderServices={services} />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ServiceEditor } from "@/components/admin/services/service-editor";
 import { getServiceForAdmin } from "@/lib/db/admin-queries";
+import { requireAdminPage } from "@/lib/supabase/admin-user";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export default async function EditServicePage({ params }: Props) {
+  await requireAdminPage();
   const { id } = await params;
   if (!UUID_RE.test(id)) notFound();
 

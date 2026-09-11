@@ -28,9 +28,10 @@ import { StageTimeline } from "./stage-timeline";
  *
  * Order of sections, top to bottom: notices, heading, the package card, the
  * stage timeline (with its completed state), then what needs the client
- * (payment, or pendencies and rejected files above the upload slots), then
- * what the firm returned (files and the closing report), the wizard answers
- * when the order has any, and the help box.
+ * (payment, pendencies whatever the payment state, and rejected files above
+ * the upload slots once paid), then what the firm returned (files and the
+ * closing report), the wizard answers when the order has any, and the help
+ * box.
  */
 
 export type OrderNotice = "cancelled" | "unconfirmed";
@@ -53,11 +54,12 @@ const copy = {
   paymentHeading: "Payment",
   pay: (price: string) => `Pay ${price} and start`,
   payHint:
-    "Secure payment through Stripe. You upload your documents right after, on this page, and that is the last thing we need from you.",
+    "Secure payment through Stripe. You upload your documents right after, on this page, and that is usually all we need from you.",
   paidTitle: "Payment received",
   paidBody: "Your order is in. Send the documents below and we file it from there.",
   completedTitle: "Order complete",
-  completedBody: "Everything on this order is done. Your documents from us are below, and they stay here for you.",
+  completedBody: "Everything on this order is done.",
+  completedBodyWithFiles: "Everything on this order is done. Your documents from us are below, and they stay here for you.",
 } as const;
 
 export function OrderView({
@@ -79,6 +81,7 @@ export function OrderView({
   const price = formatEuro(order.total_cents);
   const answers = hasAnswers(order.answers_snapshot) ? summarizeAnswers(order.answers_snapshot, questions) : [];
   const rejected = paid ? rejectedSlots(docs, documents, order.applicants) : [];
+  const returned = deliverables.length > 0 || !!order.report;
 
   return (
     <div className="space-y-12">
@@ -109,7 +112,7 @@ export function OrderView({
 
       {completed ? (
         <Notice tone="success" title={copy.completedTitle}>
-          {copy.completedBody}
+          {returned ? copy.completedBodyWithFiles : copy.completedBody}
         </Notice>
       ) : paid ? (
         <Notice tone="success" title={copy.paidTitle}>
@@ -125,7 +128,7 @@ export function OrderView({
         </section>
       )}
 
-      {paid && <Pendencies notes={notes} />}
+      <Pendencies notes={notes} />
 
       {paid && (
         <div className="space-y-6">

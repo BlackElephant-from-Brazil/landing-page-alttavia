@@ -14,16 +14,16 @@ export function RejectedCallout({ slots, applicants }: { slots: readonly Rejecte
   if (slots.length === 0) return null;
 
   return (
-    <div
-      role="status"
+    <section
+      aria-labelledby="rejected-heading"
       className="rounded-lg border border-clay/25 bg-clay/5 px-5 py-4 shadow-[var(--shadow-soft)]"
     >
       <div className="flex gap-3.5">
         <FileWarning className="mt-0.5 size-4 shrink-0 text-clay" aria-hidden />
         <div className="min-w-0 flex-1">
-          <p className="font-serif text-lg leading-tight text-navy">
+          <h2 id="rejected-heading" className="font-serif text-lg leading-tight text-navy">
             {slots.length === 1 ? "One file needs to be sent again" : `${slots.length} files need to be sent again`}
-          </p>
+          </h2>
           <ul className="mt-3 space-y-2.5">
             {slots.map((slot) => (
               <li key={`${slot.docId}:${slot.applicantIndex}`} className="text-[0.92rem] leading-relaxed">
@@ -37,6 +37,6 @@ export function RejectedCallout({ slots, applicants }: { slots: readonly Rejecte
           </p>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

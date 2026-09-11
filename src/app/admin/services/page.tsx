@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
@@ -5,7 +6,10 @@ import { NEW_SERVICE_PATH } from "@/components/admin/services/paths";
 import { ServiceTable } from "@/components/admin/services/service-table";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import { listServicesForAdmin } from "@/lib/db/admin-queries";
+import { requireAdminPage } from "@/lib/supabase/admin-user";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = { title: "Services" };
 
 /**
  * /admin/services. Contract (docs/admin-contract.md) section 7.
@@ -24,6 +28,7 @@ const copy = {
 } as const;
 
 export default async function ServicesPage() {
+  await requireAdminPage();
   const supabase = await createClient();
   const services = await listServicesForAdmin(supabase);
 

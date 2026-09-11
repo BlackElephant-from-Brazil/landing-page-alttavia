@@ -15,6 +15,7 @@ import type { ServiceDeliverableRow, UserServiceDeliverableRow, UserServiceRow }
  *
  * Key shape: deliverables/{orderId}/{uuid}.{ext}. Accepted types are PDF,
  * JPG, PNG and DOCX up to 20 MB, the same message copy as the documents.
+ * An unpaid order (`paid_at` null) takes no file: 409 "order_unpaid".
  */
 
 export const DELIVERABLE_ACCEPTED_MIME: readonly string[] = [
@@ -30,6 +31,7 @@ export const MAX_DELIVERABLE_LABEL_LENGTH = 120;
 
 export type DeliverableErrorCode =
   | "order_not_found"
+  | "order_unpaid"
   | "template_mismatch"
   | "label_required"
   | "type_not_accepted"
@@ -94,12 +96,13 @@ export async function createDeliverableUpload(
 
   const { data: orderData, error: orderError } = await admin
     .from("user_services")
-    .select("id, service_id")
+    .select("id, service_id, paid_at")
     .eq("id", input.userServiceId)
     .maybeSingle();
   if (orderError) throw new Error(`createDeliverableUpload: ${orderError.message}`);
-  const order = orderData as Pick<UserServiceRow, "id" | "service_id"> | null;
+  const order = orderData as Pick<UserServiceRow, "id" | "service_id" | "paid_at"> | null;
   if (!order) throw new DeliverableError("order_not_found", 404, "Order not found.");
+  if (!order.paid_at) throw new DeliverableError("order_unpaid", 409, "Payment first.");
 
   let template: Template | null = null;
   if (input.serviceDeliverableId) {

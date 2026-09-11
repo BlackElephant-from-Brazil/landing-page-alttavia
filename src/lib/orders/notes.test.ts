@@ -111,7 +111,7 @@ describe("addNote", () => {
     const email = sendEmail.mock.calls[0][0];
     expect(email.to).toBe("client@example.com");
     expect(email.text).toContain("Send page two of the lease.");
-    expect(email.text).toContain("http://localhost:3000/en/dashboard");
+    expect(email.text).toContain(`http://localhost:3000/en/dashboard/orders/${ORDER_ID}`);
   });
 
   it("stores an internal note without emailing anyone", async () => {

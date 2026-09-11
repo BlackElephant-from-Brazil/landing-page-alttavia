@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save } from "lucide-react";
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { isProductId } from "@/lib/apply/types";
@@ -61,6 +61,7 @@ const copy = {
   slug: "Slug",
   slugHint: "Lower kebab case, unique. Follows the name until you edit it.",
   slugLockedHint: "This slug is one the wizard sells. It cannot change here.",
+  priceLockedHint: "Prices of the four application form services change in code, not here.",
   tagline: "Tagline",
   description: "Description",
   descriptionHint: "Shown by Stripe at checkout.",
@@ -111,11 +112,20 @@ export function ServiceEditor({ initial }: Props) {
   const router = useRouter();
   const id = useId();
   const counter = useRef(0);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const [draft, setDraft] = useState<ServiceDraft>(() => (initial ? draftFromService(initial) : emptyDraft()));
   const [errors, setErrors] = useState<DraftErrors>({});
   const [submission, setSubmission] = useState<Submission>({ kind: "idle" });
   const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
+  // Bumped after a failed validation, once the field messages are rendered,
+  // so the first invalid control takes focus.
+  const [focusInvalid, setFocusInvalid] = useState(0);
+
+  useEffect(() => {
+    if (focusInvalid === 0) return;
+    formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+  }, [focusInvalid]);
 
   const busy = submission.kind === "saving";
   const slugLocked = initial !== undefined && isProductId(initial.slug);
@@ -186,6 +196,7 @@ export function ServiceEditor({ initial }: Props) {
     if (!result.ok) {
       setErrors(result.errors);
       setSubmission({ kind: "error", message: copy.fixFields });
+      setFocusInvalid((n) => n + 1);
       return;
     }
     setErrors({});
@@ -201,7 +212,7 @@ export function ServiceEditor({ initial }: Props) {
   const submitError = submission.kind === "error" ? submission.message : null;
 
   return (
-    <form onSubmit={handleSubmit} noValidate aria-busy={busy} className="space-y-8">
+    <form ref={formRef} onSubmit={handleSubmit} noValidate aria-busy={busy} className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Link
@@ -278,10 +289,12 @@ export function ServiceEditor({ initial }: Props) {
               value={draft.price}
               inputMode="decimal"
               disabled={busy}
+              readOnly={slugLocked}
               onChange={(e) => {
                 patch({ price: e.target.value });
                 clearError("price");
               }}
+              hint={slugLocked ? copy.priceLockedHint : undefined}
               error={errors.price}
             />
             <TextField
@@ -454,7 +467,7 @@ export function ServiceEditor({ initial }: Props) {
                   <Button type="button" variant="primary" onClick={() => setActive(false)} disabled={busy} className="bg-clay hover:bg-clay/90 hover:text-white">
                     {copy.status.confirm}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setConfirmingDeactivate(false)} disabled={busy}>
+                  <Button type="button" variant="outline" onClick={() => setConfirmingDeactivate(false)} disabled={busy} autoFocus>
                     {copy.status.cancel}
                   </Button>
                 </div>

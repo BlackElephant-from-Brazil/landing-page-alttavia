@@ -18,7 +18,8 @@ import type { ServiceStageRow, UserServiceRow } from "@/lib/db/types";
  * the same order at once cannot both win: the second sees no row and gets a
  * StageError to refresh. Stage transitions are the admin's call, documents
  * approved or not; the route shows the warning, this function does not
- * block.
+ * block. The one hard rule: an unpaid order (`paid_at` null) cannot leave
+ * the first stage, so a move past it answers 409 "unpaid".
  *
  * Errors are StageError with an http status and a one line message under
  * the house rules, so the route can answer with them as they are.
@@ -39,6 +40,7 @@ export type StageErrorCode =
   | "unknown_stage"
   | "no_next_stage"
   | "no_previous_stage"
+  | "unpaid"
   | "stale";
 
 export class StageError extends Error {
@@ -53,7 +55,7 @@ export class StageError extends Error {
   }
 }
 
-type OrderState = Pick<UserServiceRow, "id" | "service_id" | "stage_key" | "completed_at">;
+type OrderState = Pick<UserServiceRow, "id" | "service_id" | "stage_key" | "completed_at" | "paid_at">;
 
 function pickTarget(stages: ServiceStageRow[], current: ServiceStageRow | undefined, move: StageMove): ServiceStageRow {
   if ("stageKey" in move) {
@@ -80,7 +82,7 @@ export async function advanceStage(orderId: string, actorId: string, move: Stage
 
   const { data: orderData, error: orderError } = await admin
     .from("user_services")
-    .select("id, service_id, stage_key, completed_at")
+    .select("id, service_id, stage_key, completed_at, paid_at")
     .eq("id", orderId)
     .maybeSingle();
   if (orderError) throw new Error(`advanceStage: ${orderError.message}`);
@@ -98,6 +100,11 @@ export async function advanceStage(orderId: string, actorId: string, move: Stage
 
   const current = stages.find((s) => s.key === order.stage_key);
   const target = pickTarget(stages, current, move);
+
+  // Payment moves an order off the first stage; nothing else does.
+  if (!order.paid_at && target.position > stages[0].position) {
+    throw new StageError("unpaid", 409, "Payment first.");
+  }
 
   if (target.key === order.stage_key) {
     return { stageKey: target.key, completed: target.is_terminal && order.completed_at !== null };
