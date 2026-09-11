@@ -13,8 +13,20 @@ import type { ServiceStageRow } from "@/lib/db/types";
  * per stage timestamps, and the audit trail is not needed for this view.
  * An unknown `stage_key` (a service whose stages were edited after the order)
  * falls back to the first stage so the list still renders.
+ *
+ * `completed` is the order's `completed_at`: when set, every stage including
+ * the last one is ticked and the heading says so, rather than leaving the
+ * terminal stage looking like one more step to wait for.
  */
-export function StageTimeline({ stages, currentKey }: { stages: ServiceStageRow[]; currentKey: string }) {
+export function StageTimeline({
+  stages,
+  currentKey,
+  completed = false,
+}: {
+  stages: ServiceStageRow[];
+  currentKey: string;
+  completed?: boolean;
+}) {
   const ordered = [...stages].sort((a, b) => a.position - b.position);
   if (ordered.length === 0) return null;
 
@@ -25,17 +37,28 @@ export function StageTimeline({ stages, currentKey }: { stages: ServiceStageRow[
 
   return (
     <section aria-labelledby="progress-heading">
-      <h2 id="progress-heading" className="text-xs uppercase tracking-wider text-navy-muted">
-        Progress
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <h2 id="progress-heading" className="text-xs uppercase tracking-wider text-navy-muted">
+          Progress
+        </h2>
+        {completed && (
+          <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-navy px-3 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-white">
+            <Check className="size-3.5 text-gold-light" aria-hidden />
+            Completed
+          </span>
+        )}
+      </div>
       <ol className="relative mt-5 grid gap-6">
         <span
-          className="absolute bottom-4 left-[19px] top-4 w-px bg-gradient-to-b from-gold/50 via-gold/25 to-transparent"
+          className={cn(
+            "absolute bottom-4 left-[19px] top-4 w-px",
+            completed ? "bg-navy/30" : "bg-gradient-to-b from-gold/50 via-gold/25 to-transparent",
+          )}
           aria-hidden
         />
         {ordered.map((stage, index) => {
-          const done = index < currentIndex;
-          const current = index === currentIndex;
+          const done = completed || index < currentIndex;
+          const current = !completed && index === currentIndex;
           return (
             <li key={stage.id} className="flex gap-5" aria-current={current ? "step" : undefined}>
               <span
@@ -55,7 +78,12 @@ export function StageTimeline({ stages, currentKey }: { stages: ServiceStageRow[
                 )}
               </span>
               <span className="min-w-0 pt-2">
-                <span className={cn("block font-serif text-lg", current ? "text-navy" : "text-navy-soft")}>
+                <span
+                  className={cn(
+                    "block font-serif text-lg",
+                    current || (completed && stage.is_terminal) ? "text-navy" : "text-navy-soft",
+                  )}
+                >
                   {stage.label}
                   {done && <span className="sr-only"> (done)</span>}
                   {current && <span className="sr-only"> (current stage)</span>}
@@ -67,7 +95,7 @@ export function StageTimeline({ stages, currentKey }: { stages: ServiceStageRow[
                 )}
                 {stage.is_terminal && (
                   <span className="mt-1.5 block text-[0.72rem] font-medium uppercase tracking-[0.18em] text-gold-dark">
-                    Final stage
+                    {completed ? "Done" : "Final stage"}
                   </span>
                 )}
               </span>
