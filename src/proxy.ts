@@ -13,6 +13,10 @@ import { NextResponse, type NextRequest } from "next/server";
  * 2. Sends a visitor without a session away from the client area:
  *    /en/dashboard and everything under it redirect to /en/login with the
  *    original path in `next`, so login can bring them back.
+ * 3. Does the same for the firm's side: /admin and everything under it,
+ *    except /admin/login itself, redirect to /admin/login with the path in
+ *    `next`. The role is not checked here (that needs a database read);
+ *    src/app/admin/layout.tsx sends a signed in client away.
  *
  * This is an optimistic check only. Pages and route handlers still call
  * getUser() themselves before reading or writing anything for a user.
@@ -23,6 +27,9 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const DASHBOARD = /^\/en\/dashboard(\/|$)/;
 const LOGIN_PATH = "/en/login";
+const ADMIN = /^\/admin(\/|$)/;
+const ADMIN_LOGIN = /^\/admin\/login(\/|$)/;
+const ADMIN_LOGIN_PATH = "/admin/login";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -63,6 +70,13 @@ export async function proxy(request: NextRequest) {
   if (!signedIn && DASHBOARD.test(pathname)) {
     const login = request.nextUrl.clone();
     login.pathname = LOGIN_PATH;
+    login.search = "";
+    login.searchParams.set("next", pathname);
+    return NextResponse.redirect(login);
+  }
+  if (!signedIn && ADMIN.test(pathname) && !ADMIN_LOGIN.test(pathname)) {
+    const login = request.nextUrl.clone();
+    login.pathname = ADMIN_LOGIN_PATH;
     login.search = "";
     login.searchParams.set("next", pathname);
     return NextResponse.redirect(login);

@@ -1,7 +1,8 @@
 /**
- * Row types for every table in supabase/migrations/0001_schema.sql, hand
- * written and kept in the database's own snake_case so a row read with
- * `select *` is the row, with no mapping layer in between.
+ * Row types for every table in supabase/migrations/0001_schema.sql and the
+ * additions of 0005_admin.sql, hand written and kept in the database's own
+ * snake_case so a row read with `select *` is the row, with no mapping layer
+ * in between.
  *
  * Nullable columns are `T | null`, never optional: a row always carries every
  * column. `jsonb` columns are typed to what the code writes into them; the
@@ -15,12 +16,20 @@ import type { Answers } from "@/lib/apply/types";
 /** ISO 8601 timestamp as PostgREST returns a timestamptz. */
 export type Timestamp = string;
 
+/**
+ * Who a profile is. `admin` gets past /admin/* and reads every row through
+ * the `is_admin()` RLS policies (0005_admin.sql); `client` is everyone else.
+ * Changed only by scripts/create-admin.mjs or by hand in SQL.
+ */
+export type UserRole = "client" | "admin";
+
 /** public.users: the profile. auth.users is authentication only. */
 export type UserRow = {
   id: string;
   email: string;
   full_name: string | null;
   phone: string | null;
+  role: UserRole;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -200,13 +209,43 @@ export type UserDocumentRow = {
   updated_at: Timestamp;
 };
 
-/** public.user_service_deliverables: files and reports returned to the client. */
+export type DeliverableStatus = "pending" | "ready";
+
+/**
+ * public.user_service_deliverables: files and reports returned to the client.
+ * A row is inserted `pending` when the admin asks for an upload URL and
+ * flipped to `ready` once the object is confirmed in storage; the client's
+ * RLS policy only shows `ready` rows.
+ */
 export type UserServiceDeliverableRow = {
   id: string;
   user_service_id: string;
   service_deliverable_id: string | null;
   label: string;
   storage_key: string | null;
+  status: DeliverableStatus;
+  file_name: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+};
+
+export type NoteAudience = "client" | "internal";
+
+/**
+ * public.user_service_notes: pendencies and messages on an order. `client`
+ * rows are what the dashboard shows as "Pending from you" until
+ * `resolved_at` is set; `internal` rows are the firm's own notes.
+ */
+export type UserServiceNoteRow = {
+  id: string;
+  user_service_id: string;
+  author_id: string | null;
+  audience: NoteAudience;
+  body: string;
+  resolved_at: Timestamp | null;
   created_at: Timestamp;
 };
 
@@ -214,4 +253,132 @@ export type UserServiceDeliverableRow = {
 export type SchemaMigrationRow = {
   name: string;
   applied_at: Timestamp;
+};
+
+// ---------------------------------------------------------------------------
+// Admin shapes (docs/admin-contract.md section 5), returned by
+// src/lib/db/admin-queries.ts. Not tables: joins and aggregates over them.
+// ---------------------------------------------------------------------------
+
+/**
+ * What an order is, from the firm's side: `open` is unpaid, `paid` is paid
+ * and in progress, `completed` has `completed_at`. `all` skips the filter.
+ */
+export type OrderStatusFilter = "open" | "paid" | "completed" | "all";
+
+/**
+ * Filters for listOrders. `from` and `to` are ISO dates or timestamps and
+ * apply to `created_at` for open orders (and for `all`) and to `paid_at` for
+ * paid and completed ones. `q` matches the client's email, case
+ * insensitively. `page` starts at 1; `pageSize` defaults to 25.
+ */
+export type OrderFilters = {
+  status?: OrderStatusFilter;
+  serviceSlug?: string;
+  q?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+/**
+ * One row of the admin orders table: the order plus the joined counts the
+ * view `admin_order_summary` (0005_admin.sql) computes in one query.
+ */
+export type AdminOrderRow = UserServiceRow & {
+  user_email: string;
+  service_name: string;
+  service_slug: string;
+  /** Slots the service asks for: required docs, one per applicant when per_applicant. */
+  docs_required: number;
+  docs_approved: number;
+  /** Waiting for review. */
+  docs_uploaded: number;
+  /** Slots whose newest upload was rejected and not replaced yet. */
+  docs_rejected: number;
+  last_event_at: Timestamp | null;
+  /** Client facing notes without `resolved_at`. */
+  open_pendencies: number;
+};
+
+/** One answer of the wizard, already in plain English. Same shape as SummaryItem. */
+export type AdminAnswerRow = {
+  label: string;
+  value: string;
+};
+
+/** Everything the order modal shows. */
+export type AdminOrderDetail = {
+  order: UserServiceRow;
+  user: Pick<UserRow, "id" | "email" | "full_name" | "phone">;
+  service: ServiceRow;
+  stages: ServiceStageRow[];
+  /** The service's document slots. */
+  docs: ServiceDocRow[];
+  /** Every upload attempt on the order, oldest first. */
+  documents: UserDocumentRow[];
+  /** Stage history, oldest first. */
+  events: UserServiceEventRow[];
+  /** Every note, both audiences, oldest first. */
+  notes: UserServiceNoteRow[];
+  deliverables: {
+    /** The service's template. */
+    templates: ServiceDeliverableRow[];
+    /** What has been returned so far, any status. */
+    files: UserServiceDeliverableRow[];
+  };
+  /** Empty when the order was bought from the gallery (`answers_snapshot = {}`). */
+  answers: AdminAnswerRow[];
+};
+
+/** A stage change with the order and client it belongs to, for the overview. */
+export type AdminEventRow = UserServiceEventRow & {
+  user_email: string;
+  service_name: string;
+  service_slug: string;
+};
+
+/** The overview page. Ranges follow the same date columns as OrderFilters. */
+export type Overview = {
+  kpis: {
+    /** Unpaid orders created in the range. */
+    openOrders: number;
+    /** Orders paid in the range and still in progress. */
+    paidOrders: number;
+    /** Orders paid in the range that are complete. */
+    completedOrders: number;
+    /** Sum of `total_cents` over orders paid in the range. */
+    revenueCents: number;
+    /** Documents with status `uploaded`, whatever their date. */
+    documentsAwaitingReview: number;
+    /** Client facing notes without `resolved_at`, whatever their date. */
+    openPendencies: number;
+  };
+  /** The last 6 months including the current one, oldest first, zero filled. */
+  ordersByMonth: { month: string; paid: number; revenueCents: number }[];
+  /** Orders not yet complete, by their current stage, in stage order. */
+  ordersByStage: { stageKey: string; label: string; count: number }[];
+  /** Orders paid in the range, by service, in service order. */
+  ordersByService: { slug: string; name: string; count: number; revenueCents: number }[];
+  /** The last 20 stage changes, newest first. */
+  recentEvents: AdminEventRow[];
+};
+
+/** An uploaded document with the order and client it belongs to. */
+export type AdminDocumentRow = UserDocumentRow & {
+  user_email: string;
+  service_name: string;
+  service_slug: string;
+  doc_key: string;
+  doc_label: string;
+};
+
+/** A service with its lifecycle, documents and deliverables, for the editor. */
+export type ServiceWithConfig = ServiceRow & {
+  stages: ServiceStageRow[];
+  docs: ServiceDocRow[];
+  deliverables: ServiceDeliverableRow[];
+  /** Orders ever placed on the service, any status. */
+  orders_count: number;
 };
