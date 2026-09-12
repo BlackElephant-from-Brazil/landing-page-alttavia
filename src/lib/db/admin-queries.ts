@@ -15,12 +15,14 @@
 
 import { summarizeAnswers } from "@/lib/apply/summary";
 
+import { bucketByMonth, chartMonths, chartStart } from "./overview-months";
 import type { Db } from "./queries";
 import type {
   AdminDocumentRow,
-  AdminEventRow,
   AdminOrderDetail,
   AdminOrderRow,
+  AdminUserDetail,
+  AdminUserRow,
   OrderFilters,
   Overview,
   QuestionRow,
@@ -30,6 +32,7 @@ import type {
   ServiceStageRow,
   ServiceWithConfig,
   UserDocumentRow,
+  UserFilters,
   UserRow,
   UserServiceDeliverableRow,
   UserServiceEventRow,
@@ -43,8 +46,8 @@ function fail(where: string, error: { message: string }): never {
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
-const MONTHS_ON_CHART = 6;
-const RECENT_EVENTS = 20;
+/** listUsers reads at most this many profiles before sorting and paging them. */
+const MAX_USERS = 2000;
 
 const BARE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -215,48 +218,26 @@ export async function getOrderDetail(db: Db, id: string): Promise<AdminOrderDeta
 // Overview
 // ---------------------------------------------------------------------------
 
-/** `YYYY-MM` in UTC. */
-function monthKey(date: Date): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-/** The first day of the month `MONTHS_ON_CHART - 1` months ago, in UTC. */
-function chartStart(now: Date): Date {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (MONTHS_ON_CHART - 1), 1));
-}
-
-/** The six month keys the chart shows, oldest first. */
-function chartMonths(now: Date): string[] {
-  const start = chartStart(now);
-  return Array.from({ length: MONTHS_ON_CHART }, (_, i) =>
-    monthKey(new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1))),
-  );
-}
-
 type PaidRow = Pick<UserServiceRow, "service_id" | "total_cents" | "paid_at"> & {
   services: Pick<ServiceRow, "slug" | "name" | "position"> | null;
 };
 
 type StageLabelRow = Pick<ServiceStageRow, "key" | "label" | "position">;
 
-type EventJoinRow = UserServiceEventRow & {
-  user_services: {
-    users: Pick<UserRow, "email"> | null;
-    services: Pick<ServiceRow, "name" | "slug"> | null;
-  } | null;
-};
-
 /**
  * The overview page. `range.from` and `range.to` use the same date columns
  * as listOrders, so a KPI tile and the orders table filtered the same way
  * agree: open orders by `created_at`, paid and completed by `paid_at`. The
- * two review queues (documents, pendencies) and the pipeline by stage ignore
- * the range; the monthly chart always shows the last six months.
+ * in progress queue, the two review queues (documents, pendencies) and the
+ * pipeline by stage ignore the range; the monthly charts always show the
+ * last six months.
  *
  * One query per aggregate: five counts that transfer no rows, one read of
- * the paid orders in the range (revenue and by service), one of the paid
- * orders of the last six months (by month), one of the open pipeline (by
- * stage) plus the stage labels, and the last 20 events with their joins.
+ * the paid orders in the range (paid count, revenue and by service), one of
+ * the paid orders of the last six months and one of the unpaid orders
+ * created in them (by month), one of the open pipeline (by stage) plus the
+ * stage labels, and the active services (so the by service chart lists
+ * what sold nothing).
  */
 export async function getOverview(db: Db, range: { from: string; to: string }): Promise<Overview> {
   const end = rangeEnd(range.to);
@@ -268,7 +249,7 @@ export async function getOverview(db: Db, range: { from: string; to: string }): 
   // chains: `.gte(column, from).filter(column, end.op, end.value)`.
   const PAID_COLUMNS = "service_id, total_cents, paid_at, services(slug, name, position)";
 
-  const [open, paid, completed, awaitingReview, pendencies, paidInRange, paidRecent, pipeline, stageLabels, events] =
+  const [open, inProgress, completed, awaitingReview, pendencies, paidInRange, paidRecent, openRecent, pipeline, stageLabels, services] =
     await Promise.all([
       db
         .from("user_services")
@@ -280,9 +261,7 @@ export async function getOverview(db: Db, range: { from: string; to: string }): 
         .from("user_services")
         .select("id", { count: "exact", head: true })
         .not("paid_at", "is", null)
-        .is("completed_at", null)
-        .gte("paid_at", range.from)
-        .filter("paid_at", end.op, end.value),
+        .is("completed_at", null),
       db
         .from("user_services")
         .select("id", { count: "exact", head: true })
@@ -301,35 +280,39 @@ export async function getOverview(db: Db, range: { from: string; to: string }): 
         .gte("paid_at", range.from)
         .filter("paid_at", end.op, end.value),
       db.from("user_services").select(PAID_COLUMNS).gte("paid_at", chartFrom),
+      db.from("user_services").select("created_at").is("paid_at", null).gte("created_at", chartFrom),
       db.from("user_services").select("stage_key").is("completed_at", null),
       db.from("service_stages").select("key, label, position").order("position"),
-      db
-        .from("user_service_events")
-        .select("*, user_services!inner(users(email), services(name, slug))")
-        .order("created_at", { ascending: false })
-        .limit(RECENT_EVENTS),
+      db.from("services").select("slug, name, position").eq("active", true).order("position"),
     ]);
 
   for (const [where, result] of [
     ["open", open],
-    ["paid", paid],
+    ["in progress", inProgress],
     ["completed", completed],
     ["awaiting review", awaitingReview],
     ["pendencies", pendencies],
     ["paid in range", paidInRange],
     ["paid recent", paidRecent],
+    ["open recent", openRecent],
     ["pipeline", pipeline],
     ["stage labels", stageLabels],
-    ["events", events],
+    ["services", services],
   ] as const) {
     if (result.error) fail(`getOverview ${where}`, result.error);
   }
 
   const paidRows = (paidInRange.data ?? []) as unknown as PaidRow[];
   const recentRows = (paidRecent.data ?? []) as unknown as PaidRow[];
+  const openRows = (openRecent.data ?? []) as Pick<UserServiceRow, "created_at">[];
 
-  // By service, in catalogue order.
+  // By service, in catalogue order. Every active service is listed, zero
+  // filled, so the donut legend shows what sold nothing; an inactive one
+  // appears only with orders.
   const byService = new Map<string, Overview["ordersByService"][number] & { position: number }>();
+  for (const service of (services.data ?? []) as Pick<ServiceRow, "slug" | "name" | "position">[]) {
+    byService.set(service.slug, { slug: service.slug, name: service.name, count: 0, revenueCents: 0, position: service.position });
+  }
   for (const row of paidRows) {
     const slug = row.services?.slug ?? row.service_id;
     const entry = byService.get(slug) ?? {
@@ -347,15 +330,8 @@ export async function getOverview(db: Db, range: { from: string; to: string }): 
     .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name))
     .map(({ slug, name, count, revenueCents }) => ({ slug, name, count, revenueCents }));
 
-  // By month, zero filled.
-  const byMonth = new Map(months.map((month) => [month, { month, paid: 0, revenueCents: 0 }]));
-  for (const row of recentRows) {
-    if (!row.paid_at) continue;
-    const entry = byMonth.get(monthKey(new Date(row.paid_at)));
-    if (!entry) continue;
-    entry.paid += 1;
-    entry.revenueCents += row.total_cents;
-  }
+  // By month, zero filled: paid and revenue by paid_at, open by created_at.
+  const ordersByMonth = bucketByMonth(months, recentRows, openRows);
 
   // By stage: every stage key the catalogue knows, in position order, with
   // the first label seen for it (services share keys and labels).
@@ -376,29 +352,107 @@ export async function getOverview(db: Db, range: { from: string; to: string }): 
     stageOrder[index].count += 1;
   }
 
-  const recentEvents: AdminEventRow[] = ((events.data ?? []) as unknown as EventJoinRow[]).map(
-    ({ user_services, ...event }) => ({
-      ...event,
-      user_email: user_services?.users?.email ?? "",
-      service_name: user_services?.services?.name ?? "",
-      service_slug: user_services?.services?.slug ?? "",
-    }),
-  );
-
   return {
     kpis: {
       openOrders: open.count ?? 0,
-      paidOrders: paid.count ?? 0,
+      paidOrders: paidRows.length,
+      inProgressOrders: inProgress.count ?? 0,
       completedOrders: completed.count ?? 0,
       revenueCents: paidRows.reduce((sum, row) => sum + row.total_cents, 0),
       documentsAwaitingReview: awaitingReview.count ?? 0,
       openPendencies: pendencies.count ?? 0,
     },
-    ordersByMonth: [...byMonth.values()],
+    ordersByMonth,
     ordersByStage: stageOrder,
     ordersByService,
-    recentEvents,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Users
+// ---------------------------------------------------------------------------
+
+type UserJoinRow = UserRow & {
+  user_services: Pick<UserServiceRow, "created_at" | "paid_at">[] | null;
+};
+
+function newest(...values: (string | null | undefined)[]): string | null {
+  let best: string | null = null;
+  for (const value of values) {
+    if (value && (!best || value > best)) best = value;
+  }
+  return best;
+}
+
+/**
+ * The users table: every profile with what its orders add up to, sorted by
+ * last activity (newest first), searched by email and paged. One query:
+ * the profiles with their orders' two dates embedded. The aggregate and the
+ * sort happen here because PostgREST cannot order by them; the read is
+ * capped at MAX_USERS, far above what the firm holds. `total` is the count
+ * of matching profiles.
+ */
+export async function listUsers(db: Db, filters: UserFilters = {}): Promise<{ rows: AdminUserRow[]; total: number }> {
+  const page = Math.max(1, Math.floor(filters.page ?? 1));
+  const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(filters.pageSize ?? DEFAULT_PAGE_SIZE)));
+
+  let query = db.from("users").select("*, user_services(created_at, paid_at)").order("created_at", { ascending: false }).limit(MAX_USERS);
+  const needle = filters.q ? emailNeedle(filters.q) : "";
+  if (needle) query = query.ilike("email", `%${needle}%`);
+
+  const { data, error } = await query;
+  if (error) fail("listUsers", error);
+
+  const rows = ((data ?? []) as unknown as UserJoinRow[])
+    .map(({ user_services, ...user }) => {
+      const orders = user_services ?? [];
+      const lastOrderAt = newest(...orders.map((o) => o.created_at));
+      const lastPaidAt = newest(...orders.map((o) => o.paid_at));
+      return {
+        ...user,
+        orders_count: orders.length,
+        paid_count: orders.filter((o) => o.paid_at).length,
+        last_order_at: lastOrderAt,
+        last_activity_at: newest(user.created_at, lastOrderAt, lastPaidAt) ?? user.created_at,
+      };
+    })
+    .sort((a, b) => (a.last_activity_at < b.last_activity_at ? 1 : a.last_activity_at > b.last_activity_at ? -1 : 0));
+
+  const start = (page - 1) * pageSize;
+  return { rows: rows.slice(start, start + pageSize), total: rows.length };
+}
+
+/**
+ * Everything the user modal shows, or null when the id is unknown: the
+ * profile, its orders from the summary view (newest first) and the stage
+ * labels of the services those orders are on.
+ */
+export async function getUserDetail(db: Db, id: string): Promise<AdminUserDetail | null> {
+  const { data: userData, error: userError } = await db.from("users").select("*").eq("id", id).maybeSingle();
+  if (userError) fail("getUserDetail", userError);
+  const user = userData as UserRow | null;
+  if (!user) return null;
+
+  const { data: orderData, error: orderError } = await db
+    .from("admin_order_summary")
+    .select("*")
+    .eq("user_id", id)
+    .order("created_at", { ascending: false });
+  if (orderError) fail("getUserDetail orders", orderError);
+  const orders = (orderData ?? []) as AdminOrderRow[];
+
+  const serviceIds = [...new Set(orders.map((o) => o.service_id))];
+  let stages: AdminUserDetail["stages"] = [];
+  if (serviceIds.length > 0) {
+    const { data: stageData, error: stageError } = await db
+      .from("service_stages")
+      .select("service_id, key, label")
+      .in("service_id", serviceIds);
+    if (stageError) fail("getUserDetail stages", stageError);
+    stages = (stageData ?? []) as AdminUserDetail["stages"];
+  }
+
+  return { user, orders, stages };
 }
 
 // ---------------------------------------------------------------------------

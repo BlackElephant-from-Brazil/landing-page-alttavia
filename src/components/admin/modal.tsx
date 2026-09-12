@@ -5,14 +5,15 @@ import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, type MouseEvent, type SyntheticEvent } from "react";
 
 /**
- * The centered `<dialog>` the order detail opens in. Contract
- * (docs/admin-contract.md) section 2: driven by the URL, so a refresh or a
- * shared link reopens it.
+ * The centered `<dialog>` the order detail and the user detail open in.
+ * Contract (docs/admin-contract.md) section 2: driven by the URL, so a
+ * refresh or a shared link reopens it.
  *
- * The server renders this whenever `?order=` is set and drops it when it is
- * not, so "open" is simply "mounted": `showModal()` runs on mount, which
- * also keeps focus inside natively and wires the Esc key. Closing never touches
- * `dialog.close()` directly; it removes `order` from the URL with
+ * The server renders this whenever the URL param (`?order=` by default,
+ * `?user=` on the users page: `param`) is set and drops it when it is not,
+ * so "open" is simply "mounted": `showModal()` runs on mount, which also
+ * keeps focus inside natively and wires the Esc key. Closing never touches
+ * `dialog.close()` directly; it removes the param from the URL with
  * `router.replace`, the server renders without the modal, and the element
  * unmounts. Esc arrives as the `cancel` event and is redirected the same
  * way. A click on the backdrop (the dialog element itself, outside the
@@ -33,10 +34,13 @@ import { useCallback, useEffect, useRef, type MouseEvent, type SyntheticEvent } 
 export function Modal({
   title,
   titleId,
+  param = "order",
   children,
 }: {
   title: React.ReactNode;
   titleId: string;
+  /** The URL param that holds the modal open; removing it closes. */
+  param?: string;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -48,10 +52,10 @@ export function Modal({
 
   const close = useCallback(() => {
     const query = new URLSearchParams(searchParams.toString());
-    query.delete("order");
+    query.delete(param);
     const string = query.toString();
     router.replace(string ? `${pathname}?${string}` : pathname, { scroll: false });
-  }, [pathname, router, searchParams]);
+  }, [param, pathname, router, searchParams]);
 
   useEffect(() => {
     const dialog = ref.current;

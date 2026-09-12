@@ -7,6 +7,10 @@ import { formatCount, formatEuro } from "./lib/format";
  * label, a value in the sans (proportional figures, never the serif) and a
  * short caption that says what the number counts. No chart, because a
  * single current value is a tile, not a bar.
+ *
+ * Four tiles follow the range (open, paid, completed, revenue); the two
+ * queues (in progress, documents to review) do not, and their captions say
+ * so.
  */
 
 type Tile = {
@@ -19,7 +23,8 @@ export function KpiTiles({ kpis, rangeLabel }: { kpis: Overview["kpis"]; rangeLa
   const period = rangeLabel.toLowerCase();
   const tiles: Tile[] = [
     { label: "Open orders", value: formatCount(kpis.openOrders), caption: `Created, not paid, ${period}` },
-    { label: "Paid, in progress", value: formatCount(kpis.paidOrders), caption: `Paid ${period}, not complete` },
+    { label: "Paid", value: formatCount(kpis.paidOrders), caption: `Paid ${period}, any stage` },
+    { label: "In progress", value: formatCount(kpis.inProgressOrders), caption: "Paid, not complete, any date" },
     { label: "Completed", value: formatCount(kpis.completedOrders), caption: `Paid ${period}, delivered` },
     { label: "Revenue", value: formatEuro(kpis.revenueCents), caption: `Paid ${period}` },
     {
@@ -27,7 +32,6 @@ export function KpiTiles({ kpis, rangeLabel }: { kpis: Overview["kpis"]; rangeLa
       value: formatCount(kpis.documentsAwaitingReview),
       caption: "Uploaded, waiting for a decision",
     },
-    { label: "Open pendencies", value: formatCount(kpis.openPendencies), caption: "Waiting on the client" },
   ];
 
   return (

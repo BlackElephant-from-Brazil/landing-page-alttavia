@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { MonthlyChart } from "@/components/admin/charts/monthly-chart";
+import { MonthlyOrdersChart } from "@/components/admin/charts/monthly-orders-chart";
+import { MonthlyRevenueChart } from "@/components/admin/charts/monthly-revenue-chart";
 import { ServiceChart } from "@/components/admin/charts/service-chart";
 import { StageChart } from "@/components/admin/charts/stage-chart";
-import { DataTable, Pill, type Column } from "@/components/admin/data-table";
+import { DataTable, PaidOn, Pill, type Column } from "@/components/admin/data-table";
 import { KpiTiles } from "@/components/admin/kpi-tiles";
 import { formatCount, formatDate, formatDateTime, humanizeKey } from "@/components/admin/lib/format";
 import { firstParam, hrefWith, type SearchParams } from "@/components/admin/lib/params";
@@ -23,10 +24,12 @@ export const metadata: Metadata = { title: "Overview" };
  * /admin, the overview. Contract (docs/admin-contract.md) section 7.
  *
  * The range comes from the URL (see src/components/admin/lib/range.ts) and
- * scopes the KPI tiles and the by service chart. The two work queues below
- * (orders in progress, documents to review) and the pipeline by stage are
- * not scoped by it: an order paid two months ago and still open is still
- * work. Everything is read with the user client; RLS `is_admin()` decides.
+ * scopes four of the KPI tiles and the by service chart. The in progress
+ * tile, the two work queues below (orders in progress, documents to
+ * review) and the pipeline by stage are not scoped by it: an order paid
+ * two months ago and still open is still work. The two monthly charts
+ * always show the last six months. Everything is read with the user
+ * client; RLS `is_admin()` decides.
  *
  * `?order=<id>` opens the order modal on top of the page and is kept by
  * every link that does not change the range.
@@ -59,7 +62,7 @@ export default async function OverviewPage({ searchParams }: Props) {
   const progressColumns: Column<AdminOrderRow>[] = [
     { key: "client", header: "Client", cell: (row) => <span className="font-medium">{row.user_email}</span> },
     { key: "service", header: "Service", cell: (row) => (row.quantity === 2 ? `${row.service_name} x2` : row.service_name) },
-    { key: "paid", header: "Paid on", cell: (row) => formatDate(row.paid_at) },
+    { key: "paid", header: "Paid on", cell: (row) => <PaidOn paidAt={row.paid_at} formatDate={formatDate} /> },
     { key: "stage", header: "Stage", cell: (row) => stageLabel(row.stage_key) },
     {
       key: "docs",
@@ -125,9 +128,8 @@ export default async function OverviewPage({ searchParams }: Props) {
           Charts
         </h2>
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="lg:col-span-2">
-            <MonthlyChart data={overview.ordersByMonth} />
-          </div>
+          <MonthlyOrdersChart data={overview.ordersByMonth} />
+          <MonthlyRevenueChart data={overview.ordersByMonth} />
           <StageChart data={overview.ordersByStage} />
           <ServiceChart data={overview.ordersByService} />
         </div>
@@ -178,36 +180,6 @@ export default async function OverviewPage({ searchParams }: Props) {
           rowLabel={(row) => `Open order for ${row.user_email}`}
           empty="No document waiting for review."
         />
-      </section>
-
-      <section aria-labelledby="events-heading">
-        <h2 id="events-heading" className="font-serif text-xl text-navy">
-          Recent activity
-        </h2>
-        {overview.recentEvents.length === 0 ? (
-          <p className="mt-3 text-[0.9rem] text-navy-muted">No stage changes yet.</p>
-        ) : (
-          <ol className="mt-4 divide-y divide-navy/5 rounded-lg border border-navy/10 bg-white shadow-[var(--shadow-soft)]">
-            {overview.recentEvents.map((event) => (
-              <li key={event.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 text-[0.85rem]">
-                <span className="w-[9.5rem] shrink-0 tabular-nums text-navy-muted">{formatDateTime(event.created_at)}</span>
-                <Link
-                  href={orderHref(event.user_service_id)}
-                  scroll={false}
-                  className="rounded-sm font-medium text-navy underline-offset-4 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-                >
-                  {event.user_email || "Unknown client"}
-                </Link>
-                <span className="text-navy-soft">{event.service_name}</span>
-                <span className="text-navy">
-                  {event.from_stage
-                    ? `${stageLabel(event.from_stage)} to ${stageLabel(event.to_stage)}`
-                    : `Created on ${stageLabel(event.to_stage)}`}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
       </section>
 
       <OrderModal orderId={orderId} />

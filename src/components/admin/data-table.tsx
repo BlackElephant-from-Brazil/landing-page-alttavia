@@ -117,8 +117,14 @@ export function DataTable<Row>({
   );
 }
 
-/** A small status pill, the same shape the client's document slot uses. */
-export function Pill({ tone, children }: { tone: "muted" | "gold" | "navy" | "clay"; children: React.ReactNode }) {
+export type PillTone = "muted" | "gold" | "navy" | "clay" | "green" | "amber";
+
+/**
+ * A small status pill, the same shape the client's document slot uses.
+ * Every text colour clears 4.5:1 on white: green #1F7A4D is 5.3:1 and
+ * amber #9A5F0F is 5.2:1 (the lighter #B5731A tints the background only).
+ */
+export function Pill({ tone, children }: { tone: PillTone; children: React.ReactNode }) {
   return (
     <span
       className={cn(
@@ -127,9 +133,26 @@ export function Pill({ tone, children }: { tone: "muted" | "gold" | "navy" | "cl
         tone === "gold" && "bg-gold/15 text-[#7A5A12]",
         tone === "navy" && "bg-navy text-white",
         tone === "clay" && "bg-clay/10 text-[#B52D25]",
+        tone === "green" && "bg-[#1F7A4D]/10 text-[#1F7A4D]",
+        tone === "amber" && "bg-[#B5731A]/10 text-[#9A5F0F]",
       )}
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * The "Paid on" cell every orders table shares: the date on a green pill
+ * once paid, "Not yet" on an amber one until then, so the column reads at
+ * a glance without relying on the colour alone.
+ */
+export function PaidOn({ paidAt, formatDate }: { paidAt: string | null; formatDate: (value: string) => string }) {
+  return paidAt ? (
+    <Pill tone="green">
+      <span className="normal-case tracking-normal">{formatDate(paidAt)}</span>
+    </Pill>
+  ) : (
+    <Pill tone="amber">Not yet</Pill>
   );
 }

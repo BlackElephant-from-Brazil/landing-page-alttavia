@@ -332,7 +332,10 @@ export type AdminOrderDetail = {
   answers: AdminAnswerRow[];
 };
 
-/** A stage change with the order and client it belongs to, for the overview. */
+/**
+ * A stage change with the order and client it belongs to. The overview no
+ * longer lists recent events; the shape stays for anything that joins one.
+ */
 export type AdminEventRow = UserServiceEventRow & {
   user_email: string;
   service_name: string;
@@ -344,8 +347,10 @@ export type Overview = {
   kpis: {
     /** Unpaid orders created in the range. */
     openOrders: number;
-    /** Orders paid in the range and still in progress. */
+    /** Orders paid in the range, any stage. */
     paidOrders: number;
+    /** Orders paid and not yet complete, whatever their date: the queue. */
+    inProgressOrders: number;
     /** Orders paid in the range that are complete. */
     completedOrders: number;
     /** Sum of `total_cents` over orders paid in the range. */
@@ -355,14 +360,45 @@ export type Overview = {
     /** Client facing notes without `resolved_at`, whatever their date. */
     openPendencies: number;
   };
-  /** The last 6 months including the current one, oldest first, zero filled. */
-  ordersByMonth: { month: string; paid: number; revenueCents: number }[];
+  /**
+   * The last 6 months including the current one, oldest first, zero filled.
+   * `paid` and `revenueCents` count by `paid_at`; `open` is orders created
+   * in the month with `paid_at` still null.
+   */
+  ordersByMonth: { month: string; paid: number; open: number; revenueCents: number }[];
   /** Orders not yet complete, by their current stage, in stage order. */
   ordersByStage: { stageKey: string; label: string; count: number }[];
   /** Orders paid in the range, by service, in service order. */
   ordersByService: { slug: string; name: string; count: number; revenueCents: number }[];
-  /** The last 20 stage changes, newest first. */
-  recentEvents: AdminEventRow[];
+};
+
+/** Filters for listUsers. `q` matches the email, case insensitively; `page` starts at 1. */
+export type UserFilters = {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+/**
+ * One row of the admin users table: the profile plus what its orders add
+ * up to. `last_activity_at` is the newest of the profile's creation, the
+ * orders' creation and their payments, and is the sort key.
+ */
+export type AdminUserRow = UserRow & {
+  orders_count: number;
+  paid_count: number;
+  /** `created_at` of the newest order, null with none. */
+  last_order_at: Timestamp | null;
+  last_activity_at: Timestamp;
+};
+
+/** Everything the user modal shows. */
+export type AdminUserDetail = {
+  user: UserRow;
+  /** The user's orders with the joined counts, newest first. */
+  orders: AdminOrderRow[];
+  /** Stage labels for the services those orders are on. */
+  stages: Pick<ServiceStageRow, "service_id" | "key" | "label">[];
 };
 
 /** An uploaded document with the order and client it belongs to. */

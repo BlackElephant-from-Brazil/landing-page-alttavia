@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { DataTable, Pill, type Column } from "@/components/admin/data-table";
+import { DataTable, PaidOn, Pill, type Column } from "@/components/admin/data-table";
 import { formatCount, formatDate, formatEuro, humanizeKey } from "@/components/admin/lib/format";
 import { firstParam, hrefWith, intParam, type SearchParams } from "@/components/admin/lib/params";
 import { RANGE_KEYS, RANGE_LABELS, isRangeKey, resolveRange } from "@/components/admin/lib/range";
@@ -96,11 +96,7 @@ export default async function OrdersPage({ searchParams }: Props) {
         row.completed_at ? <Pill tone="navy">Completed</Pill> : row.paid_at ? <Pill tone="gold">Paid</Pill> : <Pill tone="muted">Open</Pill>,
     },
     { key: "date", header: "Created", cell: (row) => formatDate(row.created_at) },
-    {
-      key: "paid",
-      header: "Paid on",
-      cell: (row) => (row.paid_at ? formatDate(row.paid_at) : <span className="text-navy-muted">Not yet</span>),
-    },
+    { key: "paid", header: "Paid on", cell: (row) => <PaidOn paidAt={row.paid_at} formatDate={formatDate} /> },
     { key: "stage", header: "Stage", cell: (row) => stageLabel(row.stage_key) },
     {
       key: "docs",

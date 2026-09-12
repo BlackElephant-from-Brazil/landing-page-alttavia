@@ -1,17 +1,24 @@
 /**
  * The card every overview chart sits in, and the shared pieces of the SVG:
- * the mark colours, the axis text and the hairline grid. Server components
- * only; no chart library, no script.
+ * the mark colours, the axis text and the hairline grid. The frame and the
+ * hidden table are server components; the plots inside are small client
+ * components (a tooltip on hover and focus), which import the same
+ * constants. No chart library.
  *
- * Colour follows the dataviz rules: one series per chart, so one hue per
- * chart and no legend box (the title names the series). Marks are
- * navy-soft (8.9:1 on white) and the revenue line is gold-dark (3.8:1),
- * both above the 3:1 floor for marks. Text never wears the series colour.
+ * Colour follows the dataviz rules. The monthly charts carry one hue per
+ * series (paid columns navy, unpaid columns wheat, the revenue line gold
+ * dark) and the donuts take the brand tokens in one fixed order, assigned by
+ * index and never re-coloured when a slice is empty. Wheat and gold sit
+ * under 3:1 on white, so every chart also carries value labels, a legend
+ * with the numbers and the hidden table: colour is never the only channel.
+ * Text never wears the series colour.
  *
- * Every chart also renders its numbers as a visually hidden table right
- * after the figure, so a screen reader and a copy paste get the same data
- * the eye does.
+ * Every chart renders its numbers as a visually hidden table right after
+ * the figure, so a screen reader and a copy paste get the same data the eye
+ * does.
  */
+
+export { compact, niceMax, ticks } from "./geometry";
 
 export const MARK = "#2D4B72";
 export const MARK_ACCENT = "#A67D1E";
@@ -19,6 +26,20 @@ export const GRID = "rgba(14, 42, 71, 0.10)";
 export const AXIS_TEXT = "#5B7199";
 export const LABEL_TEXT = "#0E2A47";
 export const SURFACE = "#FFFFFF";
+
+/** The two series of the orders by month columns. */
+export const PAID_MARK = "#0E2A47";
+export const UNPAID_MARK = "#E0CF9F";
+
+/**
+ * The donut palette, in the fixed order the slices take: navy, gold,
+ * navy soft, wheat, gold dark, clay, navy muted. A slice keeps the colour
+ * of its index whatever the other slices hold.
+ */
+export const DONUT_PALETTE = ["#0E2A47", "#D0A12B", "#2D4B72", "#E0CF9F", "#A67D1E", "#C4322A", "#5B7199"] as const;
+
+/** The colour of a legend row whose slice is empty. */
+export const EMPTY_MARK = "rgba(14, 42, 71, 0.12)";
 
 export const AXIS_FONT = "11px var(--font-inter), ui-sans-serif, system-ui, sans-serif";
 export const LABEL_FONT = "12px var(--font-inter), ui-sans-serif, system-ui, sans-serif";
@@ -89,32 +110,6 @@ export function HiddenTable({
       </tbody>
     </table>
   );
-}
-
-/** A clean top of axis for a value: 0 to 4 becomes 4, 0 to 37 becomes 40, 0 to 2600 becomes 3000. */
-export function niceMax(max: number): number {
-  if (max <= 0) return 1;
-  const magnitude = 10 ** Math.floor(Math.log10(max));
-  const unit = max / magnitude;
-  const step = unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 2.5 ? 2.5 : unit <= 5 ? 5 : 10;
-  return step * magnitude;
-}
-
-/** Three or four evenly spaced tick values from 0 to `max`. */
-export function ticks(max: number, count = 4): number[] {
-  const step = max / count;
-  return Array.from({ length: count + 1 }, (_, i) => Math.round(step * i * 100) / 100);
-}
-
-/** A short axis label for a count or euros: 12, 1.2k, 1.2M. */
-export function compact(value: number): string {
-  if (Math.abs(value) >= 1_000_000) return `${trim(value / 1_000_000)}M`;
-  if (Math.abs(value) >= 1_000) return `${trim(value / 1_000)}k`;
-  return trim(value);
-}
-
-function trim(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
 }
 
 /** The empty line inside a chart when there is nothing in the range. */

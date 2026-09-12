@@ -47,7 +47,10 @@ payment to delivery, the client's order gallery, and the service editor.
 - The order detail on the admin side is a **modal** (`<dialog>`, centered,
   focus trapped, Esc closes) driven by the URL (`?order=<id>`) so a refresh or
   a shared link reopens it.
-- Charts are server-rendered inline SVG components, no charting dependency.
+- Charts are inline SVG components, no charting dependency. Since 2026-09-12
+  the plots are small client components (`"use client"`, the server passes
+  the rows) so a hovered or focused column, marker, slice or legend row
+  shows a tooltip; the geometry is pure (`charts/geometry.ts`, tested).
   Every chart has a visually hidden table with the same numbers.
 - Direct purchases (gallery) store `answers_snapshot = '{}'`; the dashboard
   hides the answers section when it is empty. `nif-only` offers quantity 1 or
@@ -134,7 +137,7 @@ src/lib/orders/lifecycle.ts      advanceStage(orderId, actorId, { direction: 'fo
                                  (uses service_stages positions, writes user_service_events, sets/clears completed_at)
 src/proxy.ts                     add: unauthenticated /admin and /admin/* (except /admin/login) -> /admin/login?next=
 src/app/admin/layout.tsx         server: getUserWithRole(); no user -> /admin/login; role !== 'admin' -> /en/dashboard;
-                                 shell with sidebar (Overview, Orders, Services, Settings), email, sign out
+                                 shell with sidebar (Overview, Orders, Users, Services, Settings), email, sign out
 src/app/admin/login/page.tsx     email + password form (client island), signInWithPassword, then router.push(next) + refresh;
                                  signed-in admin visiting it -> /admin; signed-in client -> /en/dashboard
 scripts/create-admin.mjs         creates the auth user (email_confirm: true) with a 20 character random password, sets the
@@ -156,12 +159,17 @@ getOrderDetail(db, id): Promise<AdminOrderDetail | null>
    // order, user (email, full_name, phone), service, stages, docs (service_docs), documents (user_documents, all),
    // events, notes, deliverables (service_deliverables + user_service_deliverables), answers summary rows
 getOverview(db, range: { from: string; to: string }): Promise<Overview>
-   // kpis: openOrders, paidOrders, completedOrders, revenueCents, documentsAwaitingReview, openPendencies
-   // ordersByMonth: { month: 'YYYY-MM', paid: number, revenueCents: number }[]   (last 6 months, zero filled)
+   // kpis: openOrders (created in range, unpaid), paidOrders (paid in range, any stage), inProgressOrders (paid,
+   //       not complete, any date), completedOrders, revenueCents, documentsAwaitingReview, openPendencies
+   // ordersByMonth: { month: 'YYYY-MM', paid, open, revenueCents }[]   (last 6 months, zero filled; open = created
+   //       that month, still unpaid; bucketing in src/lib/db/overview-months.ts)
    // ordersByStage: { stageKey, label, count }[]
-   // ordersByService: { slug, name, count, revenueCents }[]
-   // recentEvents: last 20 user_service_events joined with order + user email
+   // ordersByService: { slug, name, count, revenueCents }[]   (every active service, zero filled)
 listPendingReviews(db): Promise<AdminDocumentRow[]>   // status = 'uploaded', oldest first
+listUsers(db, { q, page, pageSize }): Promise<{ rows: AdminUserRow[]; total: number }>
+   // every profile with orders_count, paid_count, last_order_at, sorted by last activity; q matches the email
+getUserDetail(db, id): Promise<AdminUserDetail | null>
+   // user, orders (admin_order_summary rows, newest first), stage labels of their services
 listServicesForAdmin(db): Promise<ServiceWithConfig[]>   // includes inactive; stages, docs, deliverables nested
 getServiceForAdmin(db, id): Promise<ServiceWithConfig | null>
 ```
@@ -195,11 +203,23 @@ line, house rules, no provider internals.
 
 ### `/admin` overview (admin-ui agent)
 Range selector (`?range=week|month|3m|6m|year`, default month) and a custom
-`from`/`to`. Six KPI tiles. Charts: paid orders and revenue per month (last 6
-months, bars + line), orders by stage (horizontal bars), orders by service.
-Two tables: **In progress** (paid, not completed: client, service, paid on,
-stage, documents x/y, pendencies) and **Awaiting review** (documents with
-status uploaded). Row click opens the order modal (`?order=<id>`).
+`from`/`to`. Six KPI tiles: Open orders, Paid, In progress (a queue, not
+range scoped), Completed, Revenue, Documents to review. Four charts in a
+two column grid: **Orders by month** (stacked columns, paid in navy, not
+paid in wheat, legend under it), **Revenue by month** (gold line, euro
+axis), **Orders by stage** and **Orders by service** (donuts, total in the
+centre, legend with count and percent, empty items greyed out). Two tables:
+**In progress** (paid, not completed: client, service, paid on, stage,
+documents x/y, pendencies) and **Awaiting review** (documents with status
+uploaded). Row click opens the order modal (`?order=<id>`). No recent
+activity list.
+
+### `/admin/users`
+Every `public.users` row (email, name, joined on, Admin pill, orders, paid,
+last order), newest activity first, searched by email (`?q=`), paginated.
+Row click sets `?user=<id>`, which opens the same centered modal with the
+profile and the person's orders; each order links to
+`/admin/orders?order=<id>`.
 
 ### `/admin/orders`
 Filters (status, service, range, search by email) in the URL, paginated
