@@ -69,13 +69,22 @@ export function PurchaseDrawer({
 
   useEffect(() => {
     const dialog = ref.current;
-    if (!dialog || dialog.open) return;
-    dialog.showModal();
+    if (!dialog) return;
+    // React runs this effect twice in development (StrictMode): the dialog
+    // is already open on the second pass, so only the showModal() call is
+    // guarded. The slide-in must be scheduled on every pass, or the second
+    // pass would cancel the first frame and never book another, leaving the
+    // panel parked off screen. The timeout is a fallback for tabs where
+    // requestAnimationFrame is paused (a hidden tab): the panel then appears
+    // without the slide instead of not at all.
+    if (!dialog.open) dialog.showModal();
     const frame = window.requestAnimationFrame(() => setEntered(true));
+    const fallback = window.setTimeout(() => setEntered(true), 120);
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       window.cancelAnimationFrame(frame);
+      window.clearTimeout(fallback);
       document.body.style.overflow = previous;
     };
   }, []);
