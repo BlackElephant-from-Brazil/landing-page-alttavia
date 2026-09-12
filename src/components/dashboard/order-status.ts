@@ -240,6 +240,11 @@ export type NextStepInput = {
  */
 export function nextStep(input: NextStepInput): string {
   if (!input.paid) return "Pay to start";
+  // A delivered order is done whatever is still open on it: the client has
+  // nothing left to send, and the card should read as a finish line.
+  if (input.completed) {
+    return input.deliverables > 0 ? "Your documents are ready to download" : "All done";
+  }
   if (input.docs.rejected > 0) {
     return input.docs.rejected === 1 ? "Send 1 file again" : `Send ${input.docs.rejected} files again`;
   }
@@ -247,11 +252,8 @@ export function nextStep(input: NextStepInput): string {
     return input.openPendencies === 1 ? "1 item pending from you" : `${input.openPendencies} items pending from you`;
   }
   const missing = input.docs.required - input.docs.received;
-  if (!input.completed && missing > 0) {
+  if (missing > 0) {
     return missing === 1 ? "Upload 1 document" : `Upload ${missing} documents`;
-  }
-  if (input.completed) {
-    return input.deliverables > 0 ? "Your documents are ready to download" : "All done";
   }
   return "Nothing needed from you right now";
 }
