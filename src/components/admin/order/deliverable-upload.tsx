@@ -1,7 +1,7 @@
 "use client";
 
 import { Upload } from "lucide-react";
-import { useId, useState, type ChangeEvent, type FormEvent } from "react";
+import { useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import type { ServiceDeliverableRow } from "@/lib/db/types";
 import { extensionFor, formatBytes, mimeForFileName } from "@/lib/r2/keys";
@@ -19,6 +19,11 @@ import { fieldClass, primaryActionClass, smallLabelClass, useAction } from "./us
  *
  * The label is what the client reads; picking a template fills it in and
  * links the file to that deliverable of the service.
+ *
+ * Focus: the file input is visually hidden inside its label, so whenever
+ * this component moves focus to it (after a finished upload, when the Upload
+ * button has just become disabled and would otherwise drop focus to body)
+ * it passes `preventScroll`, so the modal never scrolls to reveal a 1px box.
  */
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -38,6 +43,7 @@ export function DeliverableUpload({
   const templateId = useId();
   const fileId = useId();
   const messageId = useId();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [label, setLabel] = useState("");
   const [template, setTemplate] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -117,8 +123,11 @@ export function DeliverableUpload({
       setLabel("");
       setTemplate("");
       setFile(null);
-      const input = document.getElementById(fileId) as HTMLInputElement | null;
-      if (input) input.value = "";
+      const input = fileRef.current;
+      if (input) {
+        input.value = "";
+        input.focus({ preventScroll: true });
+      }
     } else {
       setPhase({ kind: "idle" });
     }
@@ -176,9 +185,10 @@ export function DeliverableUpload({
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <label
           htmlFor={fileId}
-          className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-navy/20 bg-white px-4 text-[0.82rem] font-medium text-navy transition-colors duration-200 hover:border-navy hover:bg-navy hover:text-white has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-paper"
+          className="relative inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-navy/20 bg-white px-4 text-[0.82rem] font-medium text-navy transition-colors duration-200 hover:border-navy hover:bg-navy hover:text-white has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-paper"
         >
           <input
+            ref={fileRef}
             id={fileId}
             type="file"
             accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"

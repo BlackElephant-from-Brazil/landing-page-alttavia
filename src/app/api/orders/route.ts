@@ -3,7 +3,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/user";
 
 /**
- * POST /api/orders, body `{ serviceSlug, quantity?: 1 | 2 }`. Admin contract
+ * POST /api/orders, body `{ serviceSlug, quantity?: 1 }`. Admin contract
+ * section 6, "Client routes added", narrowed on 2026-09-12: every service
+ * sells one unit per purchase, so `quantity` is accepted only as 1 (or left
+ * out) and anything else is a 422. A second NIF is a second purchase.
+ *
+ * An order placed from the purchase drawer on /en/dashboard/services or the
+ * dashboard home, without the questions. The browser names a service; the
+ * price, the total, the applicants and the stage are computed here from the
+ * service row, never taken from the request.| 2 }`. Admin contract
  * section 6, "Client routes added".
  *
  * An order placed from the gallery on /en/dashboard/orders, without the
@@ -43,24 +51,18 @@ export async function POST(request: Request) {
     return fail(400, "Choose a service.");
   }
 
-  let quantity: 1 | 2 = 1;
-  if (input.quantity !== undefined) {
-    if (input.quantity !== 1 && input.quantity !== 2) return fail(422, "Quantity must be 1 or 2.");
-    quantity = input.quantity;
-  }
+  if (input.quantity !== undefined && input.quantity !== 1) return fail(422, "One at a time.");
+  const quantity = 1;
 
   try {
     const admin = createAdminClient();
 
     const service = await getServiceBySlug(admin, slug);
     if (!service || !service.active) return fail(404, "That service is not available.");
-    if (quantity === 2 && !service.supports_quantity) {
-      return fail(422, "This service is sold one at a time.");
-    }
 
-    // The couple package is one unit for two people on a joint account; NIF
-    // only x2 is two units for two people; everything else is one unit for
-    // one person. Same rule as applicantsFor() in src/lib/apply/recommend.ts.
+    // The couple package is one unit for two people on a joint account;
+    // everything else is one unit for one person. Same rule as
+    // applicantsFor() in src/lib/apply/recommend.ts for quantity 1.
     const joint = service.slug === "couple";
     const applicants = joint ? 2 : quantity;
     const totalCents = service.price_cents * quantity;
@@ -91,7 +93,7 @@ export async function POST(request: Request) {
       user_service_id: userServiceId,
       from_stage: null,
       to_stage: "awaiting_payment",
-      note: "Ordered from the gallery",
+      note: "Ordered from the client area",
       actor_id: user.id,
     });
     if (eventError) {

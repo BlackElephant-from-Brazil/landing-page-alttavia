@@ -47,7 +47,47 @@ export function saveCheckout(state: CheckoutState): void {
 export function clearCheckout(): void {
   try {
     window.sessionStorage.removeItem(CHECKOUT_KEY);
+    window.sessionStorage.removeItem(NAME_KEY);
   } catch {
     // Same as above.
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* First name                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The first name typed on the email screen, kept under its own key so the
+ * wizard's `saveCheckout({ ...checkout, email })` cannot drop it. Read back
+ * on the code screen, written to `public.users.full_name` once the code is
+ * verified, and cleared together with the rest by `clearCheckout`.
+ */
+export const NAME_KEY = "alttavia_apply_name_v1";
+
+export const NAME_MAX_LENGTH = 60;
+
+/** One line, trimmed, capped: the same rule the email screen applies. */
+export function sanitizeName(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const name = raw.replace(/\s+/g, " ").trim().slice(0, NAME_MAX_LENGTH);
+  return name.length > 0 ? name : undefined;
+}
+
+export function loadName(): string | undefined {
+  try {
+    return sanitizeName(window.sessionStorage.getItem(NAME_KEY));
+  } catch {
+    return undefined;
+  }
+}
+
+export function saveName(name: string | undefined): void {
+  try {
+    const clean = sanitizeName(name);
+    if (clean) window.sessionStorage.setItem(NAME_KEY, clean);
+    else window.sessionStorage.removeItem(NAME_KEY);
+  } catch {
+    // Private mode or a full store: the profile simply keeps no name.
   }
 }

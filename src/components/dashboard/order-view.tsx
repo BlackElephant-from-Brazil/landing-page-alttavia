@@ -23,15 +23,16 @@ import { StageTimeline } from "./stage-timeline";
  * One order, as the client sees it. Admin contract section 7, "Client order
  * view". Server component; the page passes everything it loaded
  * (getOrderViewData in src/lib/db/client-queries.ts) and this file only lays
- * it out. Used by /en/dashboard for the current order and by
- * /en/dashboard/orders/[id] for any order of the account.
+ * it out. Used by /en/dashboard/orders/[id] as a page and, in `compact`
+ * mode, inside the order modal on the dashboard and purchases pages.
  *
  * Order of sections, top to bottom: notices, heading, the package card, the
  * stage timeline (with its completed state), then what needs the client
  * (payment, pendencies whatever the payment state, and rejected files above
  * the upload slots once paid), then what the firm returned (files and the
  * closing report), the wizard answers when the order has any, and the help
- * box.
+ * box. Compact mode drops the heading and the package card: the modal's own
+ * header carries the name, the amount and the status.
  */
 
 export type OrderNotice = "cancelled" | "unconfirmed";
@@ -41,13 +42,15 @@ type Props = OrderViewData & {
   notice?: OrderNotice;
   /** The eyebrow above the heading. */
   eyebrow?: string;
-  /** When set, a "Back to your orders" link renders above the heading. */
+  /** When set, a "Back to your purchases" link renders above the heading. */
   backHref?: string;
+  /** Inside the order modal: no heading, no package card, tighter spacing. */
+  compact?: boolean;
 };
 
 const copy = {
   eyebrow: "Your application",
-  back: "Back to your orders",
+  back: "Back to your purchases",
   cancelled: "Payment not completed. You can try again whenever you are ready.",
   unconfirmed:
     "We could not confirm the payment yet. If you paid, it shows here within a few minutes. Refresh the page to check.",
@@ -74,6 +77,7 @@ export function OrderView({
   notice,
   eyebrow = copy.eyebrow,
   backHref,
+  compact = false,
 }: Props) {
   const status = orderStatus(order);
   const paid = status !== "awaiting_payment";
@@ -84,29 +88,31 @@ export function OrderView({
   const returned = deliverables.length > 0 || !!order.report;
 
   return (
-    <div className="space-y-12">
+    <div className={compact ? "space-y-10" : "space-y-12"}>
       {!paid && notice === "cancelled" && <Notice>{copy.cancelled}</Notice>}
       {!paid && notice === "unconfirmed" && <Notice>{copy.unconfirmed}</Notice>}
 
-      <header>
-        {backHref && (
-          <Link
-            href={backHref}
-            className="mb-5 inline-flex items-center gap-2 rounded-sm text-sm font-medium text-navy-soft underline-offset-4 transition-colors duration-200 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
-          >
-            <ArrowLeft className="size-4" aria-hidden />
-            {copy.back}
-          </Link>
-        )}
-        <div>
-          <EyebrowSolo>{eyebrow}</EyebrowSolo>
-        </div>
-        <h1 className="mt-4 font-serif text-[clamp(1.8rem,4vw,2.5rem)] leading-tight text-balance text-navy">
-          {service.name}
-        </h1>
-      </header>
+      {!compact && (
+        <header>
+          {backHref && (
+            <Link
+              href={backHref}
+              className="mb-5 inline-flex items-center gap-2 rounded-sm text-sm font-medium text-navy-soft underline-offset-4 transition-colors duration-200 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+              {copy.back}
+            </Link>
+          )}
+          <div>
+            <EyebrowSolo>{eyebrow}</EyebrowSolo>
+          </div>
+          <h1 className="mt-4 font-serif text-[clamp(1.8rem,4vw,2.5rem)] leading-tight text-balance text-navy">
+            {service.name}
+          </h1>
+        </header>
+      )}
 
-      <ServiceCard order={order} service={service} />
+      {!compact && <ServiceCard order={order} service={service} />}
 
       <StageTimeline stages={stages} currentKey={order.stage_key} completed={completed} />
 

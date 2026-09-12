@@ -78,35 +78,45 @@ function Eyebrow() {
   );
 }
 
-/** Left column, `lg` and up. */
+/**
+ * Left column, `lg` and up. Sticky and exactly one viewport tall, so on a
+ * long orders page the account block stays at the bottom of the screen
+ * instead of the bottom of the page. The inner column is the only part
+ * that scrolls, and only when the navigation does not fit.
+ */
 export function AdminSidebar({ email }: { email: string }) {
   return (
-    <aside className="hidden w-72 shrink-0 flex-col bg-navy text-white lg:flex" aria-label="Admin area">
-      <div className="flex h-20 items-center gap-4 border-b border-white/10 px-8">
-        <Link
-          href={ADMIN_PATH}
-          aria-label="Admin overview"
-          className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
-        >
-          <Logo tone="cream" className="h-8 w-auto" />
-        </Link>
-      </div>
+    <aside
+      className="hidden w-72 shrink-0 bg-navy text-white lg:sticky lg:top-0 lg:block lg:h-screen"
+      aria-label="Admin area"
+    >
+      <div className="flex h-full flex-col overflow-y-auto">
+        <div className="flex h-20 shrink-0 items-center gap-4 border-b border-white/10 px-8">
+          <Link
+            href={ADMIN_PATH}
+            aria-label="Admin overview"
+            className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
+          >
+            <Logo tone="cream" className="h-8 w-auto" />
+          </Link>
+        </div>
 
-      <div className="px-8 pt-8">
-        <Eyebrow />
-      </div>
+        <div className="px-8 pt-8">
+          <Eyebrow />
+        </div>
 
-      <nav aria-label="Admin pages" className="px-4 py-5">
-        <NavLinks layout="column" />
-      </nav>
+        <nav aria-label="Admin pages" className="px-4 py-5">
+          <NavLinks layout="column" />
+        </nav>
 
-      <div className="mt-auto border-t border-white/10 px-8 py-6">
-        <p className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-white/50">Signed in as</p>
-        <p className="mt-1.5 truncate text-sm text-white" title={email}>
-          {email}
-        </p>
-        <div className="mt-4">
-          <SignOutButton className={signOutClass} />
+        <div className="mt-auto shrink-0 border-t border-white/10 px-8 py-6">
+          <p className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-white/50">Signed in as</p>
+          <p className="mt-1.5 truncate text-sm text-white" title={email}>
+            {email}
+          </p>
+          <div className="mt-4">
+            <SignOutButton className={signOutClass} />
+          </div>
         </div>
       </div>
     </aside>

@@ -5,30 +5,29 @@ import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, type MouseEvent, type SyntheticEvent } from "react";
 
 /**
- * The centered `<dialog>` the order detail opens in. Contract
- * (docs/admin-contract.md) section 2: driven by the URL, so a refresh or a
- * shared link reopens it.
+ * The centered `<dialog>` a client's order opens in, driven by the URL
+ * (`?order=<id>`) the way the admin modal is, so a refresh, the back button
+ * or a link from an email reopens the same order.
  *
  * The server renders this whenever `?order=` is set and drops it when it is
  * not, so "open" is simply "mounted": `showModal()` runs on mount, which
- * also keeps focus inside natively and wires the Esc key. Closing never touches
+ * keeps focus inside natively and wires the Esc key. Closing never calls
  * `dialog.close()` directly; it removes `order` from the URL with
- * `router.replace`, the server renders without the modal, and the element
- * unmounts. Esc arrives as the `cancel` event and is redirected the same
- * way. A click on the backdrop (the dialog element itself, outside the
- * panel) closes too, but only when both the mousedown and the click landed
- * there: a drag that starts inside the panel and ends on the backdrop, as
- * when selecting text, is not a close.
+ * `router.replace`, the server renders without the modal and the element
+ * unmounts. Esc arrives as the `cancel` event and goes the same way. A click
+ * on the backdrop closes too, but only when both the mousedown and the click
+ * landed there, so a text selection that ends outside the panel is not a
+ * close.
  *
- * The element that had focus when the modal opened (the table row's link,
- * usually) gets it back on unmount, when it is still in the document.
- * `body` scroll is locked while mounted and restored on unmount.
+ * The element that had focus when the modal opened (the row's link or the
+ * card's See more button) gets it back on unmount, when it is still in the
+ * document. `body` scroll is locked while mounted and restored on unmount.
  *
- * The dialog element itself is `overflow-clip`, not `overflow-hidden`: hidden
- * still lets the browser scroll the element programmatically, so when a file
- * chooser closed and the file input regained focus, the dialog scrolled to
- * reveal it (header clipped, blank space below). Clip cannot scroll at all,
- * and the body below stays the only scroller.
+ * The dialog element itself is `overflow-clip`, not `overflow-hidden`: the
+ * body holds file inputs, and when one of them regains focus after the file
+ * picker closes, a hidden overflow still lets the browser scroll the dialog
+ * to it and leaves the header cut off. Clip cannot scroll. Only the inner
+ * body scrolls.
  */
 export function Modal({
   title,
@@ -94,10 +93,10 @@ export function Modal({
       onCancel={handleCancel}
       onMouseDown={handleBackdropDown}
       onClick={handleBackdrop}
-      className="m-auto w-[min(56rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-clip rounded-lg border border-navy/10 bg-white p-0 text-navy shadow-[var(--shadow-card)] backdrop:bg-navy/50 backdrop:backdrop-blur-[2px]"
+      className="m-auto max-h-[calc(100dvh-2rem)] w-[min(52rem,calc(100vw-2rem))] overflow-clip rounded-lg border border-navy/10 bg-paper p-0 text-navy shadow-[var(--shadow-card)] backdrop:bg-navy/50 backdrop:backdrop-blur-[2px]"
     >
       <div className="flex max-h-[calc(100dvh-2rem)] flex-col">
-        <header className="flex items-start justify-between gap-4 border-b border-navy/10 px-6 py-5 sm:px-8">
+        <header className="flex items-start justify-between gap-4 border-b border-navy/10 bg-white px-6 py-5 sm:px-8">
           <div className="min-w-0 flex-1">{title}</div>
           <button
             type="button"
@@ -108,7 +107,7 @@ export function Modal({
             <X className="size-5" aria-hidden />
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8 sm:py-8">{children}</div>
       </div>
     </dialog>
   );

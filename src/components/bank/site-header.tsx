@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/ui/logo";
-import { ButtonLink } from "@/components/ui/button";
-import { bankNif, APPLY_LINKS } from "@/content/bank-nif";
+import { HeaderAuth } from "@/components/bank/header-auth";
+import { bankNif } from "@/content/bank-nif";
 import { cn } from "@/lib/cn";
 
 /**
  * Deliberately thin. This is a single sales page, so the header carries the
- * anchors and one checkout button, and nothing that could pull a reader off
- * the page (no language switcher, no link back to the main site).
+ * anchors and the account buttons, and nothing that could pull a reader off
+ * the page (no language switcher, no link back to the main site). The
+ * buttons come from <HeaderAuth />, which knows whether the visitor is
+ * signed in; below `sm` the sticky bottom bar is the buy button and the
+ * header shows the mark and nothing else, as before.
  */
 export function SiteHeader() {
   const { header } = bankNif;
@@ -33,7 +36,7 @@ export function SiteHeader() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-5 sm:px-8 lg:h-20 lg:px-12">
         <a href="#top" className="shrink-0" aria-label="Alttavia Relocation">
-          <Logo className="h-7 w-auto lg:h-8" />
+          <Logo className="h-8 w-auto lg:h-9" />
         </a>
 
         <nav className="hidden items-center gap-8 lg:flex" aria-label="Page sections">
@@ -49,16 +52,14 @@ export function SiteHeader() {
         </nav>
 
         {/*
-          The wrapper does the hiding, not a `hidden` class on the button.
+          The wrapper does the hiding, not a `hidden` class on the buttons.
           Tailwind sorts display utilities by property, so `hidden` on a
           component that already ships `inline-flex` loses no matter which
           order the classes are written in. Below `sm` the sticky bottom bar
           is the buy button.
         */}
         <span className="hidden sm:block">
-          <ButtonLink href={APPLY_LINKS.start} size="md">
-            {header.cta}
-          </ButtonLink>
+          <HeaderAuth />
         </span>
       </div>
     </header>

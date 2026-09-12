@@ -2,11 +2,13 @@
 
 import { ArrowLeft, RotateCcw } from "lucide-react";
 
+import { loadName, saveName } from "@/components/apply/checkout-storage";
 import { CodeStep } from "@/components/auth/code-step";
 import { EmailStep } from "@/components/auth/email-step";
 import { Button } from "@/components/ui/button";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import { applyCopy } from "@/content/apply";
+import { createClient } from "@/lib/supabase/client";
 
 /**
  * The screens after the result: the email, the 6 digit code, and the short
@@ -14,9 +16,25 @@ import { applyCopy } from "@/content/apply";
  * the shared auth components; this file only wraps them in the wizard's
  * chrome (eyebrow, lead, a way back) so /en/login and /en/apply read as one
  * product.
+ *
+ * The email screen also asks for a first name (the account is being created
+ * here, so it is the one moment to ask). The name is kept in sessionStorage
+ * so a refresh on the code screen keeps it, and written to
+ * `public.users.full_name` with the browser client once the code has been
+ * verified and before the order is submitted. The column grant and the own
+ * row policy allow exactly that write; a failure is logged and ignored, the
+ * order matters more than the greeting.
  */
 
 const copy = applyCopy.account;
+
+/**
+ * The lead line of the email screen, with the name mentioned. Built here
+ * rather than in src/content/apply.ts because the wording of that file's
+ * `emailLead` predates the name field.
+ */
+const emailLead = (order: string, total: string) =>
+  `Your order is ${order} for ${total}. Your name and email, then a 6 digit code. No password needed.`;
 
 export function AccountEmailScreen({
   orderName,
@@ -42,10 +60,14 @@ export function AccountEmailScreen({
       )}
       <EmailStep
         className="mt-4"
+        askName
         heading={copy.emailHeading}
-        lead={copy.emailLead(orderName, total)}
+        lead={emailLead(orderName, total)}
         submitLabel={copy.emailSubmit}
-        onSent={onSent}
+        onSent={(email, name) => {
+          saveName(name);
+          onSent(email);
+        }}
       />
       <Button type="button" variant="ghost" size="md" onClick={onBack} className="mt-6 -ml-2 px-2">
         <ArrowLeft className="size-4" aria-hidden />
@@ -53,6 +75,27 @@ export function AccountEmailScreen({
       </Button>
     </div>
   );
+}
+
+/**
+ * Writes the stored first name to the signed in user's profile. Best effort:
+ * every failure is logged and swallowed so the order still goes through.
+ */
+async function saveProfileName(): Promise<void> {
+  const fullName = loadName();
+  if (!fullName) return;
+  try {
+    const supabase = createClient();
+    const { data, error: userError } = await supabase.auth.getUser();
+    if (userError || !data.user) {
+      console.warn("apply: profile name not saved, no user", userError?.message);
+      return;
+    }
+    const { error } = await supabase.from("users").update({ full_name: fullName }).eq("id", data.user.id);
+    if (error) console.warn("apply: profile name not saved", error.message);
+  } catch (cause) {
+    console.warn("apply: profile name not saved", cause);
+  }
 }
 
 export function AccountCodeScreen({
@@ -67,7 +110,14 @@ export function AccountCodeScreen({
   return (
     <div>
       <EyebrowSolo>{copy.eyebrow}</EyebrowSolo>
-      <CodeStep className="mt-4" email={email} onVerified={onVerified} onChangeEmail={onChangeEmail} />
+      <CodeStep
+        className="mt-4"
+        email={email}
+        onVerified={() => {
+          void saveProfileName().finally(onVerified);
+        }}
+        onChangeEmail={onChangeEmail}
+      />
     </div>
   );
 }

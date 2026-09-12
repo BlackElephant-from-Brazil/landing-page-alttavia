@@ -13,6 +13,8 @@
  * Database errors are thrown; the pages decide what to do with them.
  */
 
+import { documentCounts, progressFraction, type DocumentCounts, type Progress } from "@/components/dashboard/order-status";
+
 import { getActiveQuestions, getServiceDocs, getServiceStages, getUserDocuments, type Db } from "./queries";
 import type {
   QuestionRow,
@@ -141,4 +143,121 @@ export function fallbackService(order: UserServiceRow): ServiceRow {
     created_at: order.created_at,
     updated_at: order.updated_at,
   };
+}
+
+// ---------------------------------------------------------------------------
+// The order list behind the dashboard home and the purchases page: every
+// order of the account with the few joined facts a row or a progress card
+// shows. Read through the user client, so RLS limits every table to the
+// account's own rows and the active catalogue.
+// ---------------------------------------------------------------------------
+
+
+const FALLBACK_STAGE_LABEL = "In progress";
+
+/** One order as the tables and the slider show it. */
+export type ClientOrderSummary = {
+  order: UserServiceRow;
+  /** The service row, or a stand in when the catalogue no longer shows it. */
+  service: ServiceRow;
+  /** Label of the order's current stage; a neutral one when the key is unknown. */
+  stageLabel: string;
+  progress: Progress;
+  docs: DocumentCounts;
+  /** Client facing notes without `resolved_at`. */
+  openPendencies: number;
+  /** Files the firm returned and finished uploading. */
+  deliverables: number;
+};
+
+/**
+ * Every order of one user, newest first, each with its service, stage
+ * label, progress, document counts, open pendencies and ready deliverables.
+ * Six queries in two rounds, whatever the number of orders; the counting is
+ * done here with the same slot rules the order view uses.
+ */
+export async function listOrdersForUser(db: Db, userId: string): Promise<ClientOrderSummary[]> {
+  const orders = await getUserServicesForUser(db, userId);
+  if (orders.length === 0) return [];
+
+  const serviceIds = Array.from(new Set(orders.map((o) => o.service_id)));
+  const orderIds = orders.map((o) => o.id);
+
+  const [services, stagesResult, docsResult, documentsResult, notesResult, deliverablesResult] = await Promise.all([
+    getServicesByIds(db, serviceIds),
+    db.from("service_stages").select("*").in("service_id", serviceIds),
+    db.from("service_docs").select("*").in("service_id", serviceIds),
+    db.from("user_documents").select("*").in("user_service_id", orderIds),
+    db
+      .from("user_service_notes")
+      .select("id, user_service_id")
+      .in("user_service_id", orderIds)
+      .eq("audience", "client")
+      .is("resolved_at", null),
+    db
+      .from("user_service_deliverables")
+      .select("id, user_service_id")
+      .in("user_service_id", orderIds)
+      .eq("status", "ready"),
+  ]);
+  if (stagesResult.error) fail("listOrdersForUser stages", stagesResult.error);
+  if (docsResult.error) fail("listOrdersForUser docs", docsResult.error);
+  if (documentsResult.error) fail("listOrdersForUser documents", documentsResult.error);
+  if (notesResult.error) fail("listOrdersForUser notes", notesResult.error);
+  if (deliverablesResult.error) fail("listOrdersForUser deliverables", deliverablesResult.error);
+
+  const stagesByService = groupBy((stagesResult.data ?? []) as ServiceStageRow[], (s) => s.service_id);
+  const docsByService = groupBy((docsResult.data ?? []) as ServiceDocRow[], (d) => d.service_id);
+  const documentsByOrder = groupBy((documentsResult.data ?? []) as UserDocumentRow[], (d) => d.user_service_id);
+  const pendenciesByOrder = countBy((notesResult.data ?? []) as { user_service_id: string }[], (n) => n.user_service_id);
+  const deliverablesByOrder = countBy((deliverablesResult.data ?? []) as { user_service_id: string }[], (d) => d.user_service_id);
+
+  return orders.map((order) => {
+    const service = services.get(order.service_id) ?? fallbackService(order);
+    const stages = stagesByService.get(order.service_id) ?? [];
+    const completed = !!order.completed_at;
+    const stage = stages.find((s) => s.key === order.stage_key);
+    return {
+      order,
+      service,
+      stageLabel: stage?.label ?? FALLBACK_STAGE_LABEL,
+      progress: progressFraction(stages, order.stage_key, completed),
+      docs: documentCounts(docsByService.get(order.service_id) ?? [], documentsByOrder.get(order.id) ?? [], order.applicants),
+      openPendencies: pendenciesByOrder.get(order.id) ?? 0,
+      deliverables: deliverablesByOrder.get(order.id) ?? 0,
+    };
+  });
+}
+
+/** The document slots of several services at once, keyed by service id, each list in position order. */
+export async function getServiceDocsForServices(db: Db, serviceIds: readonly string[]): Promise<Map<string, ServiceDocRow[]>> {
+  const unique = Array.from(new Set(serviceIds));
+  if (unique.length === 0) return new Map();
+  const { data, error } = await db
+    .from("service_docs")
+    .select("*")
+    .in("service_id", unique)
+    .order("position", { ascending: true });
+  if (error) fail("getServiceDocsForServices", error);
+  return groupBy((data ?? []) as ServiceDocRow[], (d) => d.service_id);
+}
+
+function groupBy<T>(rows: readonly T[], key: (row: T) => string): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const row of rows) {
+    const k = key(row);
+    const list = out.get(k);
+    if (list) list.push(row);
+    else out.set(k, [row]);
+  }
+  return out;
+}
+
+function countBy<T>(rows: readonly T[], key: (row: T) => string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const row of rows) {
+    const k = key(row);
+    out.set(k, (out.get(k) ?? 0) + 1);
+  }
+  return out;
 }

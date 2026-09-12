@@ -3,9 +3,14 @@ import { describe, expect, it } from "vitest";
 import type { ServiceDocRow, UserDocumentRow, UserServiceNoteRow } from "@/lib/db/types";
 
 import {
+  documentCounts,
   hasAnswers,
+  isInProgress,
+  isRecentlyCompleted,
   latestDocument,
+  nextStep,
   orderStatus,
+  progressFraction,
   rejectedSlots,
   reportParagraphs,
   slotName,
@@ -159,5 +164,102 @@ describe("hasAnswers", () => {
     expect(hasAnswers({})).toBe(false);
     expect(hasAnswers(null)).toBe(false);
     expect(hasAnswers({ residence: "US" })).toBe(true);
+  });
+});
+
+describe("isInProgress", () => {
+  const now = new Date("2026-09-12T12:00:00Z");
+  const paid = "2026-09-01T00:00:00Z";
+
+  it("is false for an unpaid order whatever its dates", () => {
+    expect(isInProgress({ paid_at: null, completed_at: null }, now)).toBe(false);
+    expect(isInProgress({ paid_at: null, completed_at: "2026-09-11T00:00:00Z" }, now)).toBe(false);
+  });
+
+  it("is true for a paid order that is not complete", () => {
+    expect(isInProgress({ paid_at: paid, completed_at: null }, now)).toBe(true);
+  });
+
+  it("keeps a completed order for seven days, then drops it", () => {
+    expect(isInProgress({ paid_at: paid, completed_at: "2026-09-11T10:00:00Z" }, now)).toBe(true);
+    expect(isInProgress({ paid_at: paid, completed_at: "2026-09-05T12:00:01Z" }, now)).toBe(true);
+    expect(isInProgress({ paid_at: paid, completed_at: "2026-09-05T12:00:00Z" }, now)).toBe(false);
+    expect(isInProgress({ paid_at: paid, completed_at: "2026-08-01T00:00:00Z" }, now)).toBe(false);
+  });
+
+  it("keeps an order completed on 11 September until the 18th", () => {
+    const order = { paid_at: paid, completed_at: "2026-09-11T15:30:00Z" };
+    expect(isRecentlyCompleted(order, new Date("2026-09-17T23:00:00Z"))).toBe(true);
+    expect(isRecentlyCompleted(order, new Date("2026-09-18T16:00:00Z"))).toBe(false);
+  });
+
+  it("ignores a completed_at in the future or unreadable", () => {
+    expect(isRecentlyCompleted({ completed_at: "2026-09-13T00:00:00Z" }, now)).toBe(false);
+    expect(isRecentlyCompleted({ completed_at: "not a date" }, now)).toBe(false);
+  });
+});
+
+describe("progressFraction", () => {
+  const stages = [
+    { key: "nif_ready", position: 4 },
+    { key: "awaiting_payment", position: 1 },
+    { key: "documents", position: 2 },
+    { key: "awaiting_financas", position: 3 },
+  ];
+
+  it("counts the stages passed, whatever the input order", () => {
+    expect(progressFraction(stages, "awaiting_payment", false)).toEqual({ done: 0, total: 4 });
+    expect(progressFraction(stages, "documents", false)).toEqual({ done: 1, total: 4 });
+    expect(progressFraction(stages, "nif_ready", false)).toEqual({ done: 3, total: 4 });
+  });
+
+  it("is full once the order is complete", () => {
+    expect(progressFraction(stages, "nif_ready", true)).toEqual({ done: 4, total: 4 });
+  });
+
+  it("treats an unknown stage as the first one and no stages as nothing", () => {
+    expect(progressFraction(stages, "gone", false)).toEqual({ done: 0, total: 4 });
+    expect(progressFraction([], "documents", false)).toEqual({ done: 0, total: 0 });
+  });
+});
+
+describe("documentCounts", () => {
+  const docs = [doc("passport", 1), doc("proof_of_address", 2, false), { ...doc("extra", 3), required: false }];
+
+  it("counts one slot per required document and applicant", () => {
+    expect(documentCounts(docs, [], 1)).toEqual({ required: 2, received: 0, rejected: 0 });
+    expect(documentCounts(docs, [], 2)).toEqual({ required: 3, received: 0, rejected: 0 });
+  });
+
+  it("counts uploaded and approved as received, rejected apart, pending as nothing", () => {
+    const documents = [
+      upload("a", "passport", 0, "approved", "2026-09-01T00:00:00Z"),
+      upload("b", "passport", 1, "uploaded", "2026-09-01T00:00:00Z"),
+      upload("c", "proof_of_address", 0, "rejected", "2026-09-02T00:00:00Z", "Blurry"),
+      upload("d", "extra", 0, "approved", "2026-09-02T00:00:00Z"),
+    ];
+    expect(documentCounts(docs, documents, 2)).toEqual({ required: 3, received: 2, rejected: 1 });
+    const stuck = [upload("e", "passport", 0, "pending", "2026-09-03T00:00:00Z")];
+    expect(documentCounts(docs, stuck, 1)).toEqual({ required: 2, received: 0, rejected: 0 });
+  });
+});
+
+describe("nextStep", () => {
+  const docs = { required: 3, received: 3, rejected: 0 };
+
+  it("ranks payment, rejected files, pendencies, missing uploads, then what came back", () => {
+    expect(nextStep({ paid: false, completed: false, openPendencies: 2, docs, deliverables: 0 })).toBe("Pay to start");
+    expect(nextStep({ paid: true, completed: false, openPendencies: 2, docs: { ...docs, rejected: 1 }, deliverables: 0 })).toBe("Send 1 file again");
+    expect(nextStep({ paid: true, completed: false, openPendencies: 2, docs, deliverables: 0 })).toBe("2 items pending from you");
+    expect(nextStep({ paid: true, completed: false, openPendencies: 0, docs: { ...docs, received: 1 }, deliverables: 0 })).toBe("Upload 2 documents");
+    expect(nextStep({ paid: true, completed: false, openPendencies: 0, docs, deliverables: 0 })).toBe("Nothing needed from you right now");
+    expect(nextStep({ paid: true, completed: true, openPendencies: 0, docs, deliverables: 2 })).toBe("Your documents are ready to download");
+    expect(nextStep({ paid: true, completed: true, openPendencies: 0, docs, deliverables: 0 })).toBe("All done");
+  });
+
+  it("does not ask a completed order for missing uploads", () => {
+    expect(nextStep({ paid: true, completed: true, openPendencies: 0, docs: { ...docs, received: 0 }, deliverables: 1 })).toBe(
+      "Your documents are ready to download",
+    );
   });
 });
