@@ -30,11 +30,10 @@ export function trackStep(step: number, total: number, id: string) {
 }
 
 /** The result screen rendered a product. Fires once per arrival at the result. */
-export function trackRecommendation(product: string, quantity: number, totalCents: number) {
+export function trackRecommendation(product: string, totalCents: number) {
   push({
     event: "apply_recommendation",
     apply_product: product,
-    apply_quantity: quantity,
     value: totalCents / 100,
     currency: "EUR",
   });

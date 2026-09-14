@@ -107,7 +107,6 @@ export type ServiceRow = {
   currency: string;
   includes: string[];
   timeline: string | null;
-  supports_quantity: boolean;
   stripe_price_id_test: string | null;
   stripe_price_id_live: string | null;
   stripe_payment_link_test: string | null;
@@ -129,6 +128,13 @@ export type ServiceStageRow = {
   is_terminal: boolean;
 };
 
+/**
+ * The deed a document slot generates for the client to sign (0007). `poa_nif`
+ * is the power of attorney for the NIF, `poa_bank` the one for the bank
+ * account; both are built in src/content/power-of-attorney.ts.
+ */
+export type PoaTemplate = "poa_nif" | "poa_bank";
+
 /** public.service_docs: documents a service needs from the client. */
 export type ServiceDocRow = {
   id: string;
@@ -141,6 +147,8 @@ export type ServiceDocRow = {
   per_applicant: boolean;
   required: boolean;
   position: number;
+  /** Null for an ordinary upload; a deed slot generates this document first. */
+  template: PoaTemplate | null;
 };
 
 export type DeliverableKind = "report" | "document";
@@ -162,7 +170,6 @@ export type UserServiceRow = {
   service_id: string;
   submission_id: string | null;
   answers_snapshot: Answers;
-  quantity: number;
   joint: boolean;
   applicants: number;
   total_cents: number;
@@ -232,21 +239,29 @@ export type UserServiceDeliverableRow = {
   updated_at: Timestamp;
 };
 
-export type NoteAudience = "client" | "internal";
+/** How a deed refers to the principal: `f` prints nascida, her, she; `m` nascido, his, he. */
+export type ApplicantGender = "f" | "m";
 
 /**
- * public.user_service_notes: pendencies and messages on an order. `client`
- * rows are what the dashboard shows as "Pending from you" until
- * `resolved_at` is set; `internal` rows are the firm's own notes.
+ * public.user_service_applicants: the principal's details a power of
+ * attorney is filled with, one row per order and applicant (0007). Dates
+ * are `YYYY-MM-DD`. Written only through PUT /api/orders/[id]/applicants/[index].
  */
-export type UserServiceNoteRow = {
+export type UserServiceApplicantRow = {
   id: string;
   user_service_id: string;
-  author_id: string | null;
-  audience: NoteAudience;
-  body: string;
-  resolved_at: Timestamp | null;
+  applicant_index: 0 | 1;
+  full_name: string;
+  gender: ApplicantGender;
+  birth_place: string;
+  birth_date: string;
+  passport_number: string;
+  passport_issuer: string;
+  passport_issued_on: string;
+  passport_expires_on: string;
+  tax_address: string;
   created_at: Timestamp;
+  updated_at: Timestamp;
 };
 
 /** public.schema_migrations: the migrate script's ledger. */
@@ -298,8 +313,6 @@ export type AdminOrderRow = UserServiceRow & {
   /** Slots whose newest upload was rejected and not replaced yet. */
   docs_rejected: number;
   last_event_at: Timestamp | null;
-  /** Client facing notes without `resolved_at`. */
-  open_pendencies: number;
 };
 
 /** One answer of the wizard, already in plain English. Same shape as SummaryItem. */
@@ -320,8 +333,8 @@ export type AdminOrderDetail = {
   documents: UserDocumentRow[];
   /** Stage history, oldest first. */
   events: UserServiceEventRow[];
-  /** Every note, both audiences, oldest first. */
-  notes: UserServiceNoteRow[];
+  /** The principal's details entered so far, by applicant index. */
+  applicants: UserServiceApplicantRow[];
   deliverables: {
     /** The service's template. */
     templates: ServiceDeliverableRow[];
@@ -357,8 +370,6 @@ export type Overview = {
     revenueCents: number;
     /** Documents with status `uploaded`, whatever their date. */
     documentsAwaitingReview: number;
-    /** Client facing notes without `resolved_at`, whatever their date. */
-    openPendencies: number;
   };
   /**
    * The last 6 months including the current one, oldest first, zero filled.

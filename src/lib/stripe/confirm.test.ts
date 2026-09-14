@@ -60,7 +60,6 @@ const order: UserServiceRow = {
   service_id: "44444444-4444-4444-8444-444444444444",
   submission_id: null,
   answers_snapshot: { applicants: "one", hasNif: [false], bank: "yes" },
-  quantity: 1,
   joint: false,
   applicants: 1,
   total_cents: 49700,

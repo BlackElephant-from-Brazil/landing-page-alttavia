@@ -1,4 +1,4 @@
-import type { ServiceDocRow, ServiceStageRow, UserDocumentRow, UserServiceNoteRow, UserServiceRow } from "@/lib/db/types";
+import type { ServiceDocRow, ServiceStageRow, UserDocumentRow, UserServiceRow } from "@/lib/db/types";
 
 /**
  * Pure helpers behind the client's order view and the orders table. No
@@ -106,19 +106,6 @@ export function slotName(slot: Pick<RejectedSlot, "label" | "applicantIndex">, a
   return slot.label;
 }
 
-/** Client notes split into what still needs the client and what is settled; open ones newest first, resolved ones newest first. */
-export function splitNotes(notes: readonly UserServiceNoteRow[]): {
-  open: UserServiceNoteRow[];
-  resolved: UserServiceNoteRow[];
-} {
-  const clientNotes = notes.filter((n) => n.audience === "client");
-  const byNewest = (a: UserServiceNoteRow, b: UserServiceNoteRow) => (a.created_at < b.created_at ? 1 : -1);
-  return {
-    open: clientNotes.filter((n) => n.resolved_at === null).sort(byNewest),
-    resolved: clientNotes.filter((n) => n.resolved_at !== null).sort(byNewest),
-  };
-}
-
 /**
  * The report as paragraphs: blank lines separate them, single line breaks
  * inside a paragraph are kept for <RichText /> to render as text. Leading
@@ -199,11 +186,18 @@ export type DocumentCounts = {
   received: number;
   /** Slots whose newest upload was rejected and not replaced. */
   rejected: number;
+  /**
+   * The subset of `required` and `received` that are deed slots (a
+   * `template` is set): the client downloads the power of attorney, signs
+   * it and uploads the signed copy. Counted the same way, so `deeds.required`
+   * is never above `required`.
+   */
+  deeds: { required: number; received: number };
 };
 
 /** The document slots of an order and how many hold a file. Same slot rule as the document list. */
 export function documentCounts(
-  docs: readonly Pick<ServiceDocRow, "id" | "position" | "per_applicant" | "required">[],
+  docs: readonly Pick<ServiceDocRow, "id" | "position" | "per_applicant" | "required" | "template">[],
   documents: readonly UserDocumentRow[],
   applicants: number,
 ): DocumentCounts {
@@ -211,23 +205,28 @@ export function documentCounts(
   let required = 0;
   let received = 0;
   let rejected = 0;
+  const deeds = { required: 0, received: 0 };
   for (const doc of docs) {
     if (!doc.required) continue;
     const count = doc.per_applicant ? people : 1;
+    const deed = doc.template !== null;
     for (let index = 0; index < count; index++) {
       required++;
+      if (deed) deeds.required++;
       const latest = latestDocument(documents, doc.id, index as 0 | 1);
-      if (latest?.status === "uploaded" || latest?.status === "approved") received++;
+      if (latest?.status === "uploaded" || latest?.status === "approved") {
+        received++;
+        if (deed) deeds.received++;
+      }
       if (latest?.status === "rejected") rejected++;
     }
   }
-  return { required, received, rejected };
+  return { required, received, rejected, deeds };
 }
 
 export type NextStepInput = {
   paid: boolean;
   completed: boolean;
-  openPendencies: number;
   docs: DocumentCounts;
   /** Files the firm returned, ready to download. */
   deliverables: number;
@@ -235,8 +234,13 @@ export type NextStepInput = {
 
 /**
  * The one line under a progress card that says what the client should do.
- * Priorities, highest first: pay, re-send rejected files, answer pendencies,
- * upload what is missing, download what came back, or nothing at all.
+ * Priorities, highest first: pay, re-send rejected files, sign and upload
+ * the deeds still missing, upload what is missing, download what came back,
+ * or nothing at all.
+ *
+ * When every missing slot is a deed the line reads "Sign and upload N
+ * documents"; when ordinary uploads are missing too, "Upload N documents"
+ * with the total, since the client goes to the same list either way.
  */
 export function nextStep(input: NextStepInput): string {
   if (!input.paid) return "Pay to start";
@@ -248,12 +252,12 @@ export function nextStep(input: NextStepInput): string {
   if (input.docs.rejected > 0) {
     return input.docs.rejected === 1 ? "Send 1 file again" : `Send ${input.docs.rejected} files again`;
   }
-  if (input.openPendencies > 0) {
-    return input.openPendencies === 1 ? "1 item pending from you" : `${input.openPendencies} items pending from you`;
-  }
   const missing = input.docs.required - input.docs.received;
   if (missing > 0) {
-    return missing === 1 ? "Upload 1 document" : `Upload ${missing} documents`;
+    const deedsMissing = input.docs.deeds.required - input.docs.deeds.received;
+    const onlyDeeds = deedsMissing > 0 && deedsMissing >= missing;
+    const verb = onlyDeeds ? "Sign and upload" : "Upload";
+    return missing === 1 ? `${verb} 1 document` : `${verb} ${missing} documents`;
   }
   return "Nothing needed from you right now";
 }

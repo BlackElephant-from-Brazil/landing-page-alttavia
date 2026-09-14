@@ -1,5 +1,5 @@
 import { EyebrowSolo } from "@/components/ui/eyebrow";
-import type { ServiceDocRow, UserDocumentRow, UserServiceRow } from "@/lib/db/types";
+import type { ServiceDocRow, UserDocumentRow, UserServiceApplicantRow, UserServiceRow } from "@/lib/db/types";
 
 import { latestDocument } from "../order-status";
 import { DocumentSlot, type SlotDocument } from "./document-slot";
@@ -14,26 +14,34 @@ import { DocumentSlot, type SlotDocument } from "./document-slot";
  * shows the latest finished attempt for its document and applicant (a
  * pending row only when it is the only one, see `latestDocument`); earlier
  * rows stay in the table as history and are not shown.
+ *
+ * A deed slot (`template` set on the document) also gets the principal's
+ * details entered for its applicant, from `applicants`, so it knows whether
+ * "Download to sign" can go straight to the PDF or has to ask first.
  */
 
 type Props = {
   order: UserServiceRow;
   docs: ServiceDocRow[];
   uploaded: UserDocumentRow[];
+  /** The principal's details entered so far, by applicant index; empty until the first deed is prepared. */
+  applicants?: UserServiceApplicantRow[];
 };
 
 type Slot = {
   doc: ServiceDocRow;
   applicantIndex: 0 | 1;
   current?: SlotDocument;
+  /** The details for this slot's applicant, on a deed slot; null until entered, and on ordinary slots. */
+  applicant: UserServiceApplicantRow | null;
 };
 
 const APPLICANT_LABELS = ["You", "Your partner"] as const;
 const SHARED_LABEL = "For both of you";
 
-export function DocumentList({ order, docs, uploaded }: Props) {
+export function DocumentList({ order, docs, uploaded, applicants: applicantRows = [] }: Props) {
   const applicants = order.applicants === 2 ? 2 : 1;
-  const slots = buildSlots(docs, uploaded, applicants);
+  const slots = buildSlots(docs, uploaded, applicants, applicantRows);
   const received = slots.filter((s) => s.current?.status === "uploaded" || s.current?.status === "approved").length;
 
   return (
@@ -87,9 +95,10 @@ function Group({ heading, order, slots }: { heading: string; order: UserServiceR
 }
 
 function SlotList({ order, slots, className }: { order: UserServiceRow; slots: Slot[]; className?: string }) {
+  const twoApplicants = order.applicants === 2;
   return (
     <ul className={`${className ?? ""} space-y-4`.trim()}>
-      {slots.map(({ doc, applicantIndex, current }) => (
+      {slots.map(({ doc, applicantIndex, current, applicant }) => (
         <DocumentSlot
           // The key carries the latest row and its status, so a slot mounts
           // fresh when a refresh brings a new upload or a review back.
@@ -102,6 +111,9 @@ function SlotList({ order, slots, className }: { order: UserServiceRow; slots: S
           acceptedMime={doc.accepted_mime}
           maxBytes={doc.max_bytes}
           current={current}
+          template={doc.template}
+          applicant={applicant}
+          applicantLabel={twoApplicants && doc.per_applicant ? APPLICANT_LABELS[applicantIndex] : undefined}
         />
       ))}
     </ul>
@@ -109,7 +121,12 @@ function SlotList({ order, slots, className }: { order: UserServiceRow; slots: S
 }
 
 /** One slot per document and applicant, in `position` order, each with its latest attempt. */
-function buildSlots(docs: ServiceDocRow[], uploaded: UserDocumentRow[], applicants: 1 | 2): Slot[] {
+function buildSlots(
+  docs: ServiceDocRow[],
+  uploaded: UserDocumentRow[],
+  applicants: 1 | 2,
+  applicantRows: readonly UserServiceApplicantRow[],
+): Slot[] {
   const sorted = [...docs].sort((a, b) => a.position - b.position);
   const slots: Slot[] = [];
   for (const doc of sorted) {
@@ -128,6 +145,7 @@ function buildSlots(docs: ServiceDocRow[], uploaded: UserDocumentRow[], applican
               rejectionReason: latest.rejection_reason,
             }
           : undefined,
+        applicant: doc.template ? (applicantRows.find((row) => row.applicant_index === applicantIndex) ?? null) : null,
       });
     }
   }

@@ -3,19 +3,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/user";
 
 /**
- * POST /api/orders, body `{ serviceSlug, quantity?: 1 }`. Admin contract
- * section 6, "Client routes added", narrowed on 2026-09-12: every service
- * sells one unit per purchase, so `quantity` is accepted only as 1 (or left
- * out) and anything else is a 422. A second NIF is a second purchase.
+ * POST /api/orders, body `{ serviceSlug }`. Admin contract section 6,
+ * "Client routes added"; documents contract section 1: every service sells
+ * one unit per purchase, so there is no quantity to send. A `quantity` key,
+ * if an older client still sends one, is ignored. A second NIF is a second
+ * purchase.
  *
  * An order placed from the purchase drawer on /en/dashboard/services or the
  * dashboard home, without the questions. The browser names a service; the
- * price, the total, the applicants and the stage are computed here from the
- * service row, never taken from the request.| 2 }`. Admin contract
- * section 6, "Client routes added".
- *
- * An order placed from the gallery on /en/dashboard/orders, without the
- * questions. The browser names a service and, for NIF only, how many; the
  * price, the total, the applicants and the stage are computed here from the
  * service row, never taken from the request. `answers_snapshot` is `{}`,
  * which is how the order view knows to hide the answers section.
@@ -44,15 +39,12 @@ export async function POST(request: Request) {
   } catch {
     return fail(400, "Invalid request.");
   }
-  const input = body && typeof body === "object" ? (body as { serviceSlug?: unknown; quantity?: unknown }) : {};
+  const input = body && typeof body === "object" ? (body as { serviceSlug?: unknown }) : {};
 
   const slug = typeof input.serviceSlug === "string" ? input.serviceSlug.trim().toLowerCase() : "";
   if (!slug || slug.length > MAX_SLUG_LENGTH || !SLUG.test(slug)) {
     return fail(400, "Choose a service.");
   }
-
-  if (input.quantity !== undefined && input.quantity !== 1) return fail(422, "One at a time.");
-  const quantity = 1;
 
   try {
     const admin = createAdminClient();
@@ -62,10 +54,10 @@ export async function POST(request: Request) {
 
     // The couple package is one unit for two people on a joint account;
     // everything else is one unit for one person. Same rule as
-    // applicantsFor() in src/lib/apply/recommend.ts for quantity 1.
+    // applicantsFor() in src/lib/apply/recommend.ts.
     const joint = service.slug === "couple";
-    const applicants = joint ? 2 : quantity;
-    const totalCents = service.price_cents * quantity;
+    const applicants = joint ? 2 : 1;
+    const totalCents = service.price_cents;
     const currency = service.currency || "eur";
 
     const { data: created, error: orderError } = await admin
@@ -75,7 +67,6 @@ export async function POST(request: Request) {
         service_id: service.id,
         submission_id: null,
         answers_snapshot: {},
-        quantity,
         joint,
         applicants,
         total_cents: totalCents,
@@ -103,7 +94,7 @@ export async function POST(request: Request) {
 
     return Response.json({ userServiceId });
   } catch (err) {
-    console.error(`POST /api/orders failed for user ${user.id} (${slug} x${quantity}):`, err);
+    console.error(`POST /api/orders failed for user ${user.id} (${slug}):`, err);
     return fail(500, SAVE_ERROR);
   }
 }

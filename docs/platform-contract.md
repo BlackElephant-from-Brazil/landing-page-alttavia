@@ -36,10 +36,24 @@ Read before writing any code:
 - **Stripe Checkout Sessions, created server side**, replace the hosted
   Payment Links for the buy button. Same Stripe page for the buyer. Reasons:
   the session carries `client_reference_id = user_services.id`, locks the
-  buyer's email to the account, supports quantity 2 (two NIFs, 298 euros,
-  which no Payment Link could sell) and lets `success_url` point at localhost
-  in test mode. The Payment Link URLs stay in `services` as a fallback for a
-  mode that has no price id yet (live has none until `stripe:setup --live`).
+  buyer's email to the account and lets `success_url` point at localhost in
+  test mode. `line_items` is one price at `quantity: 1`: every service sells
+  one unit per purchase (0007), so a second NIF is a second purchase. The
+  Payment Link URLs stay in `services` as a fallback for a mode that has no
+  price id yet (live has none until `stripe:setup --live`).
+- **One unit per purchase** (2026-09-14, `0007_one_unit_poa.sql`,
+  `docs/documents-contract.md` section 1). `services.supports_quantity` and
+  `user_services.quantity` are gone; `total_cents = price_cents`;
+  `applicants` is 2 only for the couple package (`applicantsFor(order)` is
+  `order.joint ? 2 : 1`). In `recommend()` the row two adults / nobody has a
+  NIF / no account yields `nif-only` for one person with the `secondNif`
+  note ("One NIF per purchase. Your partner's NIF is a second purchase from
+  your dashboard, right after checkout."); the same rule applies when the
+  bank is refused for a non EEA couple without a visa (`bankUnlikely` +
+  `secondNif`). Nothing says "x2" any more.
+- **No pendencies or notes** (2026-09-14). `user_service_notes`, its routes,
+  its email and its panels were removed; `user_service_events.note` and
+  `user_services.report` stay.
 - **Auth is Supabase email OTP**, 6 digits, 10 minutes, sent through Resend
   SMTP from `Alttavia Relocation <hello@send.alttavia-relocation.com>`. Both
   Supabase templates (Confirm signup and Magic Link) already contain
@@ -161,7 +175,7 @@ create table public.services (
   currency                  text not null default 'eur',
   includes                  jsonb not null default '[]'::jsonb,   -- string[]
   timeline                  text,
-  supports_quantity         boolean not null default false,      -- nif-only can be x2
+  -- supports_quantity was here until 0007: one unit per purchase, no flag.
   stripe_price_id_test      text,
   stripe_price_id_live      text,
   stripe_payment_link_test  text,
@@ -198,6 +212,9 @@ create table public.service_docs (
   per_applicant  boolean not null default true,
   required       boolean not null default true,
   position       integer not null default 0,
+  -- 0007: the deed this slot generates for the client to sign; null for an
+  -- ordinary upload. A deed slot is still an upload slot for the signed copy.
+  template       text check (template in ('poa_nif','poa_bank')),
   unique (service_id, key)
 );
 
@@ -212,14 +229,15 @@ create table public.service_deliverables (
   unique (service_id, key)
 );
 
--- One row per service a user asked for. This is the order.
+-- One row per service a user asked for. This is the order. One unit per
+-- purchase (0007 dropped `quantity`): `applicants` is 2 only for the couple
+-- package, `total_cents = price_cents`.
 create table public.user_services (
   id                          uuid primary key default gen_random_uuid(),
   user_id                     uuid not null references public.users(id) on delete cascade,
   service_id                  uuid not null references public.services(id),
   submission_id               uuid,
   answers_snapshot            jsonb not null,          -- the Answers object at order time
-  quantity                    integer not null default 1 check (quantity between 1 and 2),
   joint                       boolean not null default false,
   applicants                  integer not null default 1 check (applicants between 1 and 2),
   total_cents                 integer not null check (total_cents > 0),
@@ -276,6 +294,26 @@ create table public.user_service_deliverables (
   storage_key             text,
   created_at              timestamptz not null default now()
 );
+
+-- 0007. The principal's details a power of attorney is filled with, one row
+-- per order and applicant. Written only through PUT /api/orders/[id]/applicants/[index].
+create table public.user_service_applicants (
+  id                   uuid primary key default gen_random_uuid(),
+  user_service_id      uuid not null references public.user_services(id) on delete cascade,
+  applicant_index      integer not null check (applicant_index in (0, 1)),
+  full_name            text not null check (length(full_name) between 2 and 200),
+  gender               text not null check (gender in ('f','m')),
+  birth_place          text not null check (length(birth_place) between 2 and 200),
+  birth_date           date not null,
+  passport_number      text not null check (length(passport_number) between 3 and 40),
+  passport_issuer      text not null check (length(passport_issuer) between 2 and 200),
+  passport_issued_on   date not null,
+  passport_expires_on  date not null,
+  tax_address          text not null check (length(tax_address) between 5 and 400),
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now(),
+  unique (user_service_id, applicant_index)
+);
 ```
 
 Also `create table public.schema_migrations (name text primary key, applied_at timestamptz not null default now());`
@@ -295,6 +333,12 @@ keep slug and price locked, because `recommend()` and the landing page price
 them from code. `0006_admin_hardening.sql` revokes every write grant from
 `anon` and `authenticated` (only `update (full_name, phone)` on `users`
 remains), so RLS is no longer the only thing between a client and a write.
+`0007_one_unit_poa.sql` (2026-09-14) drops `services.supports_quantity`,
+`user_services.quantity` and `user_service_notes`, recreates the
+`admin_order_summary` view without `quantity` and `open_pendencies`, adds
+`service_docs.template` and `user_service_applicants`, re-aligns the bundle
+and couple stages, documents and deliverables with NIF only and Bank Account
+only, and appends a deed slot to every service (section "Seeds" below).
 
 ### Row level security
 
@@ -309,9 +353,10 @@ Enable RLS on every table above. Policies, and nothing beyond them:
 | user_service_events | none | `select` where the order is own |
 | user_documents | none | `select` where the order is own |
 | user_service_deliverables | none | `select` where the order is own |
+| user_service_applicants (0007) | none | `select` where the order is own; admins `select` all through `public.is_admin()`; all write grants revoked, so nothing is written through PostgREST |
 
 All inserts and updates on `user_answers`, `user_services`, `user_documents`,
-`user_service_events` happen through the admin client in route handlers,
+`user_service_events`, `user_service_applicants` happen through the admin client in route handlers,
 after the handler has checked the session. "Own" for child tables is
 `exists (select 1 from public.user_services s where s.id = user_service_id and s.user_id = auth.uid())`.
 
@@ -319,9 +364,8 @@ after the handler has checked the session. "Own" for child tables is
 
 `0002_seed_services.sql` (foundation agent): four services from
 `src/content/apply.ts` (`PRODUCTS`) and `src/content/bank-nif.ts`
-(`PRICE_CENTS`, pricing card features, `TIMES`). `supports_quantity` true only
-for `nif-only`. Test price ids from `.env.local` `STRIPE_PRICE_*` (they are
-identifiers, not secrets). Live payment links from `LIVE_CHECKOUT_LINKS` in
+(`PRICE_CENTS`, pricing card features, `TIMES`). Test price ids from
+`.env.local` `STRIPE_PRICE_*` (they are identifiers, not secrets). Live payment links from `LIVE_CHECKOUT_LINKS` in
 `bank-nif.ts`; test payment links from `.env.local` `NEXT_PUBLIC_CHECKOUT_*`.
 Live price ids stay null.
 
@@ -352,6 +396,23 @@ return and proof of services). Keep `note` under 200 characters each.
 Deliverables: nif-only → `nif_certificate` (document), `summary` (report);
 bank-only → `account_confirmation` (document), `summary` (report);
 bundle/couple → all three.
+
+The tables above are the 2026-09-11 seed, kept as history. The live rows
+have moved on: Patrícia reshaped NIF only and Bank Account only in
+`/admin/services`, and `0007_one_unit_poa.sql` (2026-09-14) brought bundle
+and couple in line with them: eight stages (awaiting_payment, documents,
+awaiting_financas relabelled "Submitted", nif_ready, financas_access_ready,
+awaiting_bank, issued_documents_delivery, account_open terminal; no stage in
+use was deleted), NIF only's notes on the passport and proof of address
+slots, three deliverables (`nif_certificate`, `financas_access`,
+`account_confirmation`; the `summary` report template is deleted unless a
+live deliverable still points at it). The same migration appends the deed
+slots at the end of every document list, `per_applicant`, `required`,
+default mime list and size: `poa_nif` "Power of attorney for the NIF" on
+nif-only, bundle and couple; `poa_bank` "Power of attorney for the bank
+account" on bank-only, bundle and couple. Current counts per service are in
+`docs/admin-contract.md` section 7. `npm run db:migrate -- --seed` would put
+the 2026-09-11 rows back, so never run it against the live project.
 
 `0003_seed_questions.sql` (wizard agent): the six questions, generated from
 `SEED_QUESTIONS` in `src/lib/apply/questions.ts` by
@@ -419,8 +480,8 @@ wizard agent
   src/app/api/apply/submit/route.ts         POST { answers, product? } -> { userServiceId } (section 8)
   src/app/[locale]/apply/page.tsx           fetch questions + services server side, fallback to seeds
   src/components/apply/**                   consume question rows and service rows; add email/code stages
-                                            after the result using the auth components; fix the
-                                            alternatives quantity bug (section 8)
+                                            after the result using the auth components; price every
+                                            alternative as one unit (section 8)
   src/content/apply.ts                      keep as fallback copy; remove nothing that tests import
 
 dashboard agent
@@ -429,6 +490,22 @@ dashboard agent
   src/app/[locale]/dashboard/orders/page.tsx  "Under construction" placeholder
   src/components/dashboard/*.tsx            sidebar, order card, stage timeline, answers summary,
                                             confirmation banner (everything except documents/ and pay-button)
+```
+
+Documents round (2026-09-14, `docs/documents-contract.md`):
+
+```
+supabase/migrations/0007_one_unit_poa.sql   one unit, no notes, deeds, bundle and couple re-aligned
+src/content/power-of-attorney.ts            the two deeds transcribed from docs/power of attorney/*.docx;
+                                            ATTORNEY, PrincipalDetails, SigningDate, PoaBlock, formatDeedDate,
+                                            signingDateFor, buildPowerOfAttorney(kind, principal?, signedOn?)
+src/lib/poa/generate.ts                     generatePowerOfAttorney(kind, principal?, signedOn?) -> PDF bytes
+src/lib/dates/lisbon.ts                     lisbonCalendarDate(date), lisbonIsoDate(date?) in Europe/Lisbon
+src/lib/orders/applicants.ts                validateApplicantInput, findOrder, findApplicant, upsertApplicant,
+                                            findPrefill, toPrincipal, poaFileName
+src/app/api/orders/[id]/applicants/[index]/route.ts   GET, PUT (section 8)
+src/app/api/orders/[id]/poa/[docId]/route.ts          GET (section 8)
+src/components/dashboard/documents/applicant-details-form.tsx   the nine field dialog (section 10)
 ```
 
 Nobody edits another agent's files. Shared files that more than one stage
@@ -503,14 +580,15 @@ callers decide whether to fall back).
 
 1. Require a session (`getUser()`), else 401.
 2. `sanitizeAnswers` then `pruneAnswers`, run `recommend()`. If `kind === "exit"`, 422.
-3. If `product` is given it must be in `rec.valid`, else 422. Compute the
-   order for that product with the **same quantity rule as the main
-   recommendation** (two adults without NIFs and nif-only means quantity 2).
-   This is the fix for the live bug where alternative buttons charged one NIF
-   for two.
+3. If `product` is given it must be in `rec.valid`, else 422. The order for
+   that product is **one unit**: `total_cents = price_cents`, `applicants =
+   applicantsFor(order)` (2 only when `joint`). Two adults without NIFs and
+   no account get `nif-only` for one person with the `secondNif` note; the
+   partner's NIF is a second purchase from the dashboard. (Until 2026-09-14
+   this step carried a quantity of 2 for that case.)
 4. Look the service up by slug. Insert `user_answers` (one row per answered
    question, one `submission_id`) and one `user_services` row
-   (`awaiting_payment`, `answers_snapshot`, `quantity`, `joint`, `applicants`,
+   (`awaiting_payment`, `answers_snapshot`, `joint`, `applicants`,
    `total_cents`) with the admin client. Insert a `user_service_events` row
    `(null -> awaiting_payment)`.
 5. Return `{ userServiceId }`. The client then navigates to `/en/dashboard`.
@@ -520,7 +598,7 @@ callers decide whether to fall back).
 1. Require a session; load the order with the admin client and check
    `user_id` matches and `paid_at is null`, else 403/409.
 2. Mode from the key prefix. If the service has a price id for this mode:
-   `stripe.checkout.sessions.create({ mode: "payment", line_items: [{ price, quantity }],
+   `stripe.checkout.sessions.create({ mode: "payment", line_items: [{ price, quantity: 1 }],
    client_reference_id: order.id, customer_email, success_url:
    `${origin}/en/dashboard?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
    cancel_url: `${origin}/en/dashboard?checkout=cancelled`,
@@ -544,6 +622,15 @@ position 2, whatever its key), writes a `user_service_events` row.
 Webhook: `checkout.session.completed` → `markOrderPaid` by
 `client_reference_id`, verifying amount as above. Unknown events → 200.
 Missing `STRIPE_WEBHOOK_SECRET` → 503 with a clear message.
+
+### Client routes added since
+
+| route | body | effect |
+|---|---|---|
+| `POST /api/orders` | `{ serviceSlug }` | one unit of that service for the signed-in user, without the questions: `answers_snapshot = {}`, `joint` and `applicants = 2` only for `couple`, `total_cents = price_cents`, events row; a `quantity` key is ignored; returns `{ userServiceId }` |
+| `GET /api/orders/[id]/applicants/[index]` | | owner or admin; `index` 0 or 1 and below `applicants`; 200 `{ applicant }`, or 404 `{ error: "No details yet.", prefill }` where `prefill` is the owner's newest row for the same index on another of their orders (null for an admin) |
+| `PUT /api/orders/[id]/applicants/[index]` | the nine fields, camelCase or column names | owner only (an admin gets 403 and corrects through the client); `validateApplicantInput` (lengths and the gender set as in the SQL checks, `YYYY-MM-DD` dates, 18 or older, issue date not in the future, expiry after issue and today or later by Lisbon's calendar); upsert on `(user_service_id, applicant_index)`; 200 `{ applicant }` or 422 with the first message |
+| `GET /api/orders/[id]/poa/[docId]?applicant=0\|1` | | owner or admin; `docId` must be a `service_docs` row of the order's service with a `template` (404 otherwise), `applicant` below `applicants` (422), the order paid (409 `Payment first.`), a row present (409 `details_missing`, the code the slot reacts to by opening the form). Returns `application/pdf`, `Content-Disposition: attachment; filename="power-of-attorney-nif-<name>.pdf"` (or `-bank-`), `Cache-Control: no-store`, dated today in Europe/Lisbon; nothing is stored, a new download gets a fresh date. No session redirects to `/en/login` because the URL is opened by a click |
 
 ## 9. Dashboard page behaviour
 
@@ -587,6 +674,28 @@ not a SaaS dashboard.
   set it (403); it is done in the Cloudflare dashboard. Until then, test the
   presign and confirm routes with a script, and the browser path last.
 
+### Deed slots (2026-09-14)
+
+A `service_docs` row with `template` set is a deed slot: the same upload
+slot, with a generated document in front of it. On the documents stage the
+slot card shows the label, note and status pill, then a primary button
+**Download to sign** (`GET /api/orders/[id]/poa/[docId]?applicant=`), a quiet
+**Edit your details** link once details exist, and the upload control
+labelled **Upload the signed copy**. The client prints the PDF, signs by hand
+and uploads a scan or photo into the same slot through `upload-url` and
+`confirm`, unchanged. When the order has no `user_service_applicants` row for
+that applicant, the download opens the details form
+(`applicant-details-form.tsx`, a centred `<dialog>` like `modal.tsx`), one
+column, in this order: Full name (as in the passport), The deed refers to
+you as (She / He, stored `f` / `m`), Place of birth, Date of birth, Passport
+number, Issuing authority, Date of issue, Expiry date, Tax residence address.
+It opens prefilled from the user's newest row on another order; Save `PUT`s
+the row, the page refreshes and the download starts. The couple package has
+one form per applicant, the second card reads "Your partner" like the other
+slots. `nextStep` in `order-status.ts` still counts a missing deed as
+"Upload N documents" (the contract says "Sign and upload N document(s)" when
+only deeds are missing).
+
 ## 11. Verification each agent runs before finishing
 
 ```
@@ -598,3 +707,12 @@ grep -rnE "—|–|\bproblem\b|\btrap\b|refund|money back|\bfree\b|video call" <
 
 If typecheck fails in a file you do not own, wait a minute and rerun; other
 agents may be mid write. Report it if it persists. Never edit their files.
+
+## 12. Terms
+
+The purchase drawer says "By purchasing you accept the Terms"; "Terms" links
+to `/en/service-terms` (`src/app/[locale]/service-terms/page.tsx`, what is
+delivered and on what timeline, noindex, also in the landing footer as
+"Service terms"). The firm's contracting terms have not arrived (`docs/terms`
+is empty) and the post-payment contract is not built; both are pending, see
+`docs/documents-contract.md` section 6.

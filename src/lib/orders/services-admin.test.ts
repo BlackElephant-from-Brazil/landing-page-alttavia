@@ -147,7 +147,6 @@ function input(overrides: Partial<Record<keyof ServiceInput, unknown>> = {}): Re
     currency: "EUR",
     includes: ["Fiscal representation for one year", "NIF certificate in PDF"],
     timeline: "3 to 5 business days",
-    supports_quantity: true,
     stripe_price_id_test: "price_test_123",
     stripe_price_id_live: null,
     stripe_payment_link_test: "https://buy.stripe.com/test_abc",
@@ -189,8 +188,27 @@ describe("validateServiceInput", () => {
       per_applicant: false,
       required: true,
       position: 1,
+      template: null,
     });
     expect(result.value.deliverables.map((d) => d.position)).toEqual([0, 1]);
+  });
+
+  it("accepts a deed on a document, reads null or absent as none, and refuses anything else", () => {
+    const withDeed = validateServiceInput(
+      input({
+        docs: [
+          { key: "poa_nif", label: "Power of attorney for the NIF", template: "poa_nif" },
+          { key: "poa_bank", label: "Power of attorney for the bank account", template: "poa_bank" },
+          { key: "passport", label: "Passport", template: null },
+        ],
+      }),
+    );
+    expect(withDeed.ok && withDeed.value.docs.map((d) => d.template)).toEqual(["poa_nif", "poa_bank", null]);
+    const absent = validateServiceInput(input());
+    expect(absent.ok && absent.value.docs.every((d) => d.template === null)).toBe(true);
+    expect(errorOf(input({ docs: [{ key: "x", label: "X", template: "poa_x" }] }))).toBe("Choose a deed or none.");
+    expect(errorOf(input({ docs: [{ key: "x", label: "X", template: "" }] }))).toBe("Choose a deed or none.");
+    expect(errorOf(input({ docs: [{ key: "x", label: "X", template: 1 }] }))).toBe("Choose a deed or none.");
   });
 
   it("sorts stages by position whatever order they arrive in", () => {
@@ -268,8 +286,8 @@ describe("validateServiceInput", () => {
   });
 
   it("defaults the flags a form may leave out", () => {
-    const result = validateServiceInput(input({ supports_quantity: undefined, active: undefined, position: undefined }));
-    expect(result.ok && result.value).toMatchObject({ supports_quantity: false, active: true, position: 0 });
+    const result = validateServiceInput(input({ active: undefined, position: undefined }));
+    expect(result.ok && result.value).toMatchObject({ active: true, position: 0 });
   });
 });
 
@@ -381,6 +399,27 @@ describe("upsertService", () => {
 
     expect(saved.stages.map((s) => s.key)).toEqual(["awaiting_payment", "documents", "with_notary", "nif_ready"]);
     expect(log).toContain("delete service_stages awaiting_financas");
+  });
+
+  it("writes the generated deed of every document slot, none as null", async () => {
+    seedExisting();
+    const changed = valid({
+      docs: [
+        { key: "passport", label: "Passport" },
+        { key: "proof_of_address", label: "Proof of address", per_applicant: false },
+        { key: "poa_nif", label: "Power of attorney for the NIF", template: "poa_nif" },
+      ],
+    });
+
+    const saved = await upsertService(db, changed, SERVICE_ID);
+
+    expect(saved.docs.map((d) => [d.key, d.template])).toEqual([
+      ["passport", null],
+      ["proof_of_address", null],
+      ["poa_nif", "poa_nif"],
+    ]);
+    // The saved rows carry the column explicitly, so a later save cannot leave a seeded value behind by omission.
+    expect(tables.service_docs.every((d) => "template" in d)).toBe(true);
   });
 
   it("refuses to remove a stage an order still sits on, with the count, before writing", async () => {

@@ -79,7 +79,7 @@ function NotFound() {
 }
 
 function Header({ order, service, stages }: { order: UserServiceRow; service: ServiceRow; stages: ServiceStageRow[] }) {
-  const name = order.quantity === 2 ? `${service.name} · x2` : service.name;
+  const name = service.name;
   const status = orderStatus(order);
   const stage = stages.find((s) => s.key === order.stage_key)?.label;
 

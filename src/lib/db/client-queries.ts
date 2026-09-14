@@ -1,14 +1,14 @@
 /**
  * Reads the client's order view needs beyond src/lib/db/queries.ts: the
- * notes the firm posted for the client and the deliverables that are ready.
- * Admin contract (docs/admin-contract.md) section 7, "Client order view".
+ * deliverables that are ready and the principal's details the deeds are
+ * filled with. Admin contract (docs/admin-contract.md) section 7, "Client
+ * order view"; documents contract section 3 for the applicants.
  *
  * Same shape as queries.ts: the Supabase client comes first, so the user
- * client (RLS: `user_service_notes_select` shows audience client rows on own
- * orders, `user_service_deliverables_select_own` shows ready rows) and the
- * admin client both work. The filters are repeated here regardless, so a
- * caller holding the admin client cannot leak an internal note or a pending
- * upload to the client by mistake.
+ * client (RLS: `user_service_deliverables_select_own` shows ready rows on
+ * own orders, `user_service_applicants` shows own rows) and the admin client
+ * both work. The filters are repeated here regardless, so a caller holding
+ * the admin client cannot leak a pending upload to the client by mistake.
  *
  * Database errors are thrown; the pages decide what to do with them.
  */
@@ -22,8 +22,8 @@ import type {
   ServiceRow,
   ServiceStageRow,
   UserDocumentRow,
+  UserServiceApplicantRow,
   UserServiceDeliverableRow,
-  UserServiceNoteRow,
   UserServiceRow,
 } from "./types";
 
@@ -31,16 +31,20 @@ function fail(where: string, error: { message: string }): never {
   throw new Error(`${where}: ${error.message}`);
 }
 
-/** Notes addressed to the client on one order, oldest first. Internal notes never come back. */
-export async function getClientNotes(db: Db, orderId: string): Promise<UserServiceNoteRow[]> {
+/**
+ * The principal's details entered on one order, by applicant index (0 then
+ * 1). Zero, one or two rows: a deed slot with no row for its applicant has
+ * not been filled in yet. RLS limits the user client to the account's own
+ * orders.
+ */
+export async function listOrderApplicants(db: Db, userServiceId: string): Promise<UserServiceApplicantRow[]> {
   const { data, error } = await db
-    .from("user_service_notes")
+    .from("user_service_applicants")
     .select("*")
-    .eq("user_service_id", orderId)
-    .eq("audience", "client")
-    .order("created_at", { ascending: true });
-  if (error) fail("getClientNotes", error);
-  return (data ?? []) as UserServiceNoteRow[];
+    .eq("user_service_id", userServiceId)
+    .order("applicant_index", { ascending: true });
+  if (error) fail("listOrderApplicants", error);
+  return (data ?? []) as UserServiceApplicantRow[];
 }
 
 /** Deliverables the firm has finished uploading on one order, oldest first. Pending rows never come back. */
@@ -81,7 +85,8 @@ export type OrderViewData = {
   stages: ServiceStageRow[];
   docs: ServiceDocRow[];
   documents: UserDocumentRow[];
-  notes: UserServiceNoteRow[];
+  /** The principal's details entered so far, by applicant index; a deed slot reads its applicant's row here. */
+  applicants: UserServiceApplicantRow[];
   deliverables: UserServiceDeliverableRow[];
   /** Undefined when the questions could not be read; the answers summary then uses the copy's labels. */
   questions: QuestionRow[] | undefined;
@@ -98,12 +103,12 @@ export type OrderViewData = {
  * neutral name rather than failing the page.
  */
 export async function getOrderViewData(db: Db, order: UserServiceRow): Promise<OrderViewData> {
-  const [serviceResult, stages, docs, documents, notes, deliverables, questions] = await Promise.all([
+  const [serviceResult, stages, docs, documents, applicants, deliverables, questions] = await Promise.all([
     db.from("services").select("*").eq("id", order.service_id).maybeSingle(),
     getServiceStages(db, order.service_id),
     getServiceDocs(db, order.service_id),
     getUserDocuments(db, order.id),
-    getClientNotes(db, order.id),
+    listOrderApplicants(db, order.id),
     getReadyDeliverables(db, order.id),
     getActiveQuestions(db).catch((err: unknown): QuestionRow[] | undefined => {
       console.error("getOrderViewData: questions unavailable, using the copy's labels:", err);
@@ -113,7 +118,7 @@ export async function getOrderViewData(db: Db, order: UserServiceRow): Promise<O
   if (serviceResult.error) fail("getOrderViewData service", serviceResult.error);
   const service = (serviceResult.data as ServiceRow | null) ?? fallbackService(order);
 
-  return { service, stages, docs, documents, notes, deliverables, questions };
+  return { service, stages, docs, documents, applicants, deliverables, questions };
 }
 
 const FALLBACK_SERVICE_NAME = "Your order";
@@ -133,7 +138,6 @@ export function fallbackService(order: UserServiceRow): ServiceRow {
     currency: order.currency,
     includes: [],
     timeline: null,
-    supports_quantity: false,
     stripe_price_id_test: null,
     stripe_price_id_live: null,
     stripe_payment_link_test: null,
@@ -164,17 +168,15 @@ export type ClientOrderSummary = {
   stageLabel: string;
   progress: Progress;
   docs: DocumentCounts;
-  /** Client facing notes without `resolved_at`. */
-  openPendencies: number;
   /** Files the firm returned and finished uploading. */
   deliverables: number;
 };
 
 /**
  * Every order of one user, newest first, each with its service, stage
- * label, progress, document counts, open pendencies and ready deliverables.
- * Six queries in two rounds, whatever the number of orders; the counting is
- * done here with the same slot rules the order view uses.
+ * label, progress, document counts and ready deliverables. Five queries in
+ * two rounds, whatever the number of orders; the counting is done here with
+ * the same slot rules the order view uses.
  */
 export async function listOrdersForUser(db: Db, userId: string): Promise<ClientOrderSummary[]> {
   const orders = await getUserServicesForUser(db, userId);
@@ -183,17 +185,11 @@ export async function listOrdersForUser(db: Db, userId: string): Promise<ClientO
   const serviceIds = Array.from(new Set(orders.map((o) => o.service_id)));
   const orderIds = orders.map((o) => o.id);
 
-  const [services, stagesResult, docsResult, documentsResult, notesResult, deliverablesResult] = await Promise.all([
+  const [services, stagesResult, docsResult, documentsResult, deliverablesResult] = await Promise.all([
     getServicesByIds(db, serviceIds),
     db.from("service_stages").select("*").in("service_id", serviceIds),
     db.from("service_docs").select("*").in("service_id", serviceIds),
     db.from("user_documents").select("*").in("user_service_id", orderIds),
-    db
-      .from("user_service_notes")
-      .select("id, user_service_id")
-      .in("user_service_id", orderIds)
-      .eq("audience", "client")
-      .is("resolved_at", null),
     db
       .from("user_service_deliverables")
       .select("id, user_service_id")
@@ -203,13 +199,11 @@ export async function listOrdersForUser(db: Db, userId: string): Promise<ClientO
   if (stagesResult.error) fail("listOrdersForUser stages", stagesResult.error);
   if (docsResult.error) fail("listOrdersForUser docs", docsResult.error);
   if (documentsResult.error) fail("listOrdersForUser documents", documentsResult.error);
-  if (notesResult.error) fail("listOrdersForUser notes", notesResult.error);
   if (deliverablesResult.error) fail("listOrdersForUser deliverables", deliverablesResult.error);
 
   const stagesByService = groupBy((stagesResult.data ?? []) as ServiceStageRow[], (s) => s.service_id);
   const docsByService = groupBy((docsResult.data ?? []) as ServiceDocRow[], (d) => d.service_id);
   const documentsByOrder = groupBy((documentsResult.data ?? []) as UserDocumentRow[], (d) => d.user_service_id);
-  const pendenciesByOrder = countBy((notesResult.data ?? []) as { user_service_id: string }[], (n) => n.user_service_id);
   const deliverablesByOrder = countBy((deliverablesResult.data ?? []) as { user_service_id: string }[], (d) => d.user_service_id);
 
   return orders.map((order) => {
@@ -223,7 +217,6 @@ export async function listOrdersForUser(db: Db, userId: string): Promise<ClientO
       stageLabel: stage?.label ?? FALLBACK_STAGE_LABEL,
       progress: progressFraction(stages, order.stage_key, completed),
       docs: documentCounts(docsByService.get(order.service_id) ?? [], documentsByOrder.get(order.id) ?? [], order.applicants),
-      openPendencies: pendenciesByOrder.get(order.id) ?? 0,
       deliverables: deliverablesByOrder.get(order.id) ?? 0,
     };
   });

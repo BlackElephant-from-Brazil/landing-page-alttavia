@@ -8,8 +8,8 @@ import { cn } from "@/lib/cn";
 
 /**
  * The Pay button on the dashboard. Asks the server for a Stripe Checkout URL
- * for this order and sends the browser there. The server decides the price,
- * the quantity and the buyer's email; the button only knows which order.
+ * for this order and sends the browser there. The server decides the price
+ * and the buyer's email; the button only knows which order.
  *
  * Stays disabled after a successful request: the page is about to leave, and
  * a second click would open a second session.

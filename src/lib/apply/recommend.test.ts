@@ -23,18 +23,19 @@ type Row = {
 
 const MATRIX: Row[] = [
   // One person
-  { name: "1 / no NIF / account", answers: {}, expect: { product: "bundle", quantity: 1, joint: false, totalCents: 49700 } },
-  { name: "1 / no NIF / no account", answers: { bank: "none" }, expect: { product: "nif-only", quantity: 1, totalCents: 14900 } },
-  { name: "1 / has NIF / account", answers: { hasNif: [true] }, expect: { product: "bank-only", quantity: 1, totalCents: 39900 } },
+  { name: "1 / no NIF / account", answers: {}, expect: { product: "bundle", joint: false, totalCents: 49700 } },
+  { name: "1 / no NIF / no account", answers: { bank: "none" }, expect: { product: "nif-only", totalCents: 14900 } },
+  { name: "1 / has NIF / account", answers: { hasNif: [true] }, expect: { product: "bank-only", totalCents: 39900 } },
   { name: "1 / has NIF / no account", answers: { hasNif: [true], bank: "none" }, expect: { exit: "nothing-to-buy" } },
 
-  // Two people
-  { name: "2 / nobody / joint", answers: { applicants: "two", hasNif: [false, false], bank: "joint", passport: ["US", "US"] }, expect: { product: "couple", quantity: 1, joint: true, totalCents: 59700 } },
-  { name: "2 / nobody / none", answers: { applicants: "two", hasNif: [false, false], bank: "none", passport: ["US", "US"] }, expect: { product: "nif-only", quantity: 2, totalCents: 29800 } },
-  { name: "2 / both / joint", answers: { applicants: "two", hasNif: [true, true], bank: "joint", passport: ["US", "US"] }, expect: { product: "bank-only", quantity: 1, joint: true, totalCents: 39900 } },
-  { name: "2 / you only / joint", answers: { applicants: "two", hasNif: [true, false], bank: "joint", passport: ["US", "US"] }, expect: { product: "bundle", quantity: 1, joint: true, totalCents: 49700 } },
-  { name: "2 / partner only / joint", answers: { applicants: "two", hasNif: [false, true], bank: "joint", passport: ["US", "US"] }, expect: { product: "bundle", quantity: 1, joint: true } },
-  { name: "2 / one / none", answers: { applicants: "two", hasNif: [true, false], bank: "none", passport: ["US", "US"] }, expect: { product: "nif-only", quantity: 1, totalCents: 14900 } },
+  // Two people. Every service is one unit per purchase, so two adults
+  // without NIFs and no account get one NIF here and the secondNif note.
+  { name: "2 / nobody / joint", answers: { applicants: "two", hasNif: [false, false], bank: "joint", passport: ["US", "US"] }, expect: { product: "couple", joint: true, totalCents: 59700 } },
+  { name: "2 / nobody / none", answers: { applicants: "two", hasNif: [false, false], bank: "none", passport: ["US", "US"] }, expect: { product: "nif-only", joint: false, totalCents: 14900 } },
+  { name: "2 / both / joint", answers: { applicants: "two", hasNif: [true, true], bank: "joint", passport: ["US", "US"] }, expect: { product: "bank-only", joint: true, totalCents: 39900 } },
+  { name: "2 / you only / joint", answers: { applicants: "two", hasNif: [true, false], bank: "joint", passport: ["US", "US"] }, expect: { product: "bundle", joint: true, totalCents: 49700 } },
+  { name: "2 / partner only / joint", answers: { applicants: "two", hasNif: [false, true], bank: "joint", passport: ["US", "US"] }, expect: { product: "bundle", joint: true } },
+  { name: "2 / one / none", answers: { applicants: "two", hasNif: [true, false], bank: "none", passport: ["US", "US"] }, expect: { product: "nif-only", totalCents: 14900 } },
   { name: "2 / both / none", answers: { applicants: "two", hasNif: [true, true], bank: "none", passport: ["US", "US"] }, expect: { exit: "nothing-to-buy" } },
 
   // Exits that short circuit
@@ -43,9 +44,9 @@ const MATRIX: Row[] = [
   { name: "two separate accounts", answers: { applicants: "two", bank: "separate" }, expect: { exit: "separate-accounts" } },
 
   // The bank's gates
-  { name: "non EEA, no visa, wants account", answers: { visa: "none" }, expect: { product: "nif-only", quantity: 1 } },
+  { name: "non EEA, no visa, wants account", answers: { visa: "none" }, expect: { product: "nif-only", totalCents: 14900 } },
   { name: "non EEA, no visa, has NIF, wants account", answers: { hasNif: [true], visa: "none" }, expect: { exit: "nothing-to-buy" } },
-  { name: "2 / nobody / joint, non EEA, no visa", answers: { applicants: "two", hasNif: [false, false], bank: "joint", passport: ["US", "BR"], visa: "none" }, expect: { product: "nif-only", quantity: 2 } },
+  { name: "2 / nobody / joint, non EEA, no visa", answers: { applicants: "two", hasNif: [false, false], bank: "joint", passport: ["US", "BR"], visa: "none" }, expect: { product: "nif-only", joint: false, totalCents: 14900 } },
   { name: "EEA passport, no visa, wants account", answers: { passport: ["DE"], visa: "none" }, expect: { product: "bundle" } },
   { name: "EEA passport, visa unanswered (step skipped)", answers: { passport: ["DE"], visa: undefined }, expect: { product: "bundle" } },
 ];
@@ -129,6 +130,21 @@ describe("recommend: notes", () => {
     expect(recommend({ ...base, visa: "none" }).notes).toContain("bankUnlikely");
     expect(recommend(base).notes).not.toContain("bankUnlikely");
   });
+
+  it("tells two adults without NIFs and no account that the second NIF is a second purchase", () => {
+    const two: Answers = { ...base, applicants: "two", hasNif: [false, false], passport: ["US", "US"] };
+    expect(recommend({ ...two, bank: "none" }).notes).toContain("secondNif");
+
+    // The bank refused the joint account: same one unit rule, both notes.
+    const refused = recommend({ ...two, bank: "joint", passport: ["US", "BR"], visa: "none" });
+    expect(refused.kind === "product" && refused.product).toBe("nif-only");
+    expect(refused.notes).toEqual(expect.arrayContaining(["bankUnlikely", "secondNif"]));
+
+    // One NIF for one person, or the couple package, need no such note.
+    expect(recommend({ ...two, hasNif: [true, false], bank: "none" }).notes).not.toContain("secondNif");
+    expect(recommend({ ...two, bank: "joint" }).notes).not.toContain("secondNif");
+    expect(recommend({ ...base, bank: "none" }).notes).not.toContain("secondNif");
+  });
 });
 
 describe("recommend: reasons", () => {
@@ -161,7 +177,6 @@ describe("applicantsFor: how many people send documents", () => {
   it("is 1 when only one partner needs a NIF and there is no account", () => {
     const rec = product({ ...two, hasNif: [true, false], bank: "none" });
     expect(rec.product).toBe("nif-only");
-    expect(rec.quantity).toBe(1);
     expect(applicantsFor(rec)).toBe(1);
   });
 
@@ -171,11 +186,12 @@ describe("applicantsFor: how many people send documents", () => {
     expect(applicantsFor(rec)).toBe(2);
   });
 
-  it("is 2 for two NIFs on one order", () => {
+  it("is 1 for two adults without NIFs and no account: one NIF per purchase", () => {
     const rec = product({ ...two, hasNif: [false, false], bank: "none" });
     expect(rec.product).toBe("nif-only");
-    expect(rec.quantity).toBe(2);
-    expect(applicantsFor(rec)).toBe(2);
+    expect(rec.joint).toBe(false);
+    expect(rec.totalCents).toBe(PRICE_CENTS.nifOnly);
+    expect(applicantsFor(rec)).toBe(1);
   });
 
   it("is 2 for a joint bundle", () => {

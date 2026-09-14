@@ -260,6 +260,7 @@ export const applyCopy = {
     taxRepOptional: "You live inside the EEA, so tax representation is optional for you. It is included anyway, and you can drop it at any time.",
     bankUnlikely: "The bank asks for proof of a visa in progress before opening an account, and you told us you are not applying for one. We recommend the NIF now and the account once a visa process starts. Message us if your situation is different.",
     nationalityUnsupported: "The bank does not open accounts for one of the nationalities you entered. We recommend the NIF now and can look at other banks on WhatsApp.",
+    secondNif: "One NIF per purchase. Your partner's NIF is a second purchase from your dashboard, right after checkout.",
   } satisfies Record<NoteId, string>,
 } as const;
 
@@ -332,20 +333,12 @@ export const PRODUCTS: Record<ProductId, Product> = {
 type ProductRecommendation = Extract<Recommendation, { kind: "product" }>;
 
 /**
- * The feature list for this exact order. Joint orders and double NIF orders
- * are not the pricing card verbatim, so they are rewritten here. Everything
- * else reads the service row's `includes` when one is passed, and the
- * pricing card otherwise.
+ * The feature list for this exact order. Joint orders are not the pricing
+ * card verbatim, so they are rewritten here. Everything else reads the
+ * service row's `includes` when one is passed, and the pricing card
+ * otherwise.
  */
 export function includesFor(rec: ProductRecommendation, service?: ServiceRow): readonly string[] {
-  if (rec.product === "nif-only" && rec.quantity === 2) {
-    return [
-      "Two official NIFs, filed directly with Finanças",
-      "12 months of tax representation **included** for both of you",
-      "Every Finanças letter forwarded, Portal passwords included",
-      `Renewal ${PRICES.renewal} a year each, optional, cancel once you are resident`,
-    ];
-  }
   if (rec.product === "bundle" && rec.joint) {
     return [
       "One official NIF for the holder who needs it, filed with Finanças",
@@ -367,10 +360,9 @@ export function includesFor(rec: ProductRecommendation, service?: ServiceRow): r
   return PRODUCTS[rec.product].includes;
 }
 
-/** "NIF only · x2" when two are ordered. */
+/** The order's name: the service row's when one is passed, the product's otherwise. */
 export function orderName(rec: ProductRecommendation, service?: ServiceRow): string {
-  const name = service?.name || PRODUCTS[rec.product].name;
-  return rec.quantity === 2 ? `${name} · x2` : name;
+  return service?.name || PRODUCTS[rec.product].name;
 }
 
 export function orderTotal(rec: ProductRecommendation): string {
@@ -382,33 +374,18 @@ export function orderTotal(rec: ProductRecommendation): string {
 /* -------------------------------------------------------------------------- */
 
 /**
- * How many units of `product` these answers buy. The same rule the engine
- * applies to its own recommendation: NIF only is sold per adult without a
- * NIF, everything else is one unit for the household. Two adults without
- * NIFs who pick NIF only over the couple package are therefore charged two,
- * never one.
- */
-export function quantityFor(product: ProductId, answers: Answers): 1 | 2 {
-  if (product !== "nif-only") return 1;
-  const people = answers.applicants === "two" ? 2 : 1;
-  const missing = Array.from({ length: people }, (_, i) => answers.hasNif?.[i] !== true).filter(Boolean).length;
-  return missing >= 2 ? 2 : 1;
-}
-
-/**
- * The order for `product` chosen from `rec.valid`: quantity from the rule
- * above, joint only when the product opens an account and the household asked
- * for a joint one. For `rec.product` itself it equals the engine's own order.
- * Both the result screen and POST /api/apply/submit build alternatives here,
- * so the browser and the server can never price the same choice differently.
+ * The order for `product` chosen from `rec.valid`: one unit, priced by the
+ * engine, joint only when the product opens an account and the household
+ * asked for a joint one. For `rec.product` itself it equals the engine's own
+ * order. Both the result screen and POST /api/apply/submit build
+ * alternatives here, so the browser and the server can never price the same
+ * choice differently.
  */
 export function alternativeFor(rec: ProductRecommendation, product: ProductId, answers: Answers): ProductRecommendation {
-  const quantity = quantityFor(product, answers);
   return {
     ...rec,
     product,
-    quantity,
-    totalCents: totalCents(product, quantity),
+    totalCents: totalCents(product),
     joint: includesBank(product) && answers.bank === "joint",
   };
 }
@@ -430,7 +407,6 @@ function fallbackService(product: Product, position: number, cents: number): Ser
     currency: "eur",
     includes: [...product.includes],
     timeline: product.time,
-    supports_quantity: product.id === "nif-only",
     stripe_price_id_test: null,
     stripe_price_id_live: null,
     stripe_payment_link_test: null,
@@ -459,7 +435,7 @@ export function serviceFor(services: readonly ServiceRow[], product: ProductId):
   return (
     services.find((s) => s.slug === product) ??
     FALLBACK_SERVICES.find((s) => s.slug === product) ??
-    fallbackService(PRODUCTS[product], 0, totalCents(product, 1))
+    fallbackService(PRODUCTS[product], 0, totalCents(product))
   );
 }
 
@@ -468,7 +444,7 @@ export function documentsFor(rec: ProductRecommendation): string[] {
   const docs: string[] = [...applyCopy.result.docs.nif];
   if (includesBank(rec.product)) docs.push(...applyCopy.result.docs.bank);
   // Same rule as applicantsFor() in recommend.ts, which the dashboard uses.
-  if (rec.quantity === 2 || rec.joint) {
+  if (rec.joint) {
     docs.push(applyCopy.result.docs.partner);
   }
   return docs;
@@ -496,7 +472,6 @@ const LINK_BY_PRODUCT: Record<ProductId, string> = {
 export function checkoutReference(rec: ProductRecommendation, answers: Answers): string {
   const parts = [
     rec.product,
-    `q${rec.quantity}`,
     answers.residence ?? "xx",
     answers.applicants ?? "one",
     answers.visa ?? "na",
@@ -507,16 +482,15 @@ export function checkoutReference(rec: ProductRecommendation, answers: Answers):
 }
 
 /**
- * The Payment Link for this order, or null when a link cannot sell it (two
- * NIFs on one order: a link sells one, and quantity adjustment is off).
+ * The Payment Link for this order. Every order is one unit, which is what a
+ * link sells, so there is always one.
  *
  * The result screen no longer links here: orders are created by
  * POST /api/apply/submit and paid from the dashboard through a Checkout
- * Session, which sells quantity 2. Kept for the link routing test and as a
- * reference for the live Payment Links.
+ * Session. Kept for the link routing test and as a reference for the live
+ * Payment Links.
  */
-export function checkoutUrl(rec: ProductRecommendation, answers: Answers): string | null {
-  if (rec.quantity !== 1) return null;
+export function checkoutUrl(rec: ProductRecommendation, answers: Answers): string {
   const base = LINK_BY_PRODUCT[rec.product];
   return `${base}?client_reference_id=${encodeURIComponent(checkoutReference(rec, answers))}`;
 }

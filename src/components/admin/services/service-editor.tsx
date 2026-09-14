@@ -29,7 +29,7 @@ import {
   type ServiceDraft,
   type StageDraft,
 } from "./editor-model";
-import { CheckboxField, FieldGroup, TextAreaField, TextField } from "./fields";
+import { FieldGroup, TextAreaField, TextField } from "./fields";
 import { SERVICES_API_PATH, SERVICES_PATH } from "./paths";
 
 /**
@@ -73,8 +73,6 @@ const copy = {
   timelineHint: "One line, for example NIF in 3 to 5 business days.",
   includes: "Includes",
   includesHint: "One item per line. **bold** is rendered.",
-  supportsQuantity: "Can be ordered twice on one order",
-  supportsQuantityHint: "Two NIFs, one checkout. Off for everything else.",
   stripe: {
     title: "Stripe",
     intro: "Test ids and links come from npm run stripe:setup; live ids from stripe:setup --live. Leave blank until the script prints them.",
@@ -345,15 +343,6 @@ export function ServiceEditor({ initial }: Props) {
             }}
             hint={copy.includesHint}
             error={errors.includes}
-            className="sm:col-span-2"
-          />
-          <CheckboxField
-            id={`${id}-quantity`}
-            label={copy.supportsQuantity}
-            hint={copy.supportsQuantityHint}
-            checked={draft.supports_quantity}
-            disabled={busy}
-            onChange={(supports_quantity) => patch({ supports_quantity })}
             className="sm:col-span-2"
           />
         </div>

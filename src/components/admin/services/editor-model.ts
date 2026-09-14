@@ -17,7 +17,7 @@
  * auto suggestions the key and slug fields follow until they are touched.
  */
 
-import type { DeliverableKind, ServiceWithConfig } from "@/lib/db/types";
+import type { DeliverableKind, PoaTemplate, ServiceWithConfig } from "@/lib/db/types";
 
 // ---------------------------------------------------------------------------
 // Payload (section 6)
@@ -40,6 +40,8 @@ export type DocBody = {
   per_applicant: boolean;
   required: boolean;
   position: number;
+  /** The deed this slot generates for the client to sign; null for a plain upload. Always sent, so a save never leaves it to chance. */
+  template: PoaTemplate | null;
 };
 
 export type DeliverableBody = {
@@ -58,7 +60,6 @@ export type ServiceBody = {
   currency: string;
   includes: string[];
   timeline: string | null;
-  supports_quantity: boolean;
   stripe_price_id_test: string | null;
   stripe_price_id_live: string | null;
   stripe_payment_link_test: string | null;
@@ -98,6 +99,7 @@ export type DocDraft = RowBase & {
   max_mb: string;
   per_applicant: boolean;
   required: boolean;
+  template: PoaTemplate | null;
 };
 
 export type DeliverableDraft = RowBase & {
@@ -116,7 +118,6 @@ export type ServiceDraft = {
   /** One item per line. */
   includes: string;
   timeline: string;
-  supports_quantity: boolean;
   stripe_price_id_test: string;
   stripe_price_id_live: string;
   stripe_payment_link_test: string;
@@ -143,6 +144,8 @@ export const DEFAULT_MAX_MB = 10;
 export const MAX_DOC_MB = 20;
 export const FIRST_STAGE_KEY = "awaiting_payment";
 export const DELIVERABLE_KINDS: readonly DeliverableKind[] = ["document", "report"];
+/** The deeds a document slot can generate, in the order the select offers them. */
+export const POA_TEMPLATES: readonly PoaTemplate[] = ["poa_nif", "poa_bank"];
 
 /**
  * The same lengths src/lib/orders/services-admin.ts enforces, so a field
@@ -227,6 +230,7 @@ export function newDoc(uid: string, position: number): DocDraft {
     per_applicant: true,
     required: true,
     position: String(position),
+    template: null,
   };
 }
 
@@ -254,7 +258,6 @@ export function emptyDraft(): ServiceDraft {
     currency: "eur",
     includes: "",
     timeline: "",
-    supports_quantity: false,
     stripe_price_id_test: "",
     stripe_price_id_live: "",
     stripe_payment_link_test: "",
@@ -291,7 +294,6 @@ export function draftFromService(service: ServiceWithConfig): ServiceDraft {
     currency: service.currency,
     includes: (Array.isArray(service.includes) ? service.includes : []).join("\n"),
     timeline: service.timeline ?? "",
-    supports_quantity: service.supports_quantity,
     stripe_price_id_test: service.stripe_price_id_test ?? "",
     stripe_price_id_live: service.stripe_price_id_live ?? "",
     stripe_payment_link_test: service.stripe_payment_link_test ?? "",
@@ -320,6 +322,7 @@ export function draftFromService(service: ServiceWithConfig): ServiceDraft {
       per_applicant: d.per_applicant,
       required: d.required,
       position: String(d.position),
+      template: d.template ?? null,
     })),
     deliverables: service.deliverables.map((d) => ({
       uid: d.id,
@@ -397,6 +400,7 @@ export const messages = {
   priceId: "Stripe price ids start with price_.",
   paymentLink: "Payment links start with https://.",
   kind: "Choose document or report.",
+  template: "Choose a deed or none.",
 } as const;
 
 function checkRowBasics(errors: DraftErrors, prefix: string, rows: RowBase[], minPosition: 0 | 1): void {
@@ -475,6 +479,7 @@ function validateDocs(errors: DraftErrors, docs: DocDraft[]): DocBody[] {
     const mb = Number(doc.max_mb.trim());
     const validMb = doc.max_mb.trim() !== "" && Number.isFinite(mb) && mb >= 1 && mb <= MAX_DOC_MB;
     if (!validMb) errors[`docs.${doc.uid}.max_mb`] = messages.maxMb;
+    if (doc.template !== null && !POA_TEMPLATES.includes(doc.template)) errors[`docs.${doc.uid}.template`] = messages.template;
     out.push({
       key: doc.key.trim(),
       label: doc.label.trim(),
@@ -484,6 +489,7 @@ function validateDocs(errors: DraftErrors, docs: DocDraft[]): DocBody[] {
       per_applicant: doc.per_applicant,
       required: doc.required,
       position: parseInteger(doc.position) ?? 0,
+      template: doc.template,
     });
   }
   return out;
@@ -558,7 +564,6 @@ export function validateDraft(draft: ServiceDraft): ValidationResult {
       currency,
       includes,
       timeline: nullable(draft.timeline),
-      supports_quantity: draft.supports_quantity,
       stripe_price_id_test: priceIdTest,
       stripe_price_id_live: priceIdLive,
       stripe_payment_link_test: linkTest,
@@ -583,7 +588,6 @@ export function bodyFromService(service: ServiceWithConfig, active: boolean): Se
     currency: service.currency,
     includes: Array.isArray(service.includes) ? [...service.includes] : [],
     timeline: service.timeline,
-    supports_quantity: service.supports_quantity,
     stripe_price_id_test: service.stripe_price_id_test,
     stripe_price_id_live: service.stripe_price_id_live,
     stripe_payment_link_test: service.stripe_payment_link_test,
@@ -597,7 +601,7 @@ export function bodyFromService(service: ServiceWithConfig, active: boolean): Se
       position,
       is_terminal,
     })),
-    docs: service.docs.map(({ key, label, note, accepted_mime, max_bytes, per_applicant, required, position }) => ({
+    docs: service.docs.map(({ key, label, note, accepted_mime, max_bytes, per_applicant, required, position, template }) => ({
       key,
       label,
       note,
@@ -606,6 +610,7 @@ export function bodyFromService(service: ServiceWithConfig, active: boolean): Se
       per_applicant,
       required,
       position,
+      template: template ?? null,
     })),
     deliverables: service.deliverables.map(({ key, label, kind, position }) => ({ key, label, kind, position })),
   };

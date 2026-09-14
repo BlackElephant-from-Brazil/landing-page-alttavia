@@ -60,9 +60,9 @@ export const APPLY_LINKS = {
  * which product fits, passing `client_reference_id` so the payment can be
  * matched back to the answers that produced it.
  *
- * Two NIFs for a couple with no bank account has no link: a Payment Link sells
- * a fixed quantity, and quantity adjustment is off on these. That order goes to
- * WhatsApp until a dedicated link exists.
+ * Every service sells one unit per purchase, which is exactly what a Payment
+ * Link sells. Two adults who both need a NIF buy NIF only twice, the second
+ * time from the dashboard.
  */
 const LIVE_CHECKOUT_LINKS = {
   nifOnly: "https://buy.stripe.com/7sY3cu2LB3wIgwW9oS63K0h",

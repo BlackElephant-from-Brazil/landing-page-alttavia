@@ -158,18 +158,6 @@ export function documentRejected(input: { docLabel: string; reason: string; dash
   });
 }
 
-/** A pendency was posted: the note itself and where to act on it. */
-export function pendencyPosted(input: { body: string; dashboardUrl: string }): EmailContent {
-  return build("We need something from you", {
-    eyebrow: "Your order",
-    heading: "Pending from you",
-    paragraphs: ["Your order is waiting on one thing from your side."],
-    quote: { label: "From our team", body: input.body },
-    cta: { label: "Open your dashboard", url: input.dashboardUrl },
-    footnote: "Once it is done we mark it resolved on your dashboard.",
-  });
-}
-
 /** The order is complete: the deliverables and the report are ready. */
 export function orderCompleted(input: { serviceName: string; dashboardUrl: string }): EmailContent {
   return build(`Your ${input.serviceName} order is complete`, {

@@ -91,12 +91,11 @@ function ProgressCard({ item, basePath, now }: { item: ClientOrderSummary; baseP
   const { order, service, stageLabel, progress, docs } = item;
   const completed = !!order.completed_at;
   const delivered = isRecentlyCompleted(order, now);
-  const name = order.quantity === 2 ? `${service.name} · x2` : service.name;
+  const name = service.name;
   const percent = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
   const next = nextStep({
     paid: !!order.paid_at,
     completed,
-    openPendencies: item.openPendencies,
     docs,
     deliverables: item.deliverables,
   });

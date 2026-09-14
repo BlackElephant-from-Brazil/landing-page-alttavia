@@ -38,7 +38,7 @@ const API = "https://api.stripe.com/v1";
  * Stripe Checkout page and on the receipt the customer keeps.
  *
  * Not in this list, on purpose:
- *   - Two NIFs (€298) is this same nifOnly price with quantity 2, not a product.
+ *   - A second NIF is a second nifOnly purchase from the dashboard, not a product.
  *   - A joint account is the bundle or bankOnly price with different fulfilment,
  *     carried in the session metadata, not a separate price.
  *   - Tax representation renewal (€99 a year) is a subscription for later.

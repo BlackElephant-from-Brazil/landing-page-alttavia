@@ -41,9 +41,7 @@ describe("payment link routing", () => {
     it(`sends a ${cents / 100} euro order to the ${link} link`, () => {
       const rec = product(answers);
       expect(rec.totalCents).toBe(cents);
-      const url = checkoutUrl(rec, answers);
-      expect(url).not.toBeNull();
-      expect(url!.startsWith(CHECKOUT_LINKS[link])).toBe(true);
+      expect(checkoutUrl(rec, answers).startsWith(CHECKOUT_LINKS[link])).toBe(true);
     });
   }
 
@@ -64,7 +62,7 @@ describe("payment link routing", () => {
     }
   });
 
-  it("has no link for two NIFs on one order, so the screen falls back to WhatsApp", () => {
+  it("sends two adults without NIFs and no account to the nifOnly link: one unit per purchase", () => {
     const answers: Answers = {
       ...base,
       applicants: "two",
@@ -73,15 +71,15 @@ describe("payment link routing", () => {
       passport: ["US", "US"],
     };
     const rec = product(answers);
-    expect(rec.quantity).toBe(2);
-    expect(checkoutUrl(rec, answers)).toBeNull();
+    expect(rec.totalCents).toBe(PRICE_CENTS.nifOnly);
+    expect(checkoutUrl(rec, answers).startsWith(CHECKOUT_LINKS.nifOnly)).toBe(true);
   });
 });
 
 describe("checkout reference", () => {
   it("describes the order without carrying personal data", () => {
     const rec = product(base);
-    expect(checkoutReference(rec, base)).toBe("bundle-q1-US-one-d7-nokids-single");
+    expect(checkoutReference(rec, base)).toBe("bundle-US-one-d7-nokids-single");
   });
 
   it("marks a joint account and children", () => {
@@ -93,8 +91,7 @@ describe("checkout reference", () => {
       passport: ["US", "US"],
       childrenNifs: true,
     };
-    // The couple package is one unit, so quantity stays 1.
-    expect(checkoutReference(product(answers), answers)).toBe("couple-q1-US-two-d7-kids-joint");
+    expect(checkoutReference(product(answers), answers)).toBe("couple-US-two-d7-kids-joint");
   });
 
   it("stays inside the characters and length Stripe accepts", () => {

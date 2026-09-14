@@ -30,8 +30,8 @@ type ProductRecommendation = Extract<Recommendation, { kind: "product" }>;
  *
  * The buttons do not link anywhere. They hand the chosen product to the
  * wizard, which creates the account (or finds the session) and posts the
- * order. Alternatives are priced with the same quantity rule as the main
- * recommendation, so two adults without NIFs see two NIFs on every button.
+ * order. Alternatives are one unit each, like the main recommendation: every
+ * service sells one unit per purchase.
  */
 export function ResultCard({
   rec,

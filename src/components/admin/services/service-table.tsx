@@ -80,14 +80,16 @@ export function ServiceTable({ services }: { services: ServiceWithConfig[] }) {
                 <td className={cn(cellClass, "whitespace-nowrap font-mono text-[0.82rem] text-navy-soft")}>{service.slug}</td>
                 <td className={cn(cellClass, "whitespace-nowrap text-right font-serif text-[1.05rem] text-navy")}>
                   {formatEuro(service.price_cents)}
-                  {service.supports_quantity && <span className="ml-1 text-[0.72rem] text-navy-muted">x1 or x2</span>}
                 </td>
                 <td className={cellClass}>
                   <StatusBadge active={service.active} />
                 </td>
                 <td className={cn(cellClass, "text-right tabular-nums")}>{service.orders_count}</td>
                 <td className={cn(cellClass, "text-right tabular-nums")}>{service.stages.length}</td>
-                <td className={cn(cellClass, "text-right tabular-nums")}>{service.docs.length}</td>
+                <td className={cn(cellClass, "text-right tabular-nums")}>
+                  {service.docs.length}
+                  <DeedsHint count={service.docs.filter((d) => d.template).length} />
+                </td>
                 <td className={cn(cellClass, "text-right")}>
                   <Link
                     href={href}
@@ -105,4 +107,10 @@ export function ServiceTable({ services }: { services: ServiceWithConfig[] }) {
       </table>
     </div>
   );
+}
+
+/** "2 deeds" under the documents count, when some of the slots generate a power of attorney. */
+function DeedsHint({ count }: { count: number }) {
+  if (count === 0) return null;
+  return <span className="block text-[0.75rem] font-normal text-navy-muted">{count === 1 ? "1 deed" : `${count} deeds`}</span>;
 }

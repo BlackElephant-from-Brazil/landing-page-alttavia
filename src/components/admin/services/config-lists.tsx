@@ -6,11 +6,14 @@ import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
+import type { PoaTemplate } from "@/lib/db/types";
+
 import {
   ACCEPTED_MIME_OPTIONS,
   DELIVERABLE_KINDS,
   LIMITS,
   MAX_DOC_MB,
+  POA_TEMPLATES,
   suggestKey,
   type DeliverableDraft,
   type DocDraft,
@@ -66,11 +69,28 @@ const copy = {
   perApplicantHint: "A couple order asks for two.",
   required: "Required",
   requiredHint: "Counted on the admin's documents column.",
+  template: "Generated deed",
+  templateHint: "The client downloads it filled with their passport details, signs it by hand and uploads the signed copy into this slot.",
+  templateNone: "None",
+  templates: {
+    poa_nif: "Power of attorney (NIF)",
+    poa_bank: "Power of attorney (bank account)",
+  } satisfies Record<PoaTemplate, string>,
   kind: "Kind",
   remove: "Remove",
 } as const;
 
 const KIND_OPTIONS = DELIVERABLE_KINDS.map((kind) => ({ value: kind, label: kind === "document" ? "Document" : "Report" }));
+
+/** "" stands for null in the select: a plain upload slot. */
+const TEMPLATE_OPTIONS = [
+  { value: "", label: copy.templateNone },
+  ...POA_TEMPLATES.map((template) => ({ value: template, label: copy.templates[template] })),
+];
+
+function templateFromOption(value: string): PoaTemplate | null {
+  return (POA_TEMPLATES as readonly string[]).includes(value) ? (value as PoaTemplate) : null;
+}
 
 type RowProps<T> = {
   row: T;
@@ -317,6 +337,17 @@ function DocRow({ row, errors, disabled, onChange, onRemove, index }: RowProps<D
           error={at("max_mb")}
         />
       </div>
+      <SelectField
+        id={`${id}-template`}
+        label={copy.template}
+        value={row.template ?? ""}
+        options={TEMPLATE_OPTIONS}
+        disabled={disabled}
+        onChange={(e) => onChange(row.uid, { template: templateFromOption(e.target.value) })}
+        hint={copy.templateHint}
+        error={at("template")}
+        className="mt-4 sm:max-w-md"
+      />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap gap-x-6 gap-y-2">
           <CheckboxField

@@ -14,10 +14,10 @@ import { getUser } from "@/lib/supabase/user";
  *
  * Turns the wizard's answers into an order for the signed in user. The
  * browser sends answers and, at most, which of the engine's valid products
- * it chose; everything with money on it (product, quantity, joint, total) is
- * computed here from the answers, by the same engine and the same quantity
- * rule the result screen used, so an alternative button can never charge one
- * NIF for two adults.
+ * it chose; everything with money on it (product, joint, total) is computed
+ * here from the answers, by the same engine the result screen used, so an
+ * alternative button can never change what is charged. Every service sells
+ * one unit per purchase.
  *
  * Writes, with the admin client, in this order: user_answers (one row per
  * answered seeded question, one submission_id), the user_services row at
@@ -86,11 +86,11 @@ export async function POST(request: Request) {
     // The table, PRICE_CENTS and the Stripe price must agree before an order
     // exists, or the checkout would be verified against a total the buyer
     // never saw. A drift is a deploy mistake, so it stops the order here.
-    const totalCents = service.price_cents * order.quantity;
+    const totalCents = service.price_cents;
     const currency = service.currency || "eur";
     if (totalCents !== order.totalCents) {
       console.error(
-        `POST /api/apply/submit: price drift for ${product} x${order.quantity}: services table gives ${totalCents}, PRICE_CENTS gives ${order.totalCents}`,
+        `POST /api/apply/submit: price drift for ${product}: services table gives ${totalCents}, PRICE_CENTS gives ${order.totalCents}`,
       );
       return fail(500, SAVE_ERROR);
     }
@@ -125,7 +125,6 @@ export async function POST(request: Request) {
         service_id: service.id,
         submission_id: submissionId,
         answers_snapshot: answers,
-        quantity: order.quantity,
         joint: order.joint,
         applicants: applicantsFor(order),
         total_cents: totalCents,

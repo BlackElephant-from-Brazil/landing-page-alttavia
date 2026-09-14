@@ -14,7 +14,6 @@ import { HelpBox } from "./help-box";
 import { Notice } from "./notice";
 import { hasAnswers, orderStatus, rejectedSlots } from "./order-status";
 import { PayButton } from "./pay-button";
-import { Pendencies } from "./pendencies";
 import { RejectedCallout } from "./rejected-callout";
 import { ServiceCard } from "./service-card";
 import { StageTimeline } from "./stage-timeline";
@@ -28,11 +27,11 @@ import { StageTimeline } from "./stage-timeline";
  *
  * Order of sections, top to bottom: notices, heading, the package card, the
  * stage timeline (with its completed state), then what needs the client
- * (payment, pendencies whatever the payment state, and rejected files above
- * the upload slots once paid), then what the firm returned (files and the
- * closing report), the wizard answers when the order has any, and the help
- * box. Compact mode drops the heading and the package card: the modal's own
- * header carries the name, the amount and the status.
+ * (payment, then rejected files above the upload slots once paid), then what
+ * the firm returned (files and the closing report), the wizard answers when
+ * the order has any, and the help box. Compact mode drops the heading and
+ * the package card: the modal's own header carries the name, the amount and
+ * the status.
  */
 
 export type OrderNotice = "cancelled" | "unconfirmed";
@@ -71,7 +70,7 @@ export function OrderView({
   stages,
   docs,
   documents,
-  notes,
+  applicants,
   deliverables,
   questions,
   notice,
@@ -134,12 +133,10 @@ export function OrderView({
         </section>
       )}
 
-      <Pendencies notes={notes} />
-
       {paid && (
         <div className="space-y-6">
           <RejectedCallout slots={rejected} applicants={order.applicants} />
-          <DocumentList order={order} docs={docs} uploaded={documents} />
+          <DocumentList order={order} docs={docs} uploaded={documents} applicants={applicants} />
         </div>
       )}
 

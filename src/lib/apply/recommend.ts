@@ -23,18 +23,24 @@ import type {
  *   1 / you      / yes    -> bank-only
  *   1 / you      / no     -> exit, nothing to buy
  *   2 / nobody   / joint  -> couple
- *   2 / nobody   / none   -> nif-only x2
+ *   2 / nobody   / none   -> nif-only, one person, note secondNif
  *   2 / both     / joint  -> bank-only, joint
  *   2 / one      / joint  -> bundle, joint
- *   2 / one      / none   -> nif-only x1
+ *   2 / one      / none   -> nif-only
  *   2 / both     / none   -> exit, nothing to buy
+ *
+ * Every service sells one unit per purchase. Two adults who both need a NIF
+ * and no account buy NIF only for one of them here; the `secondNif` note
+ * says the partner's NIF is a second purchase from the dashboard.
  *
  * Exits that short circuit everything: living in Portugal, more than two
  * adults, two separate accounts.
  *
  * A non EEA applicant with no visa in progress gets the NIF product and a
  * `bankUnlikely` note instead of the account, because the partner bank asks
- * for proof of a visa process before opening a file.
+ * for proof of a visa process before opening a file. When that happens to
+ * two adults without NIFs, the same one unit rule applies: `nif-only` with
+ * the `bankUnlikely` and `secondNif` notes.
  */
 export function recommend(a: Answers): Recommendation {
   const notes: NoteId[] = [];
@@ -72,7 +78,6 @@ export function recommend(a: Answers): Recommendation {
   }
 
   let product: ProductId;
-  let quantity: 1 | 2 = 1;
   const reasons: ReasonId[] = [];
 
   if (people === 1) {
@@ -86,7 +91,8 @@ export function recommend(a: Answers): Recommendation {
   } else if (missingNif === 2) {
     reasons.push("bothNeedNif");
     product = wantsBank ? "couple" : "nif-only";
-    if (!wantsBank) quantity = 2;
+    // One NIF per purchase: the partner's is a second purchase from the dashboard.
+    if (!wantsBank) notes.push("secondNif");
   } else if (missingNif === 1) {
     reasons.push(hasNif[0] ? "partnerNeedsNif" : "needsNif");
     product = wantsBank ? "bundle" : "nif-only";
@@ -118,8 +124,7 @@ export function recommend(a: Answers): Recommendation {
   return {
     kind: "product",
     product,
-    quantity,
-    totalCents: totalCents(product, quantity),
+    totalCents: totalCents(product),
     joint: wantsBank && joint,
     valid: ordered,
     reasons,
@@ -136,14 +141,14 @@ export function validProducts(people: 1 | 2, missingNif: number): ProductId[] {
   return ["bank-only"];
 }
 
-export function totalCents(product: ProductId, quantity: 1 | 2): number {
-  const unit = {
+/** The price of one unit of `product`, which is what every order is. */
+export function totalCents(product: ProductId): number {
+  return {
     "nif-only": PRICE_CENTS.nifOnly,
     bundle: PRICE_CENTS.bundle,
     "bank-only": PRICE_CENTS.bankOnly,
     couple: PRICE_CENTS.couple,
   }[product];
-  return unit * quantity;
 }
 
 export function includesNif(product: ProductId): boolean {
@@ -151,13 +156,13 @@ export function includesNif(product: ProductId): boolean {
 }
 
 /**
- * How many people send documents for this order: two for the couple package,
- * two NIFs on one order and any joint account (the bank wants both holders'
- * files), one otherwise. The result screen and the dashboard both read it,
- * so the partner's document list appears in the same cases on both.
+ * How many people send documents for this order: two for any joint account
+ * (the couple package included: the bank wants both holders' files), one
+ * otherwise. The result screen and the dashboard both read it, so the
+ * partner's document list appears in the same cases on both.
  */
-export function applicantsFor(order: Pick<Extract<Recommendation, { kind: "product" }>, "quantity" | "joint">): 1 | 2 {
-  return order.joint || order.quantity === 2 ? 2 : 1;
+export function applicantsFor(order: Pick<Extract<Recommendation, { kind: "product" }>, "joint">): 1 | 2 {
+  return order.joint ? 2 : 1;
 }
 
 export function includesBank(product: ProductId): boolean {

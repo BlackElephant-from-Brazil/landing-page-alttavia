@@ -1,7 +1,7 @@
 import { isProductId } from "@/lib/apply/types";
 import { getServiceForAdmin } from "@/lib/db/admin-queries";
 import type { Db } from "@/lib/db/queries";
-import type { DeliverableKind, ServiceRow, ServiceWithConfig } from "@/lib/db/types";
+import type { DeliverableKind, PoaTemplate, ServiceRow, ServiceWithConfig } from "@/lib/db/types";
 import { extensionFor } from "@/lib/r2/keys";
 
 /**
@@ -54,6 +54,8 @@ export type DocInput = {
   per_applicant: boolean;
   required: boolean;
   position: number;
+  /** The deed the slot generates (documents contract section 3); null for a plain upload. */
+  template: PoaTemplate | null;
 };
 
 export type DeliverableInput = {
@@ -72,7 +74,6 @@ export type ServiceInput = {
   currency: string;
   includes: string[];
   timeline: string | null;
-  supports_quantity: boolean;
   stripe_price_id_test: string | null;
   stripe_price_id_live: string | null;
   stripe_payment_link_test: string | null;
@@ -112,6 +113,8 @@ export const LIMITS = {
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const KEY = /^[a-z][a-z0-9_]*$/;
 const CURRENCY = /^[a-z]{3}$/;
+const POA_TEMPLATES: readonly PoaTemplate[] = ["poa_nif", "poa_bank"];
+const TEMPLATE_MESSAGE = "Choose a deed or none.";
 
 /** Thrown inside the validator and turned into `{ ok: false }` at its edge. */
 class Invalid extends Error {}
@@ -180,6 +183,13 @@ function stripeId(value: unknown, what: string, prefix: string): string | null {
   return v;
 }
 
+/** Missing or null is a plain upload; otherwise one of the two deed keys, and nothing else. */
+function template(value: unknown): PoaTemplate | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string" && (POA_TEMPLATES as readonly string[]).includes(value)) return value as PoaTemplate;
+  return fail(TEMPLATE_MESSAGE);
+}
+
 function stage(raw: unknown, index: number): StageInput {
   const s = asObject(raw, `Stage ${index + 1}`);
   return {
@@ -235,6 +245,7 @@ function doc(raw: unknown, index: number): DocInput {
     per_applicant: bool(d.per_applicant, `${what} per applicant flag`, true),
     required: bool(d.required, `${what} required flag`, true),
     position: d.position === undefined ? index : integer(d.position, `${what} position`, 0, 1000),
+    template: template(d.template),
   };
 }
 
@@ -290,7 +301,6 @@ export function validateServiceInput(body: unknown): ValidationResult {
       currency: (currencyRaw as string).trim().toLowerCase(),
       includes: includes(b.includes),
       timeline: optionalText(b.timeline, "Timeline", LIMITS.timeline),
-      supports_quantity: bool(b.supports_quantity, "Quantity flag", false),
       stripe_price_id_test: stripeId(b.stripe_price_id_test, "Test price id", "price_"),
       stripe_price_id_live: stripeId(b.stripe_price_id_live, "Live price id", "price_"),
       stripe_payment_link_test: stripeId(b.stripe_payment_link_test, "Test payment link", "https://"),

@@ -6,15 +6,16 @@ import { getStripe, stripeMode } from "./client";
  * Opens a Stripe hosted checkout for an existing order. Contract section 8.
  *
  * The order was created by POST /api/apply/submit after the server ran the
- * decision engine, so the product, quantity and total are already trusted
- * values in the database. Nothing from the browser is used here beyond the
- * order id, and only after the order is confirmed to belong to the caller.
+ * decision engine, so the product and the total are already trusted values
+ * in the database. Nothing from the browser is used here beyond the order
+ * id, and only after the order is confirmed to belong to the caller. Every
+ * order is one unit of its service.
  *
  * Checkout Sessions are preferred: they carry the order id as
- * `client_reference_id`, lock the buyer's email, sell quantity 2 and send the
- * buyer back to whatever origin the request came from, localhost included.
- * A mode with no price id yet (live, until `stripe:setup --live` is run)
- * falls back to that mode's Payment Link.
+ * `client_reference_id`, lock the buyer's email and send the buyer back to
+ * whatever origin the request came from, localhost included. A mode with no
+ * price id yet (live, until `stripe:setup --live` is run) falls back to that
+ * mode's Payment Link.
  */
 
 /** An error the route can turn into a status code and a short message. */
@@ -88,7 +89,7 @@ export async function createCheckoutForOrder(
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      line_items: [{ price: priceId, quantity: order.quantity }],
+      line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: order.id,
       customer_email: email,
       success_url: `${base}/en/dashboard?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
@@ -118,16 +119,6 @@ export async function createCheckoutForOrder(
     throw new Error(
       `createCheckoutForOrder: service ${service.slug} has neither a price id nor a payment link for ${mode} mode`,
     );
-  }
-  if (order.quantity !== 1) {
-    // A Payment Link sells a fixed quantity of one. Sending two NIFs there
-    // would charge one and leave the order unconfirmable, which is the bug
-    // Checkout Sessions exist to fix. The buyer gets a real message and a
-    // way to pay; the log names the fix.
-    console.error(
-      `createCheckoutForOrder: order ${order.id} needs quantity ${order.quantity}, which a payment link cannot sell; run stripe:setup --live to set a ${mode} price id for ${service.slug}`,
-    );
-    throw new CheckoutError(409, "Write to us on WhatsApp to pay for two NIFs.");
   }
 
   const url = new URL(link);

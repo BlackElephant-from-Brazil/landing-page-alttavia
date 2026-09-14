@@ -87,7 +87,7 @@ export default async function OrdersPage({ searchParams }: Props) {
 
   const columns: Column<AdminOrderRow>[] = [
     { key: "client", header: "Client", cell: (row) => <span className="font-medium">{row.user_email}</span> },
-    { key: "service", header: "Service", cell: (row) => (row.quantity === 2 ? `${row.service_name} x2` : row.service_name) },
+    { key: "service", header: "Service", cell: (row) => row.service_name },
     { key: "amount", header: "Amount", align: "right", cell: (row) => formatEuro(row.total_cents) },
     {
       key: "status",
@@ -113,12 +113,6 @@ export default async function OrdersPage({ searchParams }: Props) {
         ) : (
           <span className="text-navy-muted">0/{row.docs_required}</span>
         ),
-    },
-    {
-      key: "pendencies",
-      header: "Pendencies",
-      align: "right",
-      cell: (row) => (row.open_pendencies > 0 ? <Pill tone="gold">{row.open_pendencies}</Pill> : <span className="text-navy-muted">0</span>),
     },
   ];
 

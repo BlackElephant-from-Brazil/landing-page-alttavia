@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ServiceWithConfig } from "@/lib/db/types";
+import type { PoaTemplate, ServiceWithConfig } from "@/lib/db/types";
 
 import {
   bodyFromService,
@@ -29,7 +29,6 @@ const SERVICE: ServiceWithConfig = {
   currency: "eur",
   includes: ["Official NIF", "12 months of tax representation **included**"],
   timeline: "NIF in 3 to 5 business days",
-  supports_quantity: true,
   stripe_price_id_test: "price_test",
   stripe_price_id_live: null,
   stripe_payment_link_test: null,
@@ -55,6 +54,7 @@ const SERVICE: ServiceWithConfig = {
       per_applicant: true,
       required: true,
       position: 1,
+      template: null,
     },
   ],
   deliverables: [{ id: "v1", service_id: "svc", key: "nif_certificate", label: "Your Portuguese NIF", kind: "document", position: 1 }],
@@ -100,6 +100,16 @@ describe("draftFromService", () => {
     expect(draft.stages.every((s) => s.saved && s.keyTouched)).toBe(true);
     expect(draft.docs[0].max_mb).toBe("10");
     expect(draft.docs[0].uid).toBe("d1");
+    expect(draft.docs[0].template).toBeNull();
+  });
+
+  it("reads the generated deed off a document row", () => {
+    const withDeed: ServiceWithConfig = {
+      ...SERVICE,
+      docs: [...SERVICE.docs, { ...SERVICE.docs[0], id: "d2", key: "poa_nif", label: "Power of attorney for the NIF", position: 2, template: "poa_nif" }],
+    };
+    expect(draftFromService(withDeed).docs.map((d) => d.template)).toEqual([null, "poa_nif"]);
+    expect(bodyFromService(withDeed, true).docs.map((d) => d.template)).toEqual([null, "poa_nif"]);
   });
 
   it("starts a new service with the payment stage in place", () => {
@@ -200,6 +210,29 @@ describe("validateDraft", () => {
     expect(result.errors["docs.new-doc.key"]).toBe(messages.key);
     expect(result.errors["docs.new-doc.accepted_mime"]).toBe(messages.mime);
     expect(result.errors["docs.new-doc.max_mb"]).toBe(messages.maxMb);
+  });
+
+  it("sends the generated deed with every document, null for a plain upload", () => {
+    expect(newDoc("new-doc", 2).template).toBeNull();
+    const draft = validDraft();
+    draft.docs = [
+      ...draft.docs,
+      { ...newDoc("deed", 2), key: "poa_nif", label: "Power of attorney for the NIF", template: "poa_nif" },
+    ];
+    const result = validateDraft(draft);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.body.docs.map((d) => d.template)).toEqual([null, "poa_nif"]);
+    expect(Object.keys(result.body.docs[0])).toContain("template");
+  });
+
+  it("refuses a deed it does not know", () => {
+    const draft = validDraft();
+    draft.docs = [...draft.docs, { ...newDoc("bad", 2), key: "poa_x", label: "X", template: "poa_x" as unknown as PoaTemplate }];
+    const result = validateDraft(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors["docs.bad.template"]).toBe(messages.template);
   });
 
   it("converts megabytes to bytes and drops blank include lines", () => {

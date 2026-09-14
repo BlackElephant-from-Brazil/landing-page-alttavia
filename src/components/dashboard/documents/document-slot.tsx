@@ -1,12 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FileText, Upload } from "lucide-react";
+import { Download, FileText, Upload } from "lucide-react";
 import { useId, useState, type ChangeEvent } from "react";
 
 import { cn } from "@/lib/cn";
-import type { DocumentStatus } from "@/lib/db/types";
+import type { DocumentStatus, PoaTemplate, UserServiceApplicantRow } from "@/lib/db/types";
 import { acceptedTypesMessage, mimeForFileName, sizeLimitMessage } from "@/lib/r2/keys";
+
+import { ApplicantDetailsForm } from "./applicant-details-form";
 
 /**
  * One document slot on the dashboard: the label and note from `service_docs`,
@@ -17,6 +19,17 @@ import { acceptedTypesMessage, mimeForFileName, sizeLimitMessage } from "@/lib/r
  * progress bar can move), then POST /api/documents/confirm. On success the
  * page refreshes and the server passes the new row back as `current`; the
  * parent keys this component on that row, so a fresh slot mounts clean.
+ *
+ * A deed slot (`template` set) adds a row above the upload control: the
+ * primary "Download to sign" and, once the principal's details exist, a
+ * quiet "Edit your details". Download with no `applicant` row opens the
+ * details dialog first and starts the download once they are saved; with a
+ * row it goes straight to /api/orders/[id]/poa/[docId], which answers with
+ * an attachment, so the page stays. The signed copy then goes through the
+ * same upload as any other slot, labelled "Upload the signed copy". The deed
+ * row shows only while the slot still accepts a file: once the signed copy
+ * is uploaded or approved there is nothing left to download or edit.
+ * Contract (docs/documents-contract.md) section 3, "Client UI".
  *
  * Nothing moves when state changes: the progress bar and the message line
  * are always in the layout, at zero width and empty, so the card keeps its
@@ -39,7 +52,16 @@ type Props = {
   acceptedMime: readonly string[];
   maxBytes: number;
   current?: SlotDocument;
+  /** Set on a deed slot: the power of attorney this slot generates for the client to sign. */
+  template?: PoaTemplate | null;
+  /** The principal's details entered for this slot's applicant, when they exist. */
+  applicant?: UserServiceApplicantRow | null;
+  /** "You" or "Your partner" on a couple order, for the buttons' accessible names. */
+  applicantLabel?: string;
 };
+
+/** Which dialog is open and what follows a save: a download, or only a refresh. */
+type Details = "download" | "edit" | null;
 
 type Phase =
   | { kind: "idle" }
@@ -51,6 +73,13 @@ type Phase =
 
 const FALLBACK_ERROR = "Something did not work. Try again.";
 const UPLOAD_FAILED = "The upload did not finish. Try again.";
+
+const deedCopy = {
+  download: "Download to sign",
+  edit: "Edit your details",
+  saveAndDownload: "Save and download",
+  uploadSigned: "Upload the signed copy",
+} as const;
 
 type PillKind = "waiting" | "uploaded" | "approved" | "rejected";
 
@@ -75,13 +104,33 @@ export function DocumentSlot({
   acceptedMime,
   maxBytes,
   current,
+  template = null,
+  applicant = null,
+  applicantLabel,
 }: Props) {
   const router = useRouter();
   const inputId = useId();
   const messageId = useId();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const [details, setDetails] = useState<Details>(null);
+
+  const deed = template !== null;
+  const deedUrl = `/api/orders/${userServiceId}/poa/${serviceDocId}?applicant=${applicantIndex}`;
+  const forWhom = applicantLabel ? ` (${applicantLabel})` : "";
 
   const busy = phase.kind === "requesting" || phase.kind === "uploading" || phase.kind === "confirming";
+
+  function handleDownload() {
+    if (applicant) window.location.assign(deedUrl);
+    else setDetails("download");
+  }
+
+  function handleSaved() {
+    const follow = details;
+    setDetails(null);
+    router.refresh();
+    if (follow === "download") window.location.assign(deedUrl);
+  }
   const pill = phase.kind === "done" ? "uploaded" : pillFor(current?.status);
   // A rejected file is replaced; a pending one is an upload that never
   // finished, and the server decides whether its slot is open again.
@@ -174,6 +223,36 @@ export function DocumentSlot({
         </p>
       )}
 
+      {deed && showInput && (
+        <div className="mt-4 flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2">
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={busy}
+            aria-label={`${deedCopy.download}: ${label}${forWhom}`}
+            className={cn(
+              "inline-flex h-11 items-center gap-2 rounded-full bg-navy px-5 text-sm font-medium text-white transition-colors duration-200",
+              "hover:bg-gold hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white",
+              "disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-navy disabled:hover:text-white",
+            )}
+          >
+            <Download className="size-4" aria-hidden />
+            {deedCopy.download}
+          </button>
+          {applicant && (
+            <button
+              type="button"
+              onClick={() => setDetails("edit")}
+              disabled={busy}
+              aria-label={`${deedCopy.edit}: ${label}${forWhom}`}
+              className="rounded-sm text-sm font-medium text-navy underline-offset-4 transition-colors duration-200 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-wait disabled:opacity-50"
+            >
+              {deedCopy.edit}
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="mt-4 flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2">
         {showInput && (
           <label
@@ -195,7 +274,7 @@ export function DocumentSlot({
               className="sr-only"
             />
             <Upload className="size-4" aria-hidden />
-            {current ? "Replace file" : "Choose file"}
+            {current ? "Replace file" : deed ? deedCopy.uploadSigned : "Choose file"}
           </label>
         )}
 
@@ -244,6 +323,17 @@ export function DocumentSlot({
       >
         {message}
       </p>
+
+      {deed && details !== null && (
+        <ApplicantDetailsForm
+          userServiceId={userServiceId}
+          applicantIndex={applicantIndex}
+          initial={applicant}
+          submitLabel={details === "download" ? deedCopy.saveAndDownload : undefined}
+          onClose={() => setDetails(null)}
+          onSaved={handleSaved}
+        />
+      )}
     </li>
   );
 }

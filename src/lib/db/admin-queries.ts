@@ -7,8 +7,8 @@
  * client. None of these write.
  *
  * No query per row anywhere: the orders table reads the `admin_order_summary`
- * view, which computes the document and pendency counts in the database, and
- * the joins on documents and events use PostgREST's embedded selects.
+ * view, which computes the document counts in the database, and the joins
+ * on documents and events use PostgREST's embedded selects.
  *
  * Database errors are thrown, not swallowed.
  */
@@ -34,9 +34,9 @@ import type {
   UserDocumentRow,
   UserFilters,
   UserRow,
+  UserServiceApplicantRow,
   UserServiceDeliverableRow,
   UserServiceEventRow,
-  UserServiceNoteRow,
   UserServiceRow,
 } from "./types";
 
@@ -161,7 +161,7 @@ export async function getOrderDetail(db: Db, id: string): Promise<AdminOrderDeta
   const order = orderData as UserServiceRow | null;
   if (!order) return null;
 
-  const [user, service, stages, docs, documents, events, notes, templates, files, questions] =
+  const [user, service, stages, docs, documents, events, applicants, templates, files, questions] =
     await Promise.all([
       db.from("users").select("id, email, full_name, phone").eq("id", order.user_id).maybeSingle(),
       db.from("services").select("*").eq("id", order.service_id).maybeSingle(),
@@ -169,7 +169,7 @@ export async function getOrderDetail(db: Db, id: string): Promise<AdminOrderDeta
       db.from("service_docs").select("*").eq("service_id", order.service_id).order("position"),
       db.from("user_documents").select("*").eq("user_service_id", order.id).order("created_at"),
       db.from("user_service_events").select("*").eq("user_service_id", order.id).order("created_at"),
-      db.from("user_service_notes").select("*").eq("user_service_id", order.id).order("created_at"),
+      db.from("user_service_applicants").select("*").eq("user_service_id", order.id).order("applicant_index"),
       db.from("service_deliverables").select("*").eq("service_id", order.service_id).order("position"),
       db.from("user_service_deliverables").select("*").eq("user_service_id", order.id).order("created_at"),
       db.from("questions").select("*").eq("active", true).order("position"),
@@ -182,7 +182,7 @@ export async function getOrderDetail(db: Db, id: string): Promise<AdminOrderDeta
     ["docs", docs],
     ["documents", documents],
     ["events", events],
-    ["notes", notes],
+    ["applicants", applicants],
     ["deliverable templates", templates],
     ["deliverables", files],
   ] as const) {
@@ -205,7 +205,7 @@ export async function getOrderDetail(db: Db, id: string): Promise<AdminOrderDeta
     docs: (docs.data ?? []) as ServiceDocRow[],
     documents: (documents.data ?? []) as UserDocumentRow[],
     events: (events.data ?? []) as UserServiceEventRow[],
-    notes: (notes.data ?? []) as UserServiceNoteRow[],
+    applicants: (applicants.data ?? []) as UserServiceApplicantRow[],
     deliverables: {
       templates: (templates.data ?? []) as ServiceDeliverableRow[],
       files: (files.data ?? []) as UserServiceDeliverableRow[],
@@ -228,11 +228,10 @@ type StageLabelRow = Pick<ServiceStageRow, "key" | "label" | "position">;
  * The overview page. `range.from` and `range.to` use the same date columns
  * as listOrders, so a KPI tile and the orders table filtered the same way
  * agree: open orders by `created_at`, paid and completed by `paid_at`. The
- * in progress queue, the two review queues (documents, pendencies) and the
- * pipeline by stage ignore the range; the monthly charts always show the
- * last six months.
+ * in progress queue, the documents review queue and the pipeline by stage
+ * ignore the range; the monthly charts always show the last six months.
  *
- * One query per aggregate: five counts that transfer no rows, one read of
+ * One query per aggregate: four counts that transfer no rows, one read of
  * the paid orders in the range (paid count, revenue and by service), one of
  * the paid orders of the last six months and one of the unpaid orders
  * created in them (by month), one of the open pipeline (by stage) plus the
@@ -249,7 +248,7 @@ export async function getOverview(db: Db, range: { from: string; to: string }): 
   // chains: `.gte(column, from).filter(column, end.op, end.value)`.
   const PAID_COLUMNS = "service_id, total_cents, paid_at, services(slug, name, position)";
 
-  const [open, inProgress, completed, awaitingReview, pendencies, paidInRange, paidRecent, openRecent, pipeline, stageLabels, services] =
+  const [open, inProgress, completed, awaitingReview, paidInRange, paidRecent, openRecent, pipeline, stageLabels, services] =
     await Promise.all([
       db
         .from("user_services")
@@ -270,11 +269,6 @@ export async function getOverview(db: Db, range: { from: string; to: string }): 
         .filter("paid_at", end.op, end.value),
       db.from("user_documents").select("id", { count: "exact", head: true }).eq("status", "uploaded"),
       db
-        .from("user_service_notes")
-        .select("id", { count: "exact", head: true })
-        .eq("audience", "client")
-        .is("resolved_at", null),
-      db
         .from("user_services")
         .select(PAID_COLUMNS)
         .gte("paid_at", range.from)
@@ -291,7 +285,6 @@ export async function getOverview(db: Db, range: { from: string; to: string }): 
     ["in progress", inProgress],
     ["completed", completed],
     ["awaiting review", awaitingReview],
-    ["pendencies", pendencies],
     ["paid in range", paidInRange],
     ["paid recent", paidRecent],
     ["open recent", openRecent],
@@ -360,7 +353,6 @@ export async function getOverview(db: Db, range: { from: string; to: string }): 
       completedOrders: completed.count ?? 0,
       revenueCents: paidRows.reduce((sum, row) => sum + row.total_cents, 0),
       documentsAwaitingReview: awaitingReview.count ?? 0,
-      openPendencies: pendencies.count ?? 0,
     },
     ordersByMonth,
     ordersByStage: stageOrder,

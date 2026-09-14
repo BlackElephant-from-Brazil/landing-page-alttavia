@@ -2,7 +2,14 @@ import { inflateSync } from "node:zlib";
 import { PDFArray, PDFDocument, PDFRawStream } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 
-import { ATTORNEY, buildPowerOfAttorney } from "@/content/power-of-attorney";
+import {
+  ATTORNEY,
+  buildPowerOfAttorney,
+  formatDeedDate,
+  signingDateFor,
+  type PoaBlock,
+  type PrincipalDetails,
+} from "@/content/power-of-attorney";
 import { generatePowerOfAttorney } from "./generate";
 
 /**
@@ -37,88 +44,272 @@ async function textOf(pdf: Uint8Array): Promise<string> {
   return lines.join(" ");
 }
 
+async function pageCount(pdf: Uint8Array): Promise<number> {
+  return (await PDFDocument.load(pdf)).getPageCount();
+}
+
+/** Every string a deed prints, joined, for assertions on the built blocks. */
+function wording(blocks: PoaBlock[]): string {
+  return blocks
+    .map((b) => (b.kind === "signature" ? b.name : `${b.pt} ${b.en}`))
+    .join(" ");
+}
+
+const FILLED: PrincipalDetails = {
+  fullName: "Jane Alice Doe",
+  gender: "f",
+  birthPlace: "Austin, Texas, United States of America",
+  birthDate: "1984-07-04",
+  passportNumber: "X1234567",
+  passportIssuer: "United States Department of State",
+  passportIssueDate: "2021-03-12",
+  passportExpiryDate: "2031-03-11",
+  taxAddress: "1200 West 6th Street, Apartment 14B, Austin, TX 78703, United States of America",
+};
+
+const SIGNED = { day: "12", monthPt: "março", monthEn: "March", year: "2026" };
+
+/** The longest address the database accepts (400 characters) and a long name, the worst case for the page count. */
+const LONG_ADDRESS =
+  "Apartment 1408, Tower B, The Residences at Riverside Commons, 12345 North Lamar Boulevard, " +
+  "Suite 200, Building 3, Austin, Travis County, Texas 78753, United States of America, " +
+  "with correspondence care of The Wilkinson Family Trust, Post Office Box 98765, " +
+  "Round Rock, Williamson County, Texas 78680, United States of America, and additional " +
+  "notices to 4500 Cedar Bend Drive, Austin, Texas 78759, USA.";
+
+const WORST_CASE: PrincipalDetails = {
+  ...FILLED,
+  fullName: "Maria Alexandra Wilkinson de Albuquerque Ferreira Cavalcanti dos Santos",
+  taxAddress: LONG_ADDRESS,
+};
+
 describe("power of attorney PDF", () => {
-  it("is a valid single page A4 document", async () => {
-    const pdf = await generatePowerOfAttorney();
+  it("is a valid A4 document", async () => {
+    const pdf = await generatePowerOfAttorney("poa_nif");
     expect(Buffer.from(pdf.slice(0, 5)).toString()).toBe("%PDF-");
 
     const doc = await PDFDocument.load(pdf);
-    // One sheet: a deed that spills a lone signature onto page two looks broken.
-    expect(doc.getPageCount()).toBe(1);
     expect(Math.round(doc.getPage(0).getWidth())).toBe(595);
     expect(Math.round(doc.getPage(0).getHeight())).toBe(842);
   });
 
+  it("fits the blank NIF deed on one page", async () => {
+    // One sheet: a deed that spills a lone signature onto page two looks broken.
+    expect(await pageCount(await generatePowerOfAttorney("poa_nif"))).toBe(1);
+  });
+
+  it("fits the blank bank deed on at most two pages", async () => {
+    expect(LONG_ADDRESS.length).toBeLessThanOrEqual(400);
+    expect(await pageCount(await generatePowerOfAttorney("poa_bank"))).toBeLessThanOrEqual(2);
+  });
+
+  it("keeps a filled NIF deed with the longest address on one page", async () => {
+    expect(LONG_ADDRESS.length).toBeLessThanOrEqual(400);
+    expect(await pageCount(await generatePowerOfAttorney("poa_nif", WORST_CASE, SIGNED))).toBe(1);
+  });
+
+  it("keeps a filled bank deed with the longest address on at most two pages", async () => {
+    expect(await pageCount(await generatePowerOfAttorney("poa_bank", WORST_CASE, SIGNED))).toBeLessThanOrEqual(2);
+  });
+
   it("keeps Portuguese accents intact through the font encoding", async () => {
-    const text = await textOf(await generatePowerOfAttorney());
+    const text = await textOf(await generatePowerOfAttorney("poa_nif"));
     expect(text).toContain("Procuração");
     expect(text).toContain("Identificação Fiscal");
     expect(text).toContain("FINANÇAS");
   });
 
   it("carries both languages", async () => {
-    const text = await textOf(await generatePowerOfAttorney());
+    const text = await textOf(await generatePowerOfAttorney("poa_nif"));
     expect(text).toContain("Power of Attorney");
     expect(text).toContain("Tax and Customs Authority");
     expect(text).toContain("shall lapse with the full execution");
   });
 
-  it("states the attorney's own credentials, which are never variable", async () => {
-    const text = await textOf(await generatePowerOfAttorney());
-    expect(text).toContain(ATTORNEY.barCard);
-    expect(text).toContain(ATTORNEY.taxNumber);
-    expect(text).toContain("Patrícia Soares Viana");
-  });
-
   it("prints the model's own placeholders when no data is supplied", async () => {
-    const text = await textOf(await generatePowerOfAttorney());
-    expect(text).toContain("[NOME COMPLETO DO(A) MANDANTE]");
-    expect(text).toContain("[FULL NAME OF THE PRINCIPAL]");
-    expect(text).toContain("[número do passaporte]");
-    expect(text).toContain("[dia]");
+    const text = await textOf(await generatePowerOfAttorney("poa_nif"));
+    expect(text).toContain("[NOME COMPLETO]");
+    expect(text).toContain("[PLACE OF BIRTH]");
+    expect(text).toContain("[DIA]");
+    expect(text).toContain("nascido(a)");
   });
 
   it("substitutes supplied details on both language sides", async () => {
-    const pdf = await generatePowerOfAttorney(
-      {
-        fullName: "Jane Alice Doe",
-        nationality: "American",
-        passportNumber: "X1234567",
-      },
-      { day: "12", monthPt: "março", monthEn: "March", year: "2026" },
-    );
-    const text = await textOf(pdf);
-
+    const text = await textOf(await generatePowerOfAttorney("poa_nif", FILLED, SIGNED));
     expect(text).toContain("Jane Alice Doe");
     expect(text).toContain("X1234567");
     expect(text).toContain("março");
     expect(text).toContain("March");
-    // Filled fields must stop showing their placeholder.
-    expect(text).not.toContain("[NOME COMPLETO DO(A) MANDANTE]");
-    expect(text).not.toContain("[passport number]");
-    // Untouched ones still do.
-    expect(text).toContain("[data de nascimento]");
+    expect(text).not.toContain("[NOME COMPLETO]");
+  });
+
+  it("sets a subject per deed", async () => {
+    const nif = await PDFDocument.load(await generatePowerOfAttorney("poa_nif"));
+    const bank = await PDFDocument.load(await generatePowerOfAttorney("poa_bank"));
+    expect(nif.getSubject()).toContain("NIF");
+    expect(bank.getSubject()).toContain("conta bancária");
+  });
+
+  it("folds a name outside WinAnsi to its plain letters instead of throwing", async () => {
+    const pdf = await generatePowerOfAttorney("poa_nif", { ...FILLED, fullName: "Nguyễn Văn Łukasz" }, SIGNED);
+    const text = await textOf(pdf);
+    expect(text).toContain("Nguyen Van Lukasz");
   });
 });
 
 describe("power of attorney content", () => {
-  it("pairs every Portuguese block with an English one", () => {
-    for (const block of buildPowerOfAttorney()) {
-      if (block.kind === "signature") continue;
-      expect(block.pt.length, `PT missing on ${block.kind}`).toBeGreaterThan(0);
-      expect(block.en.length, `EN missing on ${block.kind}`).toBeGreaterThan(0);
-      expect(block.pt).not.toBe(block.en);
+  it("pairs every Portuguese block with an English one, in both deeds", () => {
+    for (const kind of ["poa_nif", "poa_bank"] as const) {
+      for (const block of buildPowerOfAttorney(kind)) {
+        if (block.kind === "signature") continue;
+        expect(block.pt.length, `PT missing on ${block.kind}`).toBeGreaterThan(0);
+        expect(block.en.length, `EN missing on ${block.kind}`).toBeGreaterThan(0);
+        expect(block.pt).not.toBe(block.en);
+      }
     }
   });
 
-  it("grants exactly the two powers the firm's model grants", () => {
-    const items = buildPowerOfAttorney().filter((b) => b.kind === "item");
+  it("grants the two numbered powers of the NIF model", () => {
+    const items = buildPowerOfAttorney("poa_nif").filter((b) => b.kind === "item");
     expect(items.map((i) => i.number)).toEqual(["1)", "2)"]);
-  });
-
-  it("declares the attorney is not a manager of assets, which the tax office requires", () => {
-    const items = buildPowerOfAttorney().filter((b) => b.kind === "item");
     expect(items[0].pt).toContain("não atuará como gestora de bens ou direitos");
     expect(items[0].en).toContain("not act as a manager of assets or rights");
+  });
+
+  it("grants the five lettered powers of the bank model, then declares and lapses", () => {
+    const blocks = buildPowerOfAttorney("poa_bank");
+    const items = blocks.filter((b) => b.kind === "item");
+    expect(items.map((i) => i.number)).toEqual(["a)", "b)", "c)", "d)", "e)"]);
+
+    const after = blocks.slice(blocks.indexOf(items[4]) + 1);
+    expect(after[0].kind).toBe("paragraph");
+    expect(after[0].kind === "paragraph" && after[0].pt).toContain("Declara o Mandante");
+    expect(after[1].kind === "paragraph" && after[1].en).toContain("shall lapse upon the full completion");
+    expect(after[2].kind === "paragraph" && after[2].en).toContain("In witness whereof");
+    expect(after[3].kind).toBe("signature");
+  });
+
+  it("states the attorney's credentials from the models, in both languages", () => {
+    for (const kind of ["poa_nif", "poa_bank"] as const) {
+      const [, opening] = buildPowerOfAttorney(kind);
+      if (opening.kind !== "paragraph") throw new Error("expected the identification paragraph");
+      for (const side of [opening.pt, opening.en]) {
+        expect(side).toContain(ATTORNEY.name);
+        expect(side).toContain(ATTORNEY.barNumber);
+        expect(side).toContain(ATTORNEY.taxNumber);
+        expect(side).toContain(ATTORNEY.phone);
+        expect(side).toContain(ATTORNEY.email);
+      }
+      expect(opening.pt).toContain(ATTORNEY.address);
+      expect(opening.pt).toContain("Ordem dos Advogados sob o n.º 65755L do Conselho Regional de Lisboa");
+    }
+  });
+
+  it("leaves no bracket placeholder once every field is supplied", () => {
+    for (const kind of ["poa_nif", "poa_bank"] as const) {
+      const text = wording(buildPowerOfAttorney(kind, FILLED, SIGNED));
+      expect(text).toContain("Jane Alice Doe");
+      expect(text).not.toMatch(/\[[^\]]*\]/);
+      expect(text).not.toContain("his/her");
+      expect(text).not.toContain("he/she");
+      expect(text).not.toContain("nascido(a)");
+    }
+  });
+
+  it("reads as a template when nothing is supplied", () => {
+    const text = wording(buildPowerOfAttorney("poa_bank"));
+    for (const placeholder of [
+      "[NOME COMPLETO]", "[LOCAL DE NASCIMENTO]", "[PLACE OF BIRTH]", "[DATA DE NASCIMENTO]",
+      "[DATE OF BIRTH]", "[N.º DO PASSAPORTE]", "[ENTIDADE EMISSORA DO PASSAPORTE]",
+      "[PASSPORT ISSUING AUTHORITY]", "[DATA DE EMISSÃO]", "[DATE OF ISSUE]", "[DATA DE VALIDADE]",
+      "[EXPIRY DATE]", "[MORADA FISCAL]", "[TAX RESIDENCE ADDRESS]", "[DIA]", "[MÊS]", "[ANO]",
+      "[DAY]", "[MONTH]", "[YEAR]",
+    ]) {
+      expect(text, placeholder).toContain(placeholder);
+    }
+    // The gender brackets resolve to both forms rather than staying bracketed.
+    expect(text).toContain("nascido(a) em");
+    expect(text).toContain("his/her lawful attorney");
+    expect(text).toContain("to whom he/she grants");
+  });
+
+  it("uses the feminine forms for gender f", () => {
+    const text = wording(buildPowerOfAttorney("poa_bank", { gender: "f" }));
+    expect(text).toContain("nascida em");
+    expect(text).toContain("appoints as her lawful attorney");
+    expect(text).toContain("to whom she grants");
+    expect(text).toContain("on her behalf, namely to:");
+    expect(text).toContain("In her name and on her behalf");
+    expect(text).toContain("close bank accounts in her name");
+    expect(text).not.toMatch(/\bhis\b/);
+    expect(text).not.toMatch(/\bhe\b/);
+  });
+
+  it("uses the masculine forms for gender m", () => {
+    const text = wording(buildPowerOfAttorney("poa_bank", { gender: "m" }));
+    expect(text).toContain("nascido em");
+    expect(text).toContain("appoints as his lawful attorney");
+    expect(text).toContain("to whom he grants");
+    expect(text).toContain("In his name and on his behalf");
+    expect(text).not.toContain("nascida");
+    expect(text).not.toMatch(/\bher\b/);
+    expect(text).not.toMatch(/\bshe\b/);
+  });
+
+  it("spells the three passport dates out per language and leaves other strings alone", () => {
+    const text = wording(buildPowerOfAttorney("poa_nif", FILLED));
+    expect(text).toContain("em 4 de julho de 1984");
+    expect(text).toContain("on 4 July 1984");
+    expect(text).toContain("em 12 de março de 2021, válido até 11 de março de 2031");
+    expect(text).toContain("on 12 March 2021, valid until 11 March 2031");
+
+    const free = wording(buildPowerOfAttorney("poa_nif", { birthDate: "4th of July, 1984" }));
+    expect(free).toContain("em 4th of July, 1984");
+  });
+
+  it("prints the signing date in the model's line and the name under the signature", () => {
+    const blocks = buildPowerOfAttorney("poa_nif", FILLED, SIGNED);
+    const text = wording(blocks);
+    expect(text).toContain("assinada em Lisboa no dia 12 de março de 2026.");
+    expect(text).toContain("signed in Lisbon, on the 12 of March, 2026.");
+    expect(blocks.at(-1)).toEqual({ kind: "signature", name: "Jane Alice Doe" });
+  });
+});
+
+describe("formatDeedDate", () => {
+  it("spells an ISO date out in Portuguese and English", () => {
+    expect(formatDeedDate("2026-03-12", "pt")).toBe("12 de março de 2026");
+    expect(formatDeedDate("2026-03-12", "en")).toBe("12 March 2026");
+    expect(formatDeedDate("2026-01-05", "pt")).toBe("5 de janeiro de 2026");
+    expect(formatDeedDate("1999-12-31", "en")).toBe("31 December 1999");
+  });
+
+  it("returns anything else as it came", () => {
+    expect(formatDeedDate("12/03/2026", "pt")).toBe("12/03/2026");
+    expect(formatDeedDate("2026-13-01", "en")).toBe("2026-13-01");
+    expect(formatDeedDate("", "en")).toBe("");
+  });
+});
+
+describe("signingDateFor", () => {
+  it("reads the calendar in Lisbon, not in UTC", () => {
+    // 23:30 UTC on 1 July is already 2 July in Lisbon (summer time, UTC+1).
+    expect(signingDateFor(new Date("2026-07-01T23:30:00Z"))).toEqual({
+      day: "2",
+      monthPt: "julho",
+      monthEn: "July",
+      year: "2026",
+    });
+    // In March, before the clocks change, Lisbon is on UTC.
+    expect(signingDateFor(new Date("2026-03-12T23:30:00Z"))).toEqual({
+      day: "12",
+      monthPt: "março",
+      monthEn: "March",
+      year: "2026",
+    });
+  });
+
+  it("prints the day without a leading zero", () => {
+    expect(signingDateFor(new Date("2026-09-05T12:00:00Z")).day).toBe("5");
   });
 });

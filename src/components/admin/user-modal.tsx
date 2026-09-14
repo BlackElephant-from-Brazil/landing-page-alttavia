@@ -133,7 +133,7 @@ function OrdersSection({ detail }: { detail: AdminUserDetail }) {
               {orders.map((order) => (
                 <tr key={order.id} className="border-b border-navy/5 last:border-b-0">
                   <td className="px-4 py-3 align-top font-medium text-navy">
-                    {order.quantity === 2 ? `${order.service_name} x2` : order.service_name}
+                    {order.service_name}
                   </td>
                   <td className="px-4 py-3 align-top text-navy">{formatDate(order.created_at)}</td>
                   <td className="px-4 py-3 text-right align-top tabular-nums text-navy">{formatEuro(order.total_cents)}</td>

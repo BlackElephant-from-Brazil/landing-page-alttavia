@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { alternativeFor, quantityFor } from "@/content/apply";
+import { alternativeFor } from "@/content/apply";
 import { PRICE_CENTS } from "@/content/bank-nif";
 import type { Rule } from "@/lib/db/types";
 import { isCountryCode, isEea } from "./countries";
@@ -13,7 +13,7 @@ import {
   STEPS,
   VISA_OPTIONS,
 } from "./steps";
-import type { Answers, Applicants, BankChoice, ProductId, Visa } from "./types";
+import type { Answers, Applicants, BankChoice, Visa } from "./types";
 
 /* -------------------------------------------------------------------------- */
 /* The oracle: the hardcoded steps as they were before the questions moved   */
@@ -240,10 +240,10 @@ describe("SEED_QUESTIONS", () => {
 });
 
 /* -------------------------------------------------------------------------- */
-/* Alternatives carry the engine's quantity rule                              */
+/* Alternatives are one unit each, like every order                          */
 /* -------------------------------------------------------------------------- */
 
-describe("alternativeFor: the quantity of an alternative product", () => {
+describe("alternativeFor: the price and shape of an alternative product", () => {
   const couple: Answers = {
     residence: "US",
     applicants: "two",
@@ -259,32 +259,29 @@ describe("alternativeFor: the quantity of an alternative product", () => {
     return rec;
   }
 
-  it("charges two NIFs when two adults without NIFs pick NIF only instead of the couple package", () => {
+  it("prices one NIF when two adults without NIFs pick NIF only instead of the couple package", () => {
     const rec = product(couple);
     expect(rec.product).toBe("couple");
     const alt = alternativeFor(rec, "nif-only", couple);
     expect(alt.product).toBe("nif-only");
-    expect(alt.quantity).toBe(2);
-    expect(alt.totalCents).toBe(PRICE_CENTS.nifOnly * 2);
+    expect(alt.totalCents).toBe(PRICE_CENTS.nifOnly);
     expect(alt.joint).toBe(false);
   });
 
-  it("charges one NIF when only one of two adults needs it", () => {
+  it("prices one NIF when only one of two adults needs it", () => {
     const a: Answers = { ...couple, hasNif: [true, false] };
     const rec = product(a);
     expect(rec.product).toBe("bundle");
     const alt = alternativeFor(rec, "nif-only", a);
-    expect(alt.quantity).toBe(1);
     expect(alt.totalCents).toBe(PRICE_CENTS.nifOnly);
   });
 
-  it("marks the couple package joint when a double NIF order upgrades to it", () => {
+  it("marks the couple package joint when a one NIF order upgrades to it", () => {
     const a: Answers = { ...couple, visa: "none" };
     const rec = product(a);
     expect(rec.product).toBe("nif-only");
-    expect(rec.quantity).toBe(2);
+    expect(rec.notes).toContain("secondNif");
     const alt = alternativeFor(rec, "couple", a);
-    expect(alt.quantity).toBe(1);
     expect(alt.joint).toBe(true);
     expect(alt.totalCents).toBe(PRICE_CENTS.couple);
   });
@@ -303,21 +300,7 @@ describe("alternativeFor: the quantity of an alternative product", () => {
     for (const a of rows) {
       const rec = product(a);
       const same = alternativeFor(rec, rec.product, a);
-      expect({ q: same.quantity, t: same.totalCents, j: same.joint }).toEqual({
-        q: rec.quantity,
-        t: rec.totalCents,
-        j: rec.joint,
-      });
-    }
-  });
-
-  it("never builds a one NIF order for two adults without NIFs", () => {
-    for (const bank of ["joint", "none"] as const) {
-      const a: Answers = { ...couple, bank };
-      expect(quantityFor("nif-only", a)).toBe(2);
-      for (const id of ["bundle", "bank-only", "couple"] as ProductId[]) {
-        expect(quantityFor(id, a)).toBe(1);
-      }
+      expect({ t: same.totalCents, j: same.joint }).toEqual({ t: rec.totalCents, j: rec.joint });
     }
   });
 });

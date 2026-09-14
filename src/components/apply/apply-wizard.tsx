@@ -228,7 +228,7 @@ export function ApplyWizard({
     if (screenId === "result") {
       const r = recommend(answers);
       if (r.kind === "exit") trackExit(r.exit);
-      else trackRecommendation(r.product, r.quantity, r.totalCents);
+      else trackRecommendation(r.product, r.totalCents);
     } else {
       trackStep(index + 1, steps.length, screenId);
     }

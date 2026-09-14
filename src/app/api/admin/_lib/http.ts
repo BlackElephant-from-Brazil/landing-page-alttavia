@@ -8,7 +8,7 @@ import { AdminAuthError, adminErrorResponse, type AdminUser } from "@/lib/supaba
  *
  * Shape of every answer: `{ error: "one line" }` with a status, or the
  * payload the contract names. Errors thrown by the order modules
- * (ReviewError, NoteError, DeliverableError, ServiceError, StageError) all
+ * (ReviewError, DeliverableError, ServiceError, StageError) all
  * carry a 4xx `status` and a message written under the house rules, so
  * errorResponse() passes them through as they are; anything else becomes a
  * logged 500 with a generic line, through adminErrorResponse().

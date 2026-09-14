@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ServiceDocRow, UserDocumentRow, UserServiceNoteRow } from "@/lib/db/types";
+import type { ServiceDocRow, UserDocumentRow } from "@/lib/db/types";
 
 import {
   documentCounts,
@@ -14,10 +14,9 @@ import {
   rejectedSlots,
   reportParagraphs,
   slotName,
-  splitNotes,
 } from "./order-status";
 
-function doc(id: string, position: number, perApplicant = true): ServiceDocRow {
+function doc(id: string, position: number, perApplicant = true, template: ServiceDocRow["template"] = null): ServiceDocRow {
   return {
     id,
     service_id: "svc",
@@ -29,6 +28,7 @@ function doc(id: string, position: number, perApplicant = true): ServiceDocRow {
     per_applicant: perApplicant,
     required: true,
     position,
+    template,
   };
 }
 
@@ -57,10 +57,6 @@ function upload(
     created_at: createdAt,
     updated_at: createdAt,
   };
-}
-
-function note(id: string, createdAt: string, resolved: string | null, audience: "client" | "internal" = "client"): UserServiceNoteRow {
-  return { id, user_service_id: "order", author_id: null, audience, body: id, resolved_at: resolved, created_at: createdAt };
 }
 
 describe("orderStatus", () => {
@@ -131,20 +127,6 @@ describe("latestDocument", () => {
     const only = [upload("stuck", "passport", 0, "pending", "2026-09-03T00:00:00Z")];
     expect(latestDocument(only, "passport", 0)?.id).toBe("stuck");
     expect(latestDocument(only, "proof_of_address", 0)).toBeNull();
-  });
-});
-
-describe("splitNotes", () => {
-  it("separates open from resolved, newest first, and skips internal notes", () => {
-    const notes = [
-      note("old-open", "2026-09-01T00:00:00Z", null),
-      note("resolved", "2026-09-02T00:00:00Z", "2026-09-03T00:00:00Z"),
-      note("new-open", "2026-09-04T00:00:00Z", null),
-      note("internal", "2026-09-05T00:00:00Z", null, "internal"),
-    ];
-    const { open, resolved } = splitNotes(notes);
-    expect(open.map((n) => n.id)).toEqual(["new-open", "old-open"]);
-    expect(resolved.map((n) => n.id)).toEqual(["resolved"]);
   });
 });
 
@@ -225,10 +207,11 @@ describe("progressFraction", () => {
 
 describe("documentCounts", () => {
   const docs = [doc("passport", 1), doc("proof_of_address", 2, false), { ...doc("extra", 3), required: false }];
+  const noDeeds = { required: 0, received: 0 };
 
   it("counts one slot per required document and applicant", () => {
-    expect(documentCounts(docs, [], 1)).toEqual({ required: 2, received: 0, rejected: 0 });
-    expect(documentCounts(docs, [], 2)).toEqual({ required: 3, received: 0, rejected: 0 });
+    expect(documentCounts(docs, [], 1)).toEqual({ required: 2, received: 0, rejected: 0, deeds: noDeeds });
+    expect(documentCounts(docs, [], 2)).toEqual({ required: 3, received: 0, rejected: 0, deeds: noDeeds });
   });
 
   it("counts uploaded and approved as received, rejected apart, pending as nothing", () => {
@@ -238,27 +221,72 @@ describe("documentCounts", () => {
       upload("c", "proof_of_address", 0, "rejected", "2026-09-02T00:00:00Z", "Blurry"),
       upload("d", "extra", 0, "approved", "2026-09-02T00:00:00Z"),
     ];
-    expect(documentCounts(docs, documents, 2)).toEqual({ required: 3, received: 2, rejected: 1 });
+    expect(documentCounts(docs, documents, 2)).toEqual({ required: 3, received: 2, rejected: 1, deeds: noDeeds });
     const stuck = [upload("e", "passport", 0, "pending", "2026-09-03T00:00:00Z")];
-    expect(documentCounts(docs, stuck, 1)).toEqual({ required: 2, received: 0, rejected: 0 });
+    expect(documentCounts(docs, stuck, 1)).toEqual({ required: 2, received: 0, rejected: 0, deeds: noDeeds });
+  });
+
+  it("counts deed slots inside the required ones and apart", () => {
+    const withDeeds = [...docs, doc("poa_nif", 4, true, "poa_nif"), doc("poa_bank", 5, true, "poa_bank")];
+    expect(documentCounts(withDeeds, [], 1)).toEqual({ required: 4, received: 0, rejected: 0, deeds: { required: 2, received: 0 } });
+    expect(documentCounts(withDeeds, [], 2)).toEqual({ required: 7, received: 0, rejected: 0, deeds: { required: 4, received: 0 } });
+
+    const documents = [
+      upload("a", "poa_nif", 0, "uploaded", "2026-09-01T00:00:00Z"),
+      upload("b", "poa_bank", 1, "approved", "2026-09-01T00:00:00Z"),
+      upload("c", "poa_bank", 0, "rejected", "2026-09-02T00:00:00Z", "Unsigned"),
+      upload("d", "passport", 0, "approved", "2026-09-02T00:00:00Z"),
+    ];
+    expect(documentCounts(withDeeds, documents, 2)).toEqual({
+      required: 7,
+      received: 3,
+      rejected: 1,
+      deeds: { required: 4, received: 2 },
+    });
+  });
+
+  it("leaves an optional deed slot out, like any optional document", () => {
+    const optionalDeed = [doc("passport", 1), { ...doc("poa_nif", 2, true, "poa_nif"), required: false }];
+    expect(documentCounts(optionalDeed, [], 1).deeds).toEqual(noDeeds);
   });
 });
 
 describe("nextStep", () => {
-  const docs = { required: 3, received: 3, rejected: 0 };
+  const docs = { required: 3, received: 3, rejected: 0, deeds: { required: 0, received: 0 } };
 
-  it("ranks payment, rejected files, pendencies, missing uploads, then what came back", () => {
-    expect(nextStep({ paid: false, completed: false, openPendencies: 2, docs, deliverables: 0 })).toBe("Pay to start");
-    expect(nextStep({ paid: true, completed: false, openPendencies: 2, docs: { ...docs, rejected: 1 }, deliverables: 0 })).toBe("Send 1 file again");
-    expect(nextStep({ paid: true, completed: false, openPendencies: 2, docs, deliverables: 0 })).toBe("2 items pending from you");
-    expect(nextStep({ paid: true, completed: false, openPendencies: 0, docs: { ...docs, received: 1 }, deliverables: 0 })).toBe("Upload 2 documents");
-    expect(nextStep({ paid: true, completed: false, openPendencies: 0, docs, deliverables: 0 })).toBe("Nothing needed from you right now");
-    expect(nextStep({ paid: true, completed: true, openPendencies: 0, docs, deliverables: 2 })).toBe("Your documents are ready to download");
-    expect(nextStep({ paid: true, completed: true, openPendencies: 0, docs, deliverables: 0 })).toBe("All done");
+  it("ranks payment, rejected files, missing uploads, then what came back", () => {
+    expect(nextStep({ paid: false, completed: false, docs, deliverables: 0 })).toBe("Pay to start");
+    expect(nextStep({ paid: true, completed: false, docs: { ...docs, rejected: 1 }, deliverables: 0 })).toBe("Send 1 file again");
+    expect(nextStep({ paid: true, completed: false, docs: { ...docs, received: 1 }, deliverables: 0 })).toBe("Upload 2 documents");
+    expect(nextStep({ paid: true, completed: false, docs: { ...docs, received: 2 }, deliverables: 0 })).toBe("Upload 1 document");
+    expect(nextStep({ paid: true, completed: false, docs, deliverables: 0 })).toBe("Nothing needed from you right now");
+    expect(nextStep({ paid: true, completed: true, docs, deliverables: 2 })).toBe("Your documents are ready to download");
+    expect(nextStep({ paid: true, completed: true, docs, deliverables: 0 })).toBe("All done");
+  });
+
+  it("asks to sign and upload when only deeds are missing", () => {
+    const oneDeed = { required: 3, received: 2, rejected: 0, deeds: { required: 1, received: 0 } };
+    expect(nextStep({ paid: true, completed: false, docs: oneDeed, deliverables: 0 })).toBe("Sign and upload 1 document");
+
+    const twoDeeds = { required: 4, received: 2, rejected: 0, deeds: { required: 2, received: 0 } };
+    expect(nextStep({ paid: true, completed: false, docs: twoDeeds, deliverables: 0 })).toBe("Sign and upload 2 documents");
+  });
+
+  it("counts everything as uploads when ordinary documents are missing too", () => {
+    const mixed = { required: 4, received: 1, rejected: 0, deeds: { required: 2, received: 0 } };
+    expect(nextStep({ paid: true, completed: false, docs: mixed, deliverables: 0 })).toBe("Upload 3 documents");
+
+    const deedsDone = { required: 4, received: 2, rejected: 0, deeds: { required: 2, received: 2 } };
+    expect(nextStep({ paid: true, completed: false, docs: deedsDone, deliverables: 0 })).toBe("Upload 2 documents");
+  });
+
+  it("puts a rejected deed before the ones still to sign", () => {
+    const rejected = { required: 4, received: 1, rejected: 1, deeds: { required: 2, received: 0 } };
+    expect(nextStep({ paid: true, completed: false, docs: rejected, deliverables: 0 })).toBe("Send 1 file again");
   });
 
   it("does not ask a completed order for missing uploads", () => {
-    expect(nextStep({ paid: true, completed: true, openPendencies: 0, docs: { ...docs, received: 0 }, deliverables: 1 })).toBe(
+    expect(nextStep({ paid: true, completed: true, docs: { ...docs, received: 0 }, deliverables: 1 })).toBe(
       "Your documents are ready to download",
     );
   });

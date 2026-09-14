@@ -19,7 +19,7 @@ type Props = { params: Promise<{ locale: string; id: string }> };
 
 /**
  * One order of the account, any status, as a full page. The emails the
- * firm sends (a rejected file, a pendency, the order complete) link here,
+ * firm sends (a rejected file, the order complete) link here,
  * so this route stays even though the dashboard and the purchases page now
  * open the same view in a modal. An id that is not a UUID, does not exist
  * or belongs to another account is a 404 all the same: getUserService

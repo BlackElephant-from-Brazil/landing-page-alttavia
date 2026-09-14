@@ -70,7 +70,7 @@ export function PurchasesTable({
         </thead>
         <tbody>
           {items.map(({ order, service, stageLabel }) => {
-            const name = order.quantity === 2 ? `${service.name} · x2` : service.name;
+            const name = service.name;
             const href = `${basePath}?order=${order.id}`;
             const date = formatDate(order.created_at);
             return (

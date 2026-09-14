@@ -70,13 +70,14 @@ export type NoteId =
   | "taxRepOptional"
   | "taxRepRequired"
   | "bankUnlikely"
-  | "nationalityUnsupported";
+  | "nationalityUnsupported"
+  | "secondNif";
 
 export type Recommendation =
   | {
       kind: "product";
       product: ProductId;
-      quantity: 1 | 2;
+      /** One unit, always: every service sells one unit per purchase. */
       totalCents: number;
       /** True when the account on the order is a joint account. */
       joint: boolean;

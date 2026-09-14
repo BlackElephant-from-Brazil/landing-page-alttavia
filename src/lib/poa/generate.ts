@@ -6,17 +6,18 @@ import {
   type PrincipalDetails,
   type SigningDate,
 } from "@/content/power-of-attorney";
+import type { PoaTemplate } from "@/lib/db/types";
 
 /**
- * Renders the power of attorney as a PDF.
+ * Renders a power of attorney as a PDF.
  *
  * Times is deliberate: this is a deed someone prints, signs by hand and hands
- * to Finanças, and it should look like one. The English half is set in italic
- * so a Portuguese reader can see at a glance which paragraphs are the
- * operative ones without the two languages blurring together.
+ * to Finanças or a bank, and it should look like one. The English half is set
+ * in italic so a Portuguese reader can see at a glance which paragraphs are
+ * the operative ones without the two languages blurring together.
  *
  * Pure function over `Uint8Array`: no filesystem, no network, so it runs the
- * same in a script, in a Netlify function, or in a test.
+ * same in a script, in a route handler, or in a test.
  */
 
 const A4 = { width: 595.28, height: 841.89 };
@@ -24,36 +25,68 @@ const MARGIN = { top: 56, bottom: 52, left: 62, right: 62 };
 const CONTENT_WIDTH = A4.width - MARGIN.left - MARGIN.right;
 
 /**
- * Tuned so the blank deed lands on a single A4 sheet. A power of attorney that
- * spills a lone signature onto a second page reads as a mistake to whoever
- * receives it, and a test pins the page count so a future copy edit cannot
- * quietly reintroduce that.
+ * Tuned so the NIF deed lands on a single A4 sheet, filled or blank, and the
+ * bank deed on two. A power of attorney that spills a lone signature onto an
+ * extra page reads as a mistake to whoever receives it, and tests pin both
+ * page counts so a future copy edit cannot quietly reintroduce that.
  */
 const SIZE = { title: 16, body: 9.6, signature: 10 };
 const LEADING = { body: 12.6, paragraphGap: 8, itemGap: 6 };
 
-/** Hanging indent for the numbered clauses, wide enough for "1)". */
+/** Hanging indent for the numbered and lettered clauses, wide enough for "1)" and "a)". */
 const ITEM_INDENT = 20;
 
 const INK = rgb(0.05, 0.09, 0.15);
 const INK_SOFT = rgb(0.28, 0.33, 0.4);
 
+/** The PDF subject line per deed, for the reader's document properties. */
+const SUBJECT: Record<PoaTemplate, string> = {
+  poa_nif: "Atribuição de Número de Identificação Fiscal (NIF)",
+  poa_bank: "Abertura de conta bancária em Portugal",
+};
+
 /**
  * The standard PDF fonts encode WinAnsi, which covers Portuguese accents but
- * not every character a word processor may have introduced. Anything outside
- * it is folded to the closest plain equivalent rather than allowed to throw
- * halfway through a legal document.
+ * not every character a word processor or a passport may have introduced.
+ * Typographic quotes and dashes are folded to their plain forms first; any
+ * other character outside WinAnsi is folded to its closest plain form (a
+ * decomposed base letter, or a table entry for letters that do not
+ * decompose), and what cannot be folded at all prints as "?" rather than
+ * throwing halfway through a legal document. A "?" in a name is visible to
+ * the client on download, so it gets corrected; a silently dropped letter
+ * would not be.
  */
 const SUBSTITUTIONS: Record<string, string> = {
   "‘": "'", "’": "'", "‚": "'", "′": "'",
   "“": '"', "”": '"', "„": '"', "″": '"',
   "–": "-", "—": "-", "−": "-",
-  "…": "...", " ": " ", " ": " ", " ": " ",
-  "•": "-", "­": "",
+  "…": "...", "\u00A0": " ", "\u202F": " ", "\u2009": " ",
+  "•": "-", "\u00AD": "",
 };
 
+/** Letters outside Latin-1 that NFD cannot decompose, mapped to their usual plain form. */
+const PLAIN_LETTERS: Record<string, string> = {
+  "Ł": "L", "ł": "l", "Đ": "D", "đ": "d", "Ħ": "H", "ħ": "h", "ı": "i", "Ŧ": "T", "ŧ": "t",
+  "Ŀ": "L", "ŀ": "l", "Ø": "O", "ø": "o", "Œ": "OE", "œ": "oe", "Æ": "AE", "æ": "ae",
+};
+
+/** Printable ASCII, Latin-1 and the WinAnsi extras the standard fonts know. */
+const WIN_ANSI = /^[\x20-\x7E\xA0-\xFF€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]$/;
+
+function foldCharacter(char: string): string {
+  if (WIN_ANSI.test(char)) return char;
+  const plain = PLAIN_LETTERS[char];
+  if (plain !== undefined) return plain;
+  const decomposed = char.normalize("NFD").replace(/[\u0300-\u036F]/g, "");
+  if (decomposed !== char && decomposed.length > 0 && WIN_ANSI.test(decomposed)) return decomposed;
+  return "?";
+}
+
 function sanitize(text: string): string {
-  return text.replace(/[ ­ –—‘’‚“”„•… ′″−]/g, (c) => SUBSTITUTIONS[c] ?? "");
+  const folded = text.replace(/[\u00A0\u00AD\u2009\u202F–—‘’‚“”„•…′″−]/g, (c) => SUBSTITUTIONS[c] ?? "");
+  let out = "";
+  for (const char of folded) out += foldCharacter(char);
+  return out;
 }
 
 type Fonts = { regular: PDFFont; italic: PDFFont; bold: PDFFont };
@@ -132,13 +165,13 @@ class Layout {
     }
   }
 
-  /** A numbered clause: the number sits in the margin, the text hangs indented. */
-  item(number: string, content: string, font: PDFFont, size: number, color = INK) {
+  /** A numbered or lettered clause: the label sits in the margin, the text hangs indented. */
+  item(label: string, content: string, font: PDFFont, size: number, color = INK) {
     const lines = wrap(content, font, size, CONTENT_WIDTH - ITEM_INDENT);
     lines.forEach((line, i) => {
       this.ensure(LEADING.body);
       if (i === 0) {
-        this.page.drawText(number, { x: MARGIN.left, y: this.y, size, font, color });
+        this.page.drawText(sanitize(label), { x: MARGIN.left, y: this.y, size, font, color });
       }
       this.page.drawText(line, { x: MARGIN.left + ITEM_INDENT, y: this.y, size, font, color });
       this.y -= LEADING.body;
@@ -191,16 +224,17 @@ function render(layout: Layout, blocks: PoaBlock[], fonts: Fonts) {
 }
 
 /**
- * Builds the deed. Called with no arguments it produces the blank template,
+ * Builds one deed. Called with only the kind it produces the blank template,
  * every field showing the model's own bracketed placeholder.
  */
 export async function generatePowerOfAttorney(
+  kind: PoaTemplate,
   principal: PrincipalDetails = {},
   signedOn: SigningDate = {},
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle("Procuração / Power of Attorney");
-  doc.setSubject("Atribuição de Número de Identificação Fiscal (NIF)");
+  doc.setSubject(SUBJECT[kind]);
   doc.setProducer("Alttavia Relocation");
   doc.setCreator("Alttavia Relocation");
 
@@ -210,6 +244,6 @@ export async function generatePowerOfAttorney(
     bold: await doc.embedFont(StandardFonts.TimesRomanBold),
   };
 
-  render(new Layout(doc), buildPowerOfAttorney(principal, signedOn), fonts);
+  render(new Layout(doc), buildPowerOfAttorney(kind, principal, signedOn), fonts);
   return doc.save();
 }

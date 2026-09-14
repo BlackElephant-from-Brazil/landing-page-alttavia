@@ -1,12 +1,13 @@
 import { Download, FileText } from "lucide-react";
 
+import { formatDeedDate } from "@/content/power-of-attorney";
 import { getOrderDetail } from "@/lib/db/admin-queries";
 import type {
   AdminOrderDetail,
   ServiceDocRow,
   UserDocumentRow,
+  UserServiceApplicantRow,
   UserServiceDeliverableRow,
-  UserServiceNoteRow,
 } from "@/lib/db/types";
 import { requireAdminPage } from "@/lib/supabase/admin-user";
 import { createClient } from "@/lib/supabase/server";
@@ -18,7 +19,6 @@ import { isUuid } from "./lib/params";
 import { Modal } from "./modal";
 import { DeliverableUpload } from "./order/deliverable-upload";
 import { DocumentReview } from "./order/document-review";
-import { NoteForm, ResolveNoteButton } from "./order/note-actions";
 import { ReportForm } from "./order/report-form";
 import { StageControls } from "./order/stage-controls";
 
@@ -44,7 +44,9 @@ const copy = {
   notFound: "This order is not on record.",
   stage: "Stage",
   documents: "Documents",
-  pendencies: "Pendencies and notes",
+  downloadDeed: "Download deed",
+  deedDetails: "Details for the deeds",
+  noDetails: "The client has not entered their details yet.",
   deliverables: "Deliverables",
   report: "Report",
   answers: "Answers from the form",
@@ -68,7 +70,6 @@ export async function OrderModal({ orderId }: { orderId: string | undefined }) {
       <div className="space-y-10">
         <StageSection detail={detail} />
         <DocumentsSection detail={detail} />
-        <NotesSection detail={detail} />
         <DeliverablesSection detail={detail} />
         <ReportSection detail={detail} />
         <AnswersSection detail={detail} />
@@ -99,7 +100,6 @@ function stageLabel(detail: AdminOrderDetail, key: string): string {
 
 function Header({ detail }: { detail: AdminOrderDetail }) {
   const { order, user, service } = detail;
-  const name = order.quantity === 2 ? `${service.name} x2` : service.name;
 
   return (
     <div>
@@ -108,7 +108,7 @@ function Header({ detail }: { detail: AdminOrderDetail }) {
         {user.email}
       </h2>
       <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-[0.85rem] sm:grid-cols-4">
-        <Fact label="Service" value={name} />
+        <Fact label="Service" value={service.name} />
         <Fact label="Amount" value={formatEuro(order.total_cents)} />
         <Fact label="Paid on" value={order.paid_at ? formatDate(order.paid_at) : "Not yet"} />
         <Fact label="Stage" value={stageLabel(detail, order.stage_key)} />
@@ -274,7 +274,19 @@ function DocumentsSection({ detail }: { detail: AdminOrderDetail }) {
                       </p>
                     )}
                   </div>
-                  <Pill tone={pill.tone}>{pill.label}</Pill>
+                  <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1">
+                    {slot.doc.template && (
+                      <a
+                        href={`/api/orders/${detail.order.id}/poa/${slot.doc.id}?applicant=${slot.applicantIndex}`}
+                        aria-label={`${copy.downloadDeed}: ${label}`}
+                        className="inline-flex items-center gap-1 rounded-sm text-[0.85rem] font-medium text-navy underline-offset-4 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                      >
+                        <Download className="size-3.5" aria-hidden />
+                        {copy.downloadDeed}
+                      </a>
+                    )}
+                    <Pill tone={pill.tone}>{pill.label}</Pill>
+                  </div>
                 </div>
 
                 {slot.latest?.status === "uploaded" && <DocumentReview documentId={slot.latest.id} label={slot.doc.label} />}
@@ -300,7 +312,69 @@ function DocumentsSection({ detail }: { detail: AdminOrderDetail }) {
           })}
         </ul>
       )}
+
+      {detail.order.paid_at && <DeedDetails detail={detail} slots={slots} />}
     </section>
+  );
+}
+
+/**
+ * The principal's details the deeds are filled with, once per applicant who
+ * has a deed slot on the order (the bundle and the couple package have two
+ * deeds per person, so the block sits under the list rather than under each
+ * slot). No row yet reads as one line.
+ */
+function DeedDetails({ detail, slots }: { detail: AdminOrderDetail; slots: Slot[] }) {
+  const indexes = Array.from(new Set(slots.filter((s) => s.doc.template).map((s) => s.applicantIndex))).sort();
+  if (indexes.length === 0) return null;
+  const twoApplicants = detail.order.applicants === 2;
+
+  return (
+    <div className="mt-4">
+      <h4 className="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-navy-muted">{copy.deedDetails}</h4>
+      <ul className="mt-2 divide-y divide-navy/10 rounded-lg border border-navy/10 bg-white">
+        {indexes.map((index) => {
+          const row = detail.applicants.find((a) => a.applicant_index === index) ?? null;
+          return (
+            <li key={index} className="px-4 py-4">
+              {twoApplicants && <p className="font-medium text-navy">{APPLICANT[index]}</p>}
+              {row ? (
+                <ApplicantFacts row={row} className={twoApplicants ? "mt-3" : undefined} />
+              ) : (
+                <p className={cn("text-[0.85rem] text-navy-muted", twoApplicants && "mt-1")}>{copy.noDetails}</p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+const DEED_DATE_LANG = "en";
+
+/** The nine fields as they print in the deed, dates as "12 March 2026". */
+function ApplicantFacts({ row, className }: { row: UserServiceApplicantRow; className?: string }) {
+  const facts: [string, string][] = [
+    ["Full name", row.full_name],
+    ["Referred to as", row.gender === "f" ? "She" : "He"],
+    ["Place of birth", row.birth_place],
+    ["Date of birth", formatDeedDate(row.birth_date, DEED_DATE_LANG)],
+    ["Passport number", row.passport_number],
+    ["Issuing authority", row.passport_issuer],
+    ["Date of issue", formatDeedDate(row.passport_issued_on, DEED_DATE_LANG)],
+    ["Expiry date", formatDeedDate(row.passport_expires_on, DEED_DATE_LANG)],
+    ["Tax residence address", row.tax_address],
+  ];
+  return (
+    <dl className={cn("grid gap-x-6 gap-y-2 text-[0.85rem] sm:grid-cols-2", className)}>
+      {facts.map(([label, value]) => (
+        <div key={label} className={cn("min-w-0", label === "Tax residence address" && "sm:col-span-2")}>
+          <dt className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-navy-muted">{label}</dt>
+          <dd className="mt-0.5 break-words font-medium text-navy">{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -328,58 +402,6 @@ function DocumentLine({ doc, compact }: { doc: UserDocumentRow; compact?: boolea
       )}
     </span>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Notes
-// ---------------------------------------------------------------------------
-
-function NotesSection({ detail }: { detail: AdminOrderDetail }) {
-  const notes = [...detail.notes].sort(byOpenThenNewest);
-  const open = notes.filter((n) => n.audience === "client" && !n.resolved_at).length;
-
-  return (
-    <section aria-labelledby="order-notes-heading">
-      <SectionHeading id="order-notes-heading" aside={open > 0 ? `${open} open for the client` : undefined}>
-        {copy.pendencies}
-      </SectionHeading>
-      {notes.length === 0 ? (
-        <p className="mt-3 text-[0.9rem] text-navy-muted">Nothing posted yet.</p>
-      ) : (
-        <ul className="mt-3 space-y-2">
-          {notes.map((note) => (
-            <li
-              key={note.id}
-              className={cn(
-                "flex items-start justify-between gap-4 rounded-lg border px-4 py-3",
-                note.resolved_at ? "border-navy/10 bg-white" : note.audience === "client" ? "border-gold/40 bg-gold/5" : "border-navy/10 bg-paper",
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2 text-[0.72rem] text-navy-muted">
-                  <Pill tone={note.audience === "client" ? "gold" : "muted"}>
-                    {note.audience === "client" ? "Client" : "Internal"}
-                  </Pill>
-                  <span>{formatDateTime(note.created_at)}</span>
-                  {note.resolved_at && <span>· resolved {formatDate(note.resolved_at)}</span>}
-                </div>
-                <p className="mt-1.5 whitespace-pre-line text-[0.9rem] leading-relaxed text-navy">{note.body}</p>
-              </div>
-              {!note.resolved_at && <ResolveNoteButton noteId={note.id} />}
-            </li>
-          ))}
-        </ul>
-      )}
-      <NoteForm orderId={detail.order.id} />
-    </section>
-  );
-}
-
-function byOpenThenNewest(a: UserServiceNoteRow, b: UserServiceNoteRow): number {
-  const openA = a.resolved_at ? 1 : 0;
-  const openB = b.resolved_at ? 1 : 0;
-  if (openA !== openB) return openA - openB;
-  return a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0;
 }
 
 // ---------------------------------------------------------------------------
