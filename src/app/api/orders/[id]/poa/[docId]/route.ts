@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { signingDateFor } from "@/content/power-of-attorney";
-import type { ServiceDocRow } from "@/lib/db/types";
+import type { ServiceDocRow, UserRole } from "@/lib/db/types";
 import { findApplicant, findOrder, poaFileName, toPrincipal } from "@/lib/orders/applicants";
 import { generatePowerOfAttorney } from "@/lib/poa/generate";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -21,6 +21,11 @@ import { getUserWithRole } from "@/lib/supabase/admin-user";
  * Then, in order: the applicant index is below the order's `applicants`,
  * the order is paid (409 "Payment first."), and the details exist
  * (409 `details_missing`, the code the slot reacts to by opening the form).
+ *
+ * An order that does not exist, or is not the caller's, answers 403 "This
+ * order is not yours." the way the documents routes do, so a client cannot
+ * tell the two apart; only an admin gets 404 for a missing order. The deed
+ * slot is looked at after that, so a stranger learns nothing about it.
  *
  * A visitor without a session is sent to login rather than given a JSON
  * 401, because this URL is opened by a click. `ctx.params` is a Promise in
@@ -50,23 +55,29 @@ function parseIndex(raw: string): 0 | 1 | null {
   return null;
 }
 
+/** No such order: an admin learns that, anyone else hears what a stranger's order answers. */
+function missingOrder(user: { role: UserRole }) {
+  return user.role === "admin" ? refuse(404, ORDER_NOT_FOUND) : refuse(403, NOT_YOURS);
+}
+
 export async function GET(request: Request, ctx: Params) {
   try {
     const user = await getUserWithRole();
     if (!user) return NextResponse.redirect(new URL(LOGIN, request.url), 302);
 
     const { id, docId } = await ctx.params;
-    if (!UUID.test(id)) return refuse(404, ORDER_NOT_FOUND);
-    if (!UUID.test(docId)) return refuse(404, DEED_NOT_FOUND);
-    const applicantIndex = parseIndex(new URL(request.url).searchParams.get("applicant") ?? "0");
-    if (applicantIndex === null) return refuse(422, NO_APPLICANT);
+    if (!UUID.test(id)) return missingOrder(user);
 
     const admin = createAdminClient();
     const order = await findOrder(admin, id);
-    if (!order) return refuse(404, ORDER_NOT_FOUND);
+    if (!order) return missingOrder(user);
 
     const owner = order.user_id === user.id;
     if (!owner && user.role !== "admin") return refuse(403, NOT_YOURS);
+
+    if (!UUID.test(docId)) return refuse(404, DEED_NOT_FOUND);
+    const applicantIndex = parseIndex(new URL(request.url).searchParams.get("applicant") ?? "0");
+    if (applicantIndex === null) return refuse(422, NO_APPLICANT);
 
     const { data: docData, error: docError } = await admin.from("service_docs").select("*").eq("id", docId).maybeSingle();
     if (docError) throw new Error(`service_docs: ${docError.message}`);

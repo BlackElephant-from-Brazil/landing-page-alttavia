@@ -31,6 +31,11 @@ function check(overrides: Record<string, unknown>) {
   return validateApplicantInput({ ...VALID, ...overrides }, TODAY);
 }
 
+/** A character by code point, so the control characters under test are visible in the source. */
+function ch(code: number): string {
+  return String.fromCharCode(code);
+}
+
 function message(overrides: Record<string, unknown>): string {
   const result = check(overrides);
   if (result.ok) throw new Error("expected a validation failure");
@@ -105,6 +110,28 @@ describe("validateApplicantInput", () => {
     expect(check({ fullName: "𝔘".repeat(200) }).ok).toBe(true);
   });
 
+  it("drops control and zero width characters before saving", () => {
+    const nul = ch(0);
+    const zeroWidthSpace = ch(0x200b);
+    const result = check({ fullName: `Jane${nul} Alice${zeroWidthSpace} Doe${ch(0x7f)}${ch(0xfeff)}` });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.full_name).toBe("Jane Alice Doe");
+  });
+
+  it("turns tabs and line breaks into one space", () => {
+    const result = check({ taxAddress: `1200 West 6th Street${ch(9)}Austin${ch(13)}${ch(10)}${ch(10)}TX 78703,  USA` });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.tax_address).toBe("1200 West 6th Street Austin TX 78703, USA");
+  });
+
+  it("does not let invisible characters pass the length check", () => {
+    const zeroWidthSpace = ch(0x200b);
+    expect(message({ fullName: `${zeroWidthSpace}${zeroWidthSpace}` })).toBe(
+      "Enter your full name as it appears in your passport.",
+    );
+    expect(message({ passportNumber: `12${ch(0)}` })).toBe("Enter your passport number.");
+  });
+
   it("requires the gender to be f or m", () => {
     expect(message({ gender: "x" })).toBe("Tell us how the deed should refer to you.");
     expect(message({ gender: undefined })).toBe("Tell us how the deed should refer to you.");
@@ -161,7 +188,7 @@ type Call = { method: string; args: unknown[] };
 function fakeDb(result: { data: unknown; error: { message: string } | null }) {
   const calls: Call[] = [];
   const chain: Record<string, unknown> = {};
-  for (const method of ["select", "eq", "order", "limit", "upsert", "insert", "update"]) {
+  for (const method of ["select", "eq", "neq", "order", "limit", "upsert", "insert", "update"]) {
     chain[method] = (...args: unknown[]) => {
       calls.push({ method, args });
       return chain;
@@ -184,6 +211,7 @@ function fakeDb(result: { data: unknown; error: { message: string } | null }) {
 
 const ORDER_ID = "33333333-3333-4333-8333-333333333333";
 const USER_ID = "11111111-1111-4111-8111-111111111111";
+const SERVICE_ID = "22222222-2222-4222-8222-222222222222";
 
 function row(overrides: Partial<UserServiceApplicantRow> = {}): UserServiceApplicantRow {
   return {
@@ -248,18 +276,25 @@ describe("findApplicant", () => {
 });
 
 describe("findPrefill", () => {
-  it("joins through the order's owner, newest first, and strips the join", async () => {
+  it("joins through the order's owner, skips the same service, newest first, and strips the join", async () => {
     const stored = row();
-    const { db, calls } = fakeDb({ data: { ...stored, user_services: { user_id: USER_ID } }, error: null });
+    const { db, calls } = fakeDb({
+      data: { ...stored, user_services: { user_id: USER_ID, service_id: "other-service" } },
+      error: null,
+    });
 
-    const result = await findPrefill(db, USER_ID, 0);
+    const result = await findPrefill(db, USER_ID, 0, SERVICE_ID);
 
     expect(result).toEqual(stored);
     expect(result).not.toHaveProperty("user_services");
-    expect(calls.find((c) => c.method === "select")?.args[0]).toContain("user_services!inner(user_id)");
+    expect(calls.find((c) => c.method === "select")?.args[0]).toContain("user_services!inner(user_id, service_id)");
     expect(calls.filter((c) => c.method === "eq").map((c) => c.args)).toEqual([
       ["user_services.user_id", USER_ID],
       ["applicant_index", 0],
+    ]);
+    // A second order of the same service is for another person: its form must not open with this row.
+    expect(calls.filter((c) => c.method === "neq").map((c) => c.args)).toEqual([
+      ["user_services.service_id", SERVICE_ID],
     ]);
     expect(calls.find((c) => c.method === "order")?.args).toEqual(["updated_at", { ascending: false }]);
     expect(calls.find((c) => c.method === "limit")?.args).toEqual([1]);
@@ -267,7 +302,7 @@ describe("findPrefill", () => {
 
   it("returns null when the user never entered details", async () => {
     const { db } = fakeDb({ data: null, error: null });
-    expect(await findPrefill(db, USER_ID, 1)).toBeNull();
+    expect(await findPrefill(db, USER_ID, 1, SERVICE_ID)).toBeNull();
   });
 });
 

@@ -144,7 +144,7 @@ export const applyCopy = {
     ctaPending: "Saving your application",
     docsTitle: "Have ready after payment",
     docs: {
-      nif: ["Passport", "Proof of address"],
+      nif: ["Passport", "Proof of address", "Power of attorney, signed (we prepare it for you)"],
       bank: ["Proof of income or source of funds"],
       partner: "The same for your partner",
     },
@@ -199,7 +199,7 @@ export const applyCopy = {
       {
         title: "You send your documents",
         meta: "5 minutes",
-        body: "Open your client area and upload them there: **passport and proof of address**, plus the bank's documents if you ordered an account.",
+        body: "Open your client area and upload them there: **passport and proof of address**, plus the bank's documents if you ordered an account. Then download the power of attorney we prepare, sign it by hand and upload the scan.",
       },
       {
         title: "We file it and send it back",
@@ -245,7 +245,7 @@ export const applyCopy = {
   reasons: {
     needsNif: "You do not have a NIF yet, and nothing in Portugal moves without one.",
     partnerNeedsNif: "Your partner does not have a NIF yet, and a joint account needs one for each holder.",
-    bothNeedNif: "Neither of you has a NIF yet, and the account needs one for each holder.",
+    bothNeedNif: "Neither of you has a NIF yet, and each person needs their own.",
     hasNif: "You already hold a NIF, so the account is the only thing left to open.",
     bothHaveNif: "You both hold a NIF, so the joint account is the only thing left to open.",
     wantsAccount: "You asked for a Portuguese bank account.",

@@ -24,12 +24,15 @@ import { ApplicantDetailsForm } from "./applicant-details-form";
  * primary "Download to sign" and, once the principal's details exist, a
  * quiet "Edit your details". Download with no `applicant` row opens the
  * details dialog first and starts the download once they are saved; with a
- * row it goes straight to /api/orders/[id]/poa/[docId], which answers with
- * an attachment, so the page stays. The signed copy then goes through the
- * same upload as any other slot, labelled "Upload the signed copy". The deed
- * row shows only while the slot still accepts a file: once the signed copy
- * is uploaded or approved there is nothing left to download or edit.
- * Contract (docs/documents-contract.md) section 3, "Client UI".
+ * row it fetches /api/orders/[id]/poa/[docId] and hands the PDF to the
+ * browser through a temporary download link, so the page stays and a JSON
+ * refusal never replaces it: 409 `details_missing` opens the dialog, any
+ * other refusal shows its one line in the message line. The signed copy
+ * then goes through the same upload as any other slot, labelled "Upload the
+ * signed copy". The deed row shows only while the slot still accepts a
+ * file: once the signed copy is uploaded or approved there is nothing left
+ * to download or edit. Contract (docs/documents-contract.md) section 3,
+ * "Client UI".
  *
  * Nothing moves when state changes: the progress bar and the message line
  * are always in the layout, at zero width and empty, so the card keeps its
@@ -65,6 +68,7 @@ type Details = "download" | "edit" | null;
 
 type Phase =
   | { kind: "idle" }
+  | { kind: "preparing" }
   | { kind: "requesting" }
   | { kind: "uploading"; percent: number }
   | { kind: "confirming" }
@@ -73,12 +77,15 @@ type Phase =
 
 const FALLBACK_ERROR = "Something did not work. Try again.";
 const UPLOAD_FAILED = "The upload did not finish. Try again.";
+const DETAILS_MISSING = "details_missing";
+const DEED_FILE_NAME = "power-of-attorney.pdf";
 
 const deedCopy = {
   download: "Download to sign",
   edit: "Edit your details",
   saveAndDownload: "Save and download",
   uploadSigned: "Upload the signed copy",
+  preparing: "Preparing your deed",
 } as const;
 
 type PillKind = "waiting" | "uploaded" | "approved" | "rejected";
@@ -118,10 +125,50 @@ export function DocumentSlot({
   const deedUrl = `/api/orders/${userServiceId}/poa/${serviceDocId}?applicant=${applicantIndex}`;
   const forWhom = applicantLabel ? ` (${applicantLabel})` : "";
 
-  const busy = phase.kind === "requesting" || phase.kind === "uploading" || phase.kind === "confirming";
+  const busy =
+    phase.kind === "preparing" || phase.kind === "requesting" || phase.kind === "uploading" || phase.kind === "confirming";
+
+  /**
+   * Fetches the deed and hands it to the browser as a download. A refusal
+   * stays on the page: `details_missing` opens the details dialog, anything
+   * else shows the route's one line. A session that lapsed meanwhile is
+   * redirected by the route; the page follows it to login.
+   */
+  async function downloadDeed() {
+    setPhase({ kind: "preparing" });
+    let response: Response;
+    try {
+      response = await fetch(deedUrl, { headers: { Accept: "application/pdf" } });
+    } catch {
+      setPhase({ kind: "error", message: FALLBACK_ERROR });
+      return;
+    }
+    if (response.redirected) {
+      window.location.assign(response.url);
+      return;
+    }
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: unknown } | null;
+      const error = data && typeof data.error === "string" ? data.error : FALLBACK_ERROR;
+      if (response.status === 409 && error === DETAILS_MISSING) {
+        setPhase({ kind: "idle" });
+        setDetails("download");
+      } else {
+        setPhase({ kind: "error", message: error });
+      }
+      return;
+    }
+    try {
+      const blob = await response.blob();
+      saveBlob(blob, fileNameFrom(response.headers.get("content-disposition")) ?? DEED_FILE_NAME);
+      setPhase({ kind: "idle" });
+    } catch {
+      setPhase({ kind: "error", message: FALLBACK_ERROR });
+    }
+  }
 
   function handleDownload() {
-    if (applicant) window.location.assign(deedUrl);
+    if (applicant) void downloadDeed();
     else setDetails("download");
   }
 
@@ -129,7 +176,7 @@ export function DocumentSlot({
     const follow = details;
     setDetails(null);
     router.refresh();
-    if (follow === "download") window.location.assign(deedUrl);
+    if (follow === "download") void downloadDeed();
   }
   const pill = phase.kind === "done" ? "uploaded" : pillFor(current?.status);
   // A rejected file is replaced; a pending one is an upload that never
@@ -187,15 +234,17 @@ export function DocumentSlot({
   const message =
     phase.kind === "error"
       ? phase.message
-      : phase.kind === "requesting"
-        ? "Preparing"
-        : phase.kind === "uploading"
-          ? `Uploading ${phase.percent}%`
-          : phase.kind === "confirming"
-            ? "Checking"
-            : phase.kind === "done"
-              ? "Received"
-              : "";
+      : phase.kind === "preparing"
+        ? deedCopy.preparing
+        : phase.kind === "requesting"
+          ? "Preparing"
+          : phase.kind === "uploading"
+            ? `Uploading ${phase.percent}%`
+            : phase.kind === "confirming"
+              ? "Checking"
+              : phase.kind === "done"
+                ? "Received"
+                : "";
 
   return (
     <li
@@ -336,6 +385,26 @@ export function DocumentSlot({
       )}
     </li>
   );
+}
+
+/** The quoted file name of a `Content-Disposition: attachment; filename="…"` header, or null. */
+function fileNameFrom(header: string | null): string | null {
+  const match = header ? /filename="([^"]+)"/i.exec(header) : null;
+  return match ? match[1] : null;
+}
+
+/** Hands a blob to the browser as a download through a temporary link, then frees the object URL. */
+function saveBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.rel = "noopener";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // Revoked on the next tick: some browsers start the save after click() returns.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 /** POST a JSON body and return the JSON reply, or throw with the server's one line message. */

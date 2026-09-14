@@ -324,7 +324,7 @@ export const bankNif = {
         detail: "Debit card and online banking",
         eta: TIMES.bank,
       },
-      seal: "Pay, upload two documents, and you are done",
+      seal: "Pay, upload two documents, sign the power of attorney we prepare, and you are done",
     },
   },
 
@@ -436,8 +436,9 @@ export const bankNif = {
   /**
    * Section 7.
    *
-   * No video call anywhere. The client buys, uploads two documents in the same
-   * flow, and hears nothing until the results land.
+   * No video call anywhere. The client buys, uploads the passport, the proof
+   * of address and the signed power of attorney in the same flow, and hears
+   * nothing until the results land.
    */
   howItWorks: {
     eyebrow: "How it works",
@@ -629,7 +630,7 @@ export const bankNif = {
       },
       {
         q: "Is there a video call?",
-        a: "No. You pay, you upload two documents, and that is the last thing we need from you.",
+        a: "No. You pay, you upload two documents, and you sign the power of attorney we prepare. That is the last thing we need from you.",
       },
       {
         q: "Which Portuguese bank will my account be with?",

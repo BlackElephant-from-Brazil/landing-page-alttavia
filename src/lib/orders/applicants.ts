@@ -10,17 +10,20 @@ import type { ApplicantGender, PoaTemplate, UserServiceApplicantRow, UserService
  *   validateApplicantInput(body)                 -> { ok, value } | { ok: false, status: 422, message }
  *   upsertApplicant(admin, orderId, index, value) -> the row, on (user_service_id, applicant_index)
  *   findApplicant(admin, orderId, index)         -> the row or null
- *   findPrefill(admin, userId, index)            -> the user's newest row for that index on any order
+ *   findPrefill(admin, userId, index, serviceId) -> the user's newest row for that index on an order of another service
  *   toPrincipal(row)                             -> what the deed builder takes
  *   poaFileName(kind, fullName)                  -> the download's file name
  *
  * The body may use the form's camelCase keys (`fullName`, `birthPlace`,
  * `passportIssueDate` or `passportIssuedOn`, `passportExpiryDate` or
  * `passportExpiresOn`, `taxAddress`) or the column names; the value that
- * comes back is in column names, ready to upsert. Every check mirrors a
- * constraint of `user_service_applicants` (0007) plus the three date rules:
- * the principal is an adult (the deed says "maior de idade"), the passport
- * expires after it was issued, and it has not expired by Lisbon's calendar.
+ * comes back is in column names, ready to upsert. Text is cleaned before it
+ * is measured: tabs and line breaks become a space, other control and
+ * zero width characters are dropped, runs of spaces collapse. Every check
+ * mirrors a constraint of `user_service_applicants` (0007) plus the three
+ * date rules: the principal is an adult (the deed says "maior de idade"),
+ * the passport expires after it was issued, and it has not expired by
+ * Lisbon's calendar.
  *
  * Messages are one short line each, US friendly, for the form to show as
  * they are.
@@ -112,10 +115,20 @@ function addYears(date: Ymd, years: number): Ymd {
   return { y: rolled.getUTCFullYear(), m: rolled.getUTCMonth() + 1, d: rolled.getUTCDate() };
 }
 
+/** Tab and line breaks: a space, so a pasted address keeps its word gaps. */
+const BREAKS = /[\t\n\r]/g;
+/** The other C0 controls, DEL, zero width characters and the byte order mark: nothing. */
+const CONTROLS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200D\uFEFF]/g;
+
+/** What the form typed, with nothing in it the deed could not print: see the header. */
+function clean(raw: string): string {
+  return raw.replace(BREAKS, " ").replace(CONTROLS, "").replace(/ {2,}/g, " ").trim();
+}
+
 function read(body: Record<string, unknown>, column: keyof ApplicantInput): string {
   for (const key of KEYS[column]) {
     const raw = body[key];
-    if (typeof raw === "string") return raw.trim();
+    if (typeof raw === "string") return clean(raw);
   }
   return "";
 }
@@ -245,19 +258,24 @@ export async function upsertApplicant(
 }
 
 /**
- * The newest details the user entered for that applicant index on any of
- * their orders, so a second purchase opens the form filled in. Joins
- * through user_services.user_id; null when they never entered any.
+ * The newest details the user entered for that applicant index on one of
+ * their orders for a different service, so a second purchase opens the form
+ * filled in. Orders of the same service are skipped: a second NIF on the
+ * same account is by definition for another person (the engine's
+ * `secondNif` note), so its form must not open with the account holder's
+ * passport. Joins through user_services; null when nothing qualifies.
  */
 export async function findPrefill(
   admin: Db,
   userId: string,
   applicantIndex: 0 | 1,
+  excludeServiceId: string,
 ): Promise<UserServiceApplicantRow | null> {
   const { data, error } = await admin
     .from("user_service_applicants")
-    .select("*, user_services!inner(user_id)")
+    .select("*, user_services!inner(user_id, service_id)")
     .eq("user_services.user_id", userId)
+    .neq("user_services.service_id", excludeServiceId)
     .eq("applicant_index", applicantIndex)
     .order("updated_at", { ascending: false })
     .limit(1)

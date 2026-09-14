@@ -13,15 +13,17 @@ import {
 import { generatePowerOfAttorney } from "./generate";
 
 /**
- * Reads back the text pdf-lib wrote. Strings are stored as hex in the content
- * stream, one per drawn line, so decoding them proves the accents survived
- * WinAnsi encoding rather than merely that a file was produced.
+ * Reads back the text pdf-lib wrote, one string per page. Strings are stored
+ * as hex in the content stream, one per drawn line, so decoding them proves
+ * the accents survived WinAnsi encoding rather than merely that a file was
+ * produced.
  */
-async function textOf(pdf: Uint8Array): Promise<string> {
+async function pageTexts(pdf: Uint8Array): Promise<string[]> {
   const doc = await PDFDocument.load(pdf);
-  const lines: string[] = [];
+  const pages: string[] = [];
 
   for (const page of doc.getPages()) {
+    const lines: string[] = [];
     const contents = page.node.Contents();
     const streams =
       contents instanceof PDFArray
@@ -40,8 +42,13 @@ async function textOf(pdf: Uint8Array): Promise<string> {
         lines.push(Buffer.from(hex, "hex").toString("latin1"));
       }
     }
+    pages.push(lines.join(" "));
   }
-  return lines.join(" ");
+  return pages;
+}
+
+async function textOf(pdf: Uint8Array): Promise<string> {
+  return (await pageTexts(pdf)).join(" ");
 }
 
 async function pageCount(pdf: Uint8Array): Promise<number> {
@@ -77,10 +84,29 @@ const LONG_ADDRESS =
   "Round Rock, Williamson County, Texas 78680, United States of America, and additional " +
   "notices to 4500 Cedar Bend Drive, Austin, Texas 78759, USA.";
 
+const LONG_NAME = "Maria Alexandra Wilkinson de Albuquerque Ferreira Cavalcanti dos Santos";
+
+/** A long name and the longest address: what a real client could plausibly enter. */
 const WORST_CASE: PrincipalDetails = {
   ...FILLED,
-  fullName: "Maria Alexandra Wilkinson de Albuquerque Ferreira Cavalcanti dos Santos",
+  fullName: LONG_NAME,
   taxAddress: LONG_ADDRESS,
+};
+
+/** Repeats `seed` up to exactly `length` characters, ending on a letter. */
+function fill(seed: string, length: number): string {
+  const text = seed.repeat(Math.ceil(length / seed.length)).slice(0, length);
+  return text.endsWith(" ") ? `${text.slice(0, -1)}x` : text;
+}
+
+/** Every text field at the SQL maximum (0007): the most a deed can be asked to carry. */
+const MAXIMAL: PrincipalDetails = {
+  ...FILLED,
+  fullName: fill("Maria Alexandra Wilkinson de Albuquerque Ferreira Cavalcanti dos Santos e Silva ", 200),
+  birthPlace: fill("San Sebastián de los Reyes, Comunidad de Madrid, Kingdom of Spain, Europe ", 200),
+  passportNumber: fill("AB1234567890", 40),
+  passportIssuer: fill("Ministry of Foreign Affairs and International Cooperation, Passport Office ", 200),
+  taxAddress: fill(LONG_ADDRESS + " ", 400),
 };
 
 describe("power of attorney PDF", () => {
@@ -103,13 +129,39 @@ describe("power of attorney PDF", () => {
     expect(await pageCount(await generatePowerOfAttorney("poa_bank"))).toBeLessThanOrEqual(2);
   });
 
-  it("keeps a filled NIF deed with the longest address on one page", async () => {
+  it("keeps a NIF deed with a 71 character name and a 400 character address on one page", async () => {
+    expect(LONG_NAME.length).toBe(71);
     expect(LONG_ADDRESS.length).toBeLessThanOrEqual(400);
     expect(await pageCount(await generatePowerOfAttorney("poa_nif", WORST_CASE, SIGNED))).toBe(1);
   });
 
-  it("keeps a filled bank deed with the longest address on at most two pages", async () => {
+  it("keeps a bank deed with a 71 character name and a 400 character address on at most two pages", async () => {
     expect(await pageCount(await generatePowerOfAttorney("poa_bank", WORST_CASE, SIGNED))).toBeLessThanOrEqual(2);
+  });
+
+  it("renders every field at the SQL maximum without throwing, within one extra page", async () => {
+    expect(MAXIMAL.fullName?.length).toBe(200);
+    expect(MAXIMAL.birthPlace?.length).toBe(200);
+    expect(MAXIMAL.passportNumber?.length).toBe(40);
+    expect(MAXIMAL.passportIssuer?.length).toBe(200);
+    expect(MAXIMAL.taxAddress?.length).toBe(400);
+
+    const nif = await generatePowerOfAttorney("poa_nif", MAXIMAL, SIGNED);
+    const bank = await generatePowerOfAttorney("poa_bank", MAXIMAL, SIGNED);
+    expect(await pageCount(nif)).toBeLessThanOrEqual(2);
+    expect(await pageCount(bank)).toBeLessThanOrEqual(3);
+  });
+
+  it("never leaves the signature alone on a page", async () => {
+    // The closing line and the signature share the last page, whatever the fields hold.
+    for (const kind of ["poa_nif", "poa_bank"] as const) {
+      for (const principal of [undefined, FILLED, WORST_CASE, MAXIMAL]) {
+        const pages = await pageTexts(await generatePowerOfAttorney(kind, principal, SIGNED));
+        const last = pages[pages.length - 1];
+        expect(last, `${kind} last page`).toContain("Fazendo fé");
+        expect(last, `${kind} last page`).toContain("Lisboa");
+      }
+    }
   });
 
   it("keeps Portuguese accents intact through the font encoding", async () => {

@@ -229,6 +229,15 @@ function buildSlots(detail: AdminOrderDetail): Slot[] {
   return slots;
 }
 
+/**
+ * Whether the principal's details exist for that applicant. The deed link
+ * shows only then: the route would answer a JSON 409 otherwise, and the
+ * details block below the list already says the client has not entered them.
+ */
+function hasDetails(detail: AdminOrderDetail, applicantIndex: 0 | 1): boolean {
+  return detail.applicants.some((a) => a.applicant_index === applicantIndex);
+}
+
 const DOC_PILL: Record<UserDocumentRow["status"], { label: string; tone: "muted" | "gold" | "navy" | "clay" }> = {
   pending: { label: "Not arrived", tone: "muted" },
   uploaded: { label: "To review", tone: "gold" },
@@ -275,7 +284,7 @@ function DocumentsSection({ detail }: { detail: AdminOrderDetail }) {
                     )}
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1">
-                    {slot.doc.template && (
+                    {slot.doc.template && detail.order.paid_at && hasDetails(detail, slot.applicantIndex) && (
                       <a
                         href={`/api/orders/${detail.order.id}/poa/${slot.doc.id}?applicant=${slot.applicantIndex}`}
                         aria-label={`${copy.downloadDeed}: ${label}`}

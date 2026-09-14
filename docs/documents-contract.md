@@ -4,7 +4,8 @@ The fourth design round. It amends `platform-contract.md` and
 `admin-contract.md`; where this file and those disagree, this file wins, and
 the two older files are brought in line at the end of the round.
 
-Five changes, one migration (`supabase/migrations/0007_one_unit_poa.sql`):
+Five changes, one migration (`supabase/migrations/0007_one_unit_poa.sql`;
+`0008_view_grants.sql` only tightens the view's grants after the review):
 
 1. Every service sells **one unit per purchase**. The quantity concept is gone
    from the database, the engine, the checkout and every label.
@@ -247,7 +248,15 @@ view receives the same list.
 - `GET /api/orders/[id]/applicants/[index]`: owner or admin. 200 with the
   row; 404 `{ error: "No details yet." }` when none, with `prefill` when the
   same user has a row on another order for the same index (newest
-  `updated_at`), so the form opens filled in.
+  `updated_at`), so the form opens filled in. Orders of the **same service**
+  are skipped as a source: a second NIF only order on one account is for
+  another person by definition (the engine's `secondNif` note), so it must
+  not open with the account holder's passport. The form's copy is neutral
+  for a one applicant order ("Details for the power of attorney", "If this
+  order is for someone else, enter that person's details").
+- Both routes answer 403 "Not your order." to a non admin whether the order
+  is missing or belongs to someone else (same rule as the documents routes);
+  admins get 404 for a missing order. The PUT refuses bodies over 16 KB.
 - `PUT /api/orders/[id]/applicants/[index]`: owner only (an admin corrects
   through the client for now), order must exist and `index` must be below
   `applicants`. Upsert on `(user_service_id, applicant_index)`. 200 with the
@@ -274,8 +283,12 @@ view receives the same list.
 3. the upload control labelled **Upload the signed copy** (Replace file when
    a file is there), the file name and View link as today.
 
-"Download to sign" with no applicant row opens **the details form** in a
-centred `<dialog>` (same pattern as `modal.tsx`: `showModal`, Esc, backdrop,
+"Download to sign" fetches the deed first: a `details_missing` answer opens
+the form, any other error is shown in the slot's message line, and a PDF is
+saved through a temporary download link, so the dashboard never navigates
+to a JSON error page. Once the signed copy is uploaded or approved the deed
+row (download, edit) is hidden. With no applicant row the button opens
+**the details form** in a centred `<dialog>` (same pattern as `modal.tsx`: `showModal`, Esc, backdrop,
 focus return). Fields in this order, one column: Full name (as in the
 passport), The deed refers to you as (radio: *She* / *He*, stored `f`/`m`),
 Place of birth, Date of birth, Passport number, Issuing authority, Date of

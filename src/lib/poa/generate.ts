@@ -36,6 +36,15 @@ const LEADING = { body: 12.6, paragraphGap: 8, itemGap: 6 };
 /** Hanging indent for the numbered and lettered clauses, wide enough for "1)" and "a)". */
 const ITEM_INDENT = 20;
 
+/**
+ * Space kept together for the end of a deed: the closing paragraph pair
+ * ("Fazendo fé" and its English), the gap for a handwritten signature, the
+ * rule and the printed name. Whatever the fields hold, the signature never
+ * sits alone on a page: if less than this remains, the closing block starts
+ * on a fresh one.
+ */
+const CLOSING_RESERVE = 150;
+
 const INK = rgb(0.05, 0.09, 0.15);
 const INK_SOFT = rgb(0.28, 0.33, 0.4);
 
@@ -145,6 +154,11 @@ class Layout {
     this.y -= height;
   }
 
+  /** Starts a new page unless at least `height` remains above the bottom margin. */
+  reserve(height: number) {
+    this.ensure(height);
+  }
+
   text(
     content: string,
     font: PDFFont,
@@ -191,7 +205,12 @@ class Layout {
 }
 
 function render(layout: Layout, blocks: PoaBlock[], fonts: Fonts) {
-  for (const block of blocks) {
+  // The last paragraph before the signature is the closing line; it and the
+  // signature are kept on the same page.
+  const closing = blocks.findIndex((block, i) => block.kind === "paragraph" && blocks[i + 1]?.kind === "signature");
+
+  blocks.forEach((block, i) => {
+    if (i === closing) layout.reserve(CLOSING_RESERVE);
     switch (block.kind) {
       case "title":
         layout.text(block.pt, fonts.bold, SIZE.title, { align: "center" });
@@ -220,7 +239,7 @@ function render(layout: Layout, blocks: PoaBlock[], fonts: Fonts) {
         layout.text(block.name, fonts.regular, SIZE.signature);
         break;
     }
-  }
+  });
 }
 
 /**

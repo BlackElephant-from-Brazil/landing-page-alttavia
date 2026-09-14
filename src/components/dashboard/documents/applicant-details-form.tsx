@@ -16,14 +16,19 @@ import type { ApplicantGender, UserServiceApplicantRow } from "@/lib/db/types";
  * Esc arrives as `cancel`, a click that starts and ends on the backdrop
  * closes, `body` scroll is locked while mounted, and the element that had
  * focus when the dialog opened (the slot's button) gets it back on unmount.
- * The dialog is `overflow-clip`; only the body scrolls.
+ * The dialog is `overflow-clip`; only the body scrolls. While a save is in
+ * flight nothing closes it: Esc, the backdrop and the X button wait for the
+ * request to finish (Chrome may close the element itself on a second Esc;
+ * the `close` handler reopens it in that case).
  *
  * With `initial` (the row already on this order) the fields open filled
  * from it and nothing is fetched. Without it, the dialog asks
  * GET /api/orders/[id]/applicants/[index] while the fields sit disabled
  * under a "Loading" line: a 200 fills them from the row, a 404 from the
- * `prefill` the route found on another order of the same account, so a
- * second purchase never asks for the passport twice.
+ * `prefill` the route found on an order for another service of the same
+ * account, so a second purchase never asks for the passport twice. A second
+ * order of the same service opens blank: it is for someone else, and the
+ * copy for applicant 0 says so rather than "your".
  *
  * Save PUTs the camelCase fields; a 422 shows the route's one line under
  * the form, a success hands the stored row to `onSaved` and the owner
@@ -54,11 +59,14 @@ type Props = {
 };
 
 const copy = {
-  title: ["Your details for the power of attorney", "Your partner's details for the power of attorney"] as const,
-  lead: "They are printed in the deed exactly as typed, so check them against the passport.",
+  title: ["Details for the power of attorney", "Your partner's details for the power of attorney"] as const,
+  lead: [
+    "They are printed in the deed exactly as typed, so check them against the passport. If this order is for someone else, enter that person's details.",
+    "They are printed in the deed exactly as typed, so check them against the passport.",
+  ] as const,
   loading: "Loading",
   fullName: "Full name (as in the passport)",
-  gender: ["The deed refers to you as", "The deed refers to your partner as"] as const,
+  gender: ["The deed refers to the person as", "The deed refers to your partner as"] as const,
   she: "She",
   he: "He",
   birthPlace: "Place of birth (city and country)",
@@ -230,8 +238,23 @@ export function ApplicantDetailsForm({
     onSaved(data.applicant);
   }
 
+  /** Esc. Ignored while saving: only the request finishing closes the dialog. */
   function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
     event.preventDefault();
+    if (pending) return;
+    onClose();
+  }
+
+  /**
+   * The element closed on its own (Chrome closes on a second Esc whatever
+   * `cancel` said). Mid save, put it back; otherwise treat it as a close.
+   */
+  function handleNativeClose() {
+    const dialog = ref.current;
+    if (pending) {
+      if (dialog && !dialog.open) dialog.showModal();
+      return;
+    }
     onClose();
   }
 
@@ -242,7 +265,13 @@ export function ApplicantDetailsForm({
   function handleBackdrop(event: MouseEvent<HTMLDialogElement>) {
     const pressed = pressedOnBackdrop.current;
     pressedOnBackdrop.current = false;
+    if (pending) return;
     if (pressed && event.target === event.currentTarget) onClose();
+  }
+
+  function handleClose() {
+    if (pending) return;
+    onClose();
   }
 
   const disabled = loading || pending;
@@ -253,6 +282,7 @@ export function ApplicantDetailsForm({
       aria-labelledby={titleId}
       aria-describedby={leadId}
       onCancel={handleCancel}
+      onClose={handleNativeClose}
       onMouseDown={handleBackdropDown}
       onClick={handleBackdrop}
       className="m-auto max-h-[calc(100dvh-2rem)] w-[min(38rem,calc(100vw-2rem))] overflow-clip rounded-lg border border-navy/10 bg-paper p-0 text-navy shadow-[var(--shadow-card)] backdrop:bg-navy/50 backdrop:backdrop-blur-[2px]"
@@ -264,14 +294,15 @@ export function ApplicantDetailsForm({
               {copy.title[applicantIndex]}
             </h2>
             <p id={leadId} className="mt-1.5 text-[0.9rem] leading-relaxed text-navy-soft">
-              {copy.lead}
+              {copy.lead[applicantIndex]}
             </p>
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
+            disabled={pending}
             aria-label={copy.close}
-            className="-mr-2 -mt-1 inline-flex size-10 shrink-0 items-center justify-center rounded-full text-navy-muted transition-colors duration-200 hover:bg-navy/5 hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            className="-mr-2 -mt-1 inline-flex size-10 shrink-0 items-center justify-center rounded-full text-navy-muted transition-colors duration-200 hover:bg-navy/5 hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-navy-muted"
           >
             <X className="size-5" aria-hidden />
           </button>
@@ -448,7 +479,7 @@ export function ApplicantDetailsForm({
             <Button type="submit" disabled={disabled} aria-describedby={error ? errorId : undefined}>
               {pending ? copy.saving : submitLabel}
             </Button>
-            <Button type="button" variant="ghost" onClick={onClose} disabled={pending}>
+            <Button type="button" variant="ghost" onClick={handleClose} disabled={pending}>
               {copy.cancel}
             </Button>
           </div>
