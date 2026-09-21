@@ -19,6 +19,7 @@ import type {
   ServiceRow,
   ServiceStageRow,
   UserDocumentRow,
+  UserServiceContractRow,
   UserServiceEventRow,
   UserServiceRow,
 } from "./types";
@@ -127,6 +128,22 @@ export async function getUserDocuments(db: Db, userServiceId: string): Promise<U
     .order("created_at", { ascending: true });
   if (error) fail("getUserDocuments", error);
   return (data ?? []) as UserDocumentRow[];
+}
+
+/**
+ * The service agreement prepared for an order, or null when there is none
+ * yet (docs/agreement-contract.md section 4). One row per order at most. The
+ * user client sees the row of its own orders only (RLS); the row is written
+ * by src/lib/contracts/ensure.ts and by nothing else.
+ */
+export async function getOrderContract(db: Db, userServiceId: string): Promise<UserServiceContractRow | null> {
+  const { data, error } = await db
+    .from("user_service_contracts")
+    .select("*")
+    .eq("user_service_id", userServiceId)
+    .maybeSingle();
+  if (error) fail("getOrderContract", error);
+  return (data as UserServiceContractRow | null) ?? null;
 }
 
 /** The stage history of an order, oldest first. */

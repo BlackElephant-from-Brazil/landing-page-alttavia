@@ -17,7 +17,7 @@
  * auto suggestions the key and slug fields follow until they are touched.
  */
 
-import type { DeliverableKind, PoaTemplate, ServiceWithConfig } from "@/lib/db/types";
+import type { ContractTemplate, DeliverableKind, PoaTemplate, ServiceWithConfig } from "@/lib/db/types";
 
 // ---------------------------------------------------------------------------
 // Payload (section 6)
@@ -60,6 +60,12 @@ export type ServiceBody = {
   currency: string;
   includes: string[];
   timeline: string | null;
+  /**
+   * The firm's contract model the service uses (docs/agreement-contract.md
+   * section 7); null for none. Always sent: the route reads a body without
+   * the key as none, so leaving it out would clear it on every save.
+   */
+  contract_template: ContractTemplate | null;
   stripe_price_id_test: string | null;
   stripe_price_id_live: string | null;
   stripe_payment_link_test: string | null;
@@ -118,6 +124,8 @@ export type ServiceDraft = {
   /** One item per line. */
   includes: string;
   timeline: string;
+  /** The service agreement the client receives after paying; null for none. */
+  contract_template: ContractTemplate | null;
   stripe_price_id_test: string;
   stripe_price_id_live: string;
   stripe_payment_link_test: string;
@@ -146,6 +154,19 @@ export const FIRST_STAGE_KEY = "awaiting_payment";
 export const DELIVERABLE_KINDS: readonly DeliverableKind[] = ["document", "report"];
 /** The deeds a document slot can generate, in the order the select offers them. */
 export const POA_TEMPLATES: readonly PoaTemplate[] = ["poa_nif", "poa_bank"];
+/** The firm's contract models a service can use, in the order the select offers them. */
+export const CONTRACT_TEMPLATES: readonly ContractTemplate[] = ["nif", "bank", "package"];
+/** How the admin screens name each model: the editor's select, the services table, the order modal. */
+export const CONTRACT_TEMPLATE_LABELS: Record<ContractTemplate, string> = {
+  nif: "NIF",
+  bank: "Bank account",
+  package: "NIF + Bank account package",
+};
+
+/** A select's value back to the model: anything that is not one of the three is none. */
+export function contractTemplateFromOption(value: string): ContractTemplate | null {
+  return (CONTRACT_TEMPLATES as readonly string[]).includes(value) ? (value as ContractTemplate) : null;
+}
 
 /**
  * The same lengths src/lib/orders/services-admin.ts enforces, so a field
@@ -258,6 +279,7 @@ export function emptyDraft(): ServiceDraft {
     currency: "eur",
     includes: "",
     timeline: "",
+    contract_template: null,
     stripe_price_id_test: "",
     stripe_price_id_live: "",
     stripe_payment_link_test: "",
@@ -294,6 +316,7 @@ export function draftFromService(service: ServiceWithConfig): ServiceDraft {
     currency: service.currency,
     includes: (Array.isArray(service.includes) ? service.includes : []).join("\n"),
     timeline: service.timeline ?? "",
+    contract_template: service.contract_template ?? null,
     stripe_price_id_test: service.stripe_price_id_test ?? "",
     stripe_price_id_live: service.stripe_price_id_live ?? "",
     stripe_payment_link_test: service.stripe_payment_link_test ?? "",
@@ -401,6 +424,7 @@ export const messages = {
   paymentLink: "Payment links start with https://.",
   kind: "Choose document or report.",
   template: "Choose a deed or none.",
+  contractTemplate: "Choose a contract or none.",
 } as const;
 
 function checkRowBasics(errors: DraftErrors, prefix: string, rows: RowBase[], minPosition: 0 | 1): void {
@@ -537,6 +561,10 @@ export function validateDraft(draft: ServiceDraft): ValidationResult {
   const position = parseInteger(draft.position);
   if (position === null) errors.position = messages.integer;
 
+  if (draft.contract_template !== null && !CONTRACT_TEMPLATES.includes(draft.contract_template)) {
+    errors.contract_template = messages.contractTemplate;
+  }
+
   const priceIdTest = nullable(draft.stripe_price_id_test);
   const priceIdLive = nullable(draft.stripe_price_id_live);
   if (priceIdTest && !priceIdTest.startsWith("price_")) errors.stripe_price_id_test = messages.priceId;
@@ -564,6 +592,7 @@ export function validateDraft(draft: ServiceDraft): ValidationResult {
       currency,
       includes,
       timeline: nullable(draft.timeline),
+      contract_template: draft.contract_template,
       stripe_price_id_test: priceIdTest,
       stripe_price_id_live: priceIdLive,
       stripe_payment_link_test: linkTest,
@@ -588,6 +617,7 @@ export function bodyFromService(service: ServiceWithConfig, active: boolean): Se
     currency: service.currency,
     includes: Array.isArray(service.includes) ? [...service.includes] : [],
     timeline: service.timeline,
+    contract_template: service.contract_template ?? null,
     stripe_price_id_test: service.stripe_price_id_test,
     stripe_price_id_live: service.stripe_price_id_live,
     stripe_payment_link_test: service.stripe_payment_link_test,

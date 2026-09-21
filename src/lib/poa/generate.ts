@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, type PDFFont } from "pdf-lib";
 
 import {
   buildPowerOfAttorney,
@@ -7,6 +7,7 @@ import {
   type SigningDate,
 } from "@/content/power-of-attorney";
 import type { PoaTemplate } from "@/lib/db/types";
+import { INK_SOFT, Layout, foldToPlain, transliterate } from "@/lib/pdf/layout";
 
 /**
  * Renders a power of attorney as a PDF.
@@ -18,11 +19,21 @@ import type { PoaTemplate } from "@/lib/db/types";
  *
  * Pure function over `Uint8Array`: no filesystem, no network, so it runs the
  * same in a script, in a route handler, or in a test.
+ *
+ * The page cursor, the word wrap and the folding of characters the fonts
+ * cannot encode live in src/lib/pdf/layout.ts, shared with the contracts.
+ * A deed folds typographic quotes and dashes to their plain forms
+ * (foldToPlain), as it always has.
+ *
+ * The principal's own fields are prepared before the deed is built
+ * (printable): a value holding a letter the fonts lack is spelled in plain
+ * ASCII letters throughout, as a passport's machine readable line would, so
+ * "Łukasz Żółć" prints "Lukasz Zolc" in the deed and in the service agreement
+ * alike, never half accented. It is done on the values, not inside the wrap,
+ * so the firm's wording is set exactly as before.
  */
 
-const A4 = { width: 595.28, height: 841.89 };
 const MARGIN = { top: 56, bottom: 52, left: 62, right: 62 };
-const CONTENT_WIDTH = A4.width - MARGIN.left - MARGIN.right;
 
 /**
  * Tuned so the NIF deed lands on a single A4 sheet, filled or blank, and the
@@ -45,164 +56,13 @@ const ITEM_INDENT = 20;
  */
 const CLOSING_RESERVE = 150;
 
-const INK = rgb(0.05, 0.09, 0.15);
-const INK_SOFT = rgb(0.28, 0.33, 0.4);
-
 /** The PDF subject line per deed, for the reader's document properties. */
 const SUBJECT: Record<PoaTemplate, string> = {
   poa_nif: "Atribuição de Número de Identificação Fiscal (NIF)",
   poa_bank: "Abertura de conta bancária em Portugal",
 };
 
-/**
- * The standard PDF fonts encode WinAnsi, which covers Portuguese accents but
- * not every character a word processor or a passport may have introduced.
- * Typographic quotes and dashes are folded to their plain forms first; any
- * other character outside WinAnsi is folded to its closest plain form (a
- * decomposed base letter, or a table entry for letters that do not
- * decompose), and what cannot be folded at all prints as "?" rather than
- * throwing halfway through a legal document. A "?" in a name is visible to
- * the client on download, so it gets corrected; a silently dropped letter
- * would not be.
- */
-const SUBSTITUTIONS: Record<string, string> = {
-  "‘": "'", "’": "'", "‚": "'", "′": "'",
-  "“": '"', "”": '"', "„": '"', "″": '"',
-  "–": "-", "—": "-", "−": "-",
-  "…": "...", "\u00A0": " ", "\u202F": " ", "\u2009": " ",
-  "•": "-", "\u00AD": "",
-};
-
-/** Letters outside Latin-1 that NFD cannot decompose, mapped to their usual plain form. */
-const PLAIN_LETTERS: Record<string, string> = {
-  "Ł": "L", "ł": "l", "Đ": "D", "đ": "d", "Ħ": "H", "ħ": "h", "ı": "i", "Ŧ": "T", "ŧ": "t",
-  "Ŀ": "L", "ŀ": "l", "Ø": "O", "ø": "o", "Œ": "OE", "œ": "oe", "Æ": "AE", "æ": "ae",
-};
-
-/** Printable ASCII, Latin-1 and the WinAnsi extras the standard fonts know. */
-const WIN_ANSI = /^[\x20-\x7E\xA0-\xFF€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]$/;
-
-function foldCharacter(char: string): string {
-  if (WIN_ANSI.test(char)) return char;
-  const plain = PLAIN_LETTERS[char];
-  if (plain !== undefined) return plain;
-  const decomposed = char.normalize("NFD").replace(/[\u0300-\u036F]/g, "");
-  if (decomposed !== char && decomposed.length > 0 && WIN_ANSI.test(decomposed)) return decomposed;
-  return "?";
-}
-
-function sanitize(text: string): string {
-  const folded = text.replace(/[\u00A0\u00AD\u2009\u202F–—‘’‚“”„•…′″−]/g, (c) => SUBSTITUTIONS[c] ?? "");
-  let out = "";
-  for (const char of folded) out += foldCharacter(char);
-  return out;
-}
-
 type Fonts = { regular: PDFFont; italic: PDFFont; bold: PDFFont };
-
-/** Splits `text` into lines that fit `width` at `size`. */
-function wrap(text: string, font: PDFFont, size: number, width: number): string[] {
-  const words = sanitize(text).split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let line = "";
-
-  for (const word of words) {
-    const candidate = line ? `${line} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) <= width) {
-      line = candidate;
-      continue;
-    }
-    if (line) lines.push(line);
-    // A single word longer than the column is broken rather than allowed to
-    // run off the page. Rare here, but a long address can do it.
-    if (font.widthOfTextAtSize(word, size) > width) {
-      let chunk = "";
-      for (const char of word) {
-        if (font.widthOfTextAtSize(chunk + char, size) > width) {
-          lines.push(chunk);
-          chunk = char;
-        } else {
-          chunk += char;
-        }
-      }
-      line = chunk;
-    } else {
-      line = word;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-/** Cursor over a growing document, adding pages as the content needs them. */
-class Layout {
-  private page: PDFPage;
-  private y: number;
-
-  constructor(private doc: PDFDocument) {
-    this.page = doc.addPage([A4.width, A4.height]);
-    this.y = A4.height - MARGIN.top;
-  }
-
-  private ensure(height: number) {
-    if (this.y - height >= MARGIN.bottom) return;
-    this.page = this.doc.addPage([A4.width, A4.height]);
-    this.y = A4.height - MARGIN.top;
-  }
-
-  gap(height: number) {
-    this.y -= height;
-  }
-
-  /** Starts a new page unless at least `height` remains above the bottom margin. */
-  reserve(height: number) {
-    this.ensure(height);
-  }
-
-  text(
-    content: string,
-    font: PDFFont,
-    size: number,
-    options: { indent?: number; color?: ReturnType<typeof rgb>; align?: "left" | "center" } = {},
-  ) {
-    const indent = options.indent ?? 0;
-    const width = CONTENT_WIDTH - indent;
-    for (const line of wrap(content, font, size, width)) {
-      this.ensure(LEADING.body);
-      const lineWidth = font.widthOfTextAtSize(line, size);
-      const x =
-        options.align === "center"
-          ? MARGIN.left + (CONTENT_WIDTH - lineWidth) / 2
-          : MARGIN.left + indent;
-      this.page.drawText(line, { x, y: this.y, size, font, color: options.color ?? INK });
-      this.y -= LEADING.body;
-    }
-  }
-
-  /** A numbered or lettered clause: the label sits in the margin, the text hangs indented. */
-  item(label: string, content: string, font: PDFFont, size: number, color = INK) {
-    const lines = wrap(content, font, size, CONTENT_WIDTH - ITEM_INDENT);
-    lines.forEach((line, i) => {
-      this.ensure(LEADING.body);
-      if (i === 0) {
-        this.page.drawText(sanitize(label), { x: MARGIN.left, y: this.y, size, font, color });
-      }
-      this.page.drawText(line, { x: MARGIN.left + ITEM_INDENT, y: this.y, size, font, color });
-      this.y -= LEADING.body;
-    });
-  }
-
-  rule(width: number) {
-    this.ensure(24);
-    this.page.drawLine({
-      start: { x: MARGIN.left, y: this.y },
-      end: { x: MARGIN.left + width, y: this.y },
-      thickness: 0.75,
-      color: INK_SOFT,
-    });
-    this.y -= LEADING.body;
-  }
-}
 
 function render(layout: Layout, blocks: PoaBlock[], fonts: Fonts) {
   // The last paragraph before the signature is the closing line; it and the
@@ -242,6 +102,28 @@ function render(layout: Layout, blocks: PoaBlock[], fonts: Fonts) {
   });
 }
 
+/** Every field of the principal but the gender: free text, or a date typed by hand. */
+const TEXT_FIELDS = [
+  "fullName",
+  "birthPlace",
+  "birthDate",
+  "passportNumber",
+  "passportIssuer",
+  "passportIssueDate",
+  "passportExpiryDate",
+  "taxAddress",
+] as const;
+
+/** The principal's fields as the deed prints them: see transliterate in src/lib/pdf/characters.ts. */
+export function printable(principal: PrincipalDetails): PrincipalDetails {
+  const out: PrincipalDetails = { ...principal };
+  for (const field of TEXT_FIELDS) {
+    const value = out[field];
+    if (typeof value === "string") out[field] = transliterate(value);
+  }
+  return out;
+}
+
 /**
  * Builds one deed. Called with only the kind it produces the blank template,
  * every field showing the model's own bracketed placeholder.
@@ -263,6 +145,12 @@ export async function generatePowerOfAttorney(
     bold: await doc.embedFont(StandardFonts.TimesRomanBold),
   };
 
-  render(new Layout(doc), buildPowerOfAttorney(kind, principal, signedOn), fonts);
+  const layout = new Layout(doc, {
+    margin: MARGIN,
+    leading: LEADING.body,
+    itemIndent: ITEM_INDENT,
+    fold: foldToPlain,
+  });
+  render(layout, buildPowerOfAttorney(kind, printable(principal), signedOn), fonts);
   return doc.save();
 }

@@ -1,7 +1,8 @@
 /**
- * The three emails a client gets from the admin area, as `{ subject, html,
- * text }` for src/lib/email/send.ts. Contract (docs/admin-contract.md)
- * section 4.
+ * The emails a client gets about an order, as `{ subject, html, text }` for
+ * src/lib/email/send.ts: two from the admin area (docs/admin-contract.md
+ * section 4) and the service agreement sent after payment
+ * (docs/agreement-contract.md section 5).
  *
  * Same visual language as the Supabase code email: Georgia, navy text, a
  * gold eyebrow, one button. Table based and inline styled because that is
@@ -168,5 +169,20 @@ export function orderCompleted(input: { serviceName: string; dashboardUrl: strin
       "Your documents and the final report are ready on your dashboard. Keep a copy of each one.",
     ],
     cta: { label: "See your documents", url: input.dashboardUrl },
+  });
+}
+
+/**
+ * The service agreement is ready. The PDF itself rides along as an attachment
+ * (the caller adds it); the button opens the order, where it stays available.
+ */
+export function serviceAgreement(input: { serviceName: string; dashboardUrl: string }): EmailContent {
+  return build("Your service agreement", {
+    eyebrow: "Your order",
+    heading: "Your service agreement",
+    paragraphs: [
+      `Your service agreement for ${input.serviceName} is attached to this email as a PDF. You can also open it from your order at any time.`,
+    ],
+    cta: { label: "See your order", url: input.dashboardUrl },
   });
 }

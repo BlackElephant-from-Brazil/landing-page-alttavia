@@ -4,6 +4,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, type MouseEvent, type SyntheticEvent } from "react";
 
+import { lockBodyScroll } from "@/components/ui/scroll-lock";
+
 /**
  * The centered `<dialog>` the order detail and the user detail open in.
  * Contract (docs/admin-contract.md) section 2: driven by the URL, so a
@@ -68,13 +70,8 @@ export function Modal({
     };
   }, []);
 
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, []);
+  // The shared counted lock, so a dialog opened from inside this one cannot leave the page locked.
+  useEffect(() => lockBodyScroll(), []);
 
   function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
     event.preventDefault();

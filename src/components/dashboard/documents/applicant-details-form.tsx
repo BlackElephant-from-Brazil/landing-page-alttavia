@@ -4,8 +4,11 @@ import { X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent, type SyntheticEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { lockBodyScroll } from "@/components/ui/scroll-lock";
 import { cn } from "@/lib/cn";
+import { MAX_SIGNING_PLACE_LENGTH, parseSigningPlace } from "@/lib/contracts/signing-place";
 import type { ApplicantGender, UserServiceApplicantRow } from "@/lib/db/types";
+import { validateApplicantInput } from "@/lib/orders/applicant-rules";
 
 /**
  * The principal's details a power of attorney is filled with, asked in a
@@ -33,6 +36,30 @@ import type { ApplicantGender, UserServiceApplicantRow } from "@/lib/db/types";
  * Save PUTs the camelCase fields; a 422 shows the route's one line under
  * the form, a success hands the stored row to `onSaved` and the owner
  * decides whether a download follows.
+ *
+ * `purpose: "contract"` is the same dialog asked by the service agreement
+ * card right after the payment (docs/agreement-contract.md section 6): its
+ * own title and lead, the same nine fields with the same prefill, a read
+ * only line with the account's address, the optional "City and country you
+ * are in today" and the button "Confirm and open my agreement". Submit opens
+ * a blank tab first, inside the submit handler and before any await, so no
+ * popup blocker steps in; then PUTs the details, POSTs
+ * /api/orders/[id]/contract with the place, points the tab at the agreement
+ * and tells the owner through `onPrepared`, which closes the dialog. Any
+ * refusal closes the blank tab and shows its one line under the form. A
+ * browser that refused the tab still finishes: `tabOpened` is false and the
+ * card says where to open the agreement.
+ *
+ * Before anything is opened or sent, in both variants, the form runs the
+ * route's own rules (src/lib/orders/applicant-rules.ts, and
+ * src/lib/contracts/signing-place.ts for the place): lengths, She or He, real
+ * dates, an adult, a current passport by Lisbon's calendar, letters the
+ * documents can print. A failure shows the same one line the route would
+ * answer, under the form, and no tab is opened. The route validates again.
+ *
+ * `body` scroll is locked through the shared counted lock
+ * (src/components/ui/scroll-lock.ts), because this dialog opens inside the
+ * order modal, which holds a lock of its own.
  */
 
 export type ApplicantFields = {
@@ -47,22 +74,41 @@ export type ApplicantFields = {
   taxAddress: string;
 };
 
-type Props = {
+type BaseProps = {
   userServiceId: string;
   applicantIndex: 0 | 1;
   /** The row on this order, when there is one: the form opens filled from it. */
   initial: UserServiceApplicantRow | null;
+  onClose: () => void;
+};
+
+/** The default: a deed slot asking for the principal's details. */
+type DeedProps = BaseProps & {
+  purpose?: "deed";
   /** The primary button. "Save" by default; the slot says "Save and download" when a download follows. */
   submitLabel?: string;
-  onClose: () => void;
   onSaved: (row: UserServiceApplicantRow) => void;
 };
+
+/** The service agreement card asking for the same details, then preparing and opening the agreement. */
+type ContractProps = BaseProps & {
+  purpose: "contract";
+  /** The account's address, shown read only: where the agreement is sent. */
+  accountEmail: string;
+  /** The agreement is ready. `tabOpened` is false when the browser refused the new tab or the client closed it. */
+  onPrepared: (outcome: { tabOpened: boolean }) => void;
+};
+
+type Props = DeedProps | ContractProps;
+
+/** The route's code for "applicant 0 has no details", which is not a sentence to show. */
+const DETAILS_MISSING = "details_missing";
 
 const copy = {
   title: ["Details for the power of attorney", "Your partner's details for the power of attorney"] as const,
   lead: [
-    "They are printed in the deed exactly as typed, so check them against the passport. If this order is for someone else, enter that person's details.",
-    "They are printed in the deed exactly as typed, so check them against the passport.",
+    "They are printed in the deed as typed, so check them against the passport. Accents our documents cannot print are left out. If this order is for someone else, enter that person's details.",
+    "They are printed in the deed as typed, so check them against the passport. Accents our documents cannot print are left out.",
   ] as const,
   loading: "Loading",
   fullName: "Full name (as in the passport)",
@@ -82,6 +128,18 @@ const copy = {
   close: "Close",
   errors: {
     generic: "Something did not work. Try again.",
+  },
+  contract: {
+    title: "Your details for the service agreement",
+    lead: "They are printed in the agreement and in the power of attorney as typed, so check them against the passport. Accents our documents cannot print are left out. If this order is for someone else, enter that person's details.",
+    gender: "The documents refer to the person as",
+    sentTo: "Your agreement is sent to",
+    place: "City and country you are in today",
+    placeHint: "Optional. It is printed next to the date in the annex. Leave it blank to write it in by hand.",
+    submit: "Confirm and open my agreement",
+    preparing: "Preparing your agreement",
+    tabTitle: "Your service agreement",
+    tabBody: "Preparing your service agreement. It opens here in a moment.",
   },
 } as const;
 
@@ -139,14 +197,86 @@ function errorMessage(data: unknown): string {
     : copy.errors.generic;
 }
 
-export function ApplicantDetailsForm({
-  userServiceId,
-  applicantIndex,
-  initial,
-  submitLabel = copy.save,
-  onClose,
-  onSaved,
-}: Props) {
+/**
+ * What the route would refuse, refused in the browser first with the same one
+ * line: the rules are one pure module both sides run (applicant-rules.ts, and
+ * signing-place.ts for the agreement's optional place). Null when nothing is
+ * wrong. The route still validates; this only spares a request and, for the
+ * agreement, a blank tab that would open and close again.
+ */
+function predictedRefusal(fields: ApplicantFields, signingPlace: string | null): string | null {
+  const details = validateApplicantInput(fields);
+  if (!details.ok) return details.message;
+  if (signingPlace === null) return null;
+  const place = parseSigningPlace(signingPlace);
+  return place.ok ? null : place.message;
+}
+
+/**
+ * The blank tab the agreement lands in. It has to be opened while the submit
+ * event is still the browser's user gesture, so before the first await; null
+ * when the browser refused it. The tab forgets who opened it and says what
+ * it is waiting for, since preparing the PDF takes a few seconds.
+ */
+function openPendingTab(): Window | null {
+  let tab: Window | null = null;
+  try {
+    tab = window.open("", "_blank");
+  } catch {
+    return null;
+  }
+  if (!tab) return null;
+  try {
+    tab.opener = null;
+    tab.document.title = copy.contract.tabTitle;
+    tab.document.body.style.cssText = "margin:3rem;font:1rem/1.6 Georgia,serif;color:#0E2A47;background:#FAFAF7";
+    tab.document.body.textContent = copy.contract.tabBody;
+  } catch {
+    // A tab that will not take the line still takes the agreement.
+  }
+  return tab;
+}
+
+function closeTab(tab: Window | null) {
+  try {
+    tab?.close();
+  } catch {
+    // Nothing to do: the tab is the browser's now.
+  }
+}
+
+/** Points the waiting tab at the agreement. False when there is no tab to point: refused, or closed meanwhile. */
+function showAgreementIn(tab: Window | null, userServiceId: string): boolean {
+  if (!tab || tab.closed) return false;
+  try {
+    tab.location.replace(new URL(`/api/orders/${userServiceId}/contract`, window.location.origin).href);
+    return true;
+  } catch {
+    closeTab(tab);
+    return false;
+  }
+}
+
+/** Asks the route to prepare the agreement. Null when it is ready, else the one line to show. */
+async function prepareAgreement(userServiceId: string, signingPlace: string): Promise<string | null> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/orders/${userServiceId}/contract`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ signingPlace: signingPlace.trim() }),
+    });
+  } catch {
+    return copy.errors.generic;
+  }
+  if (response.ok) return null;
+  const message = errorMessage(await response.json().catch(() => null));
+  return message === DETAILS_MISSING ? copy.errors.generic : message;
+}
+
+export function ApplicantDetailsForm(props: Props) {
+  const { userServiceId, applicantIndex, initial, onClose } = props;
+  const forContract = props.purpose === "contract";
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const pressedOnBackdrop = useRef(false);
@@ -154,9 +284,13 @@ export function ApplicantDetailsForm({
   const titleId = `${id}-title`;
   const leadId = `${id}-lead`;
   const errorId = `${id}-error`;
+  const placeId = `${id}-signingPlace`;
+  const placeHintId = `${id}-signingPlace-hint`;
   const field = (name: keyof ApplicantFields) => `${id}-${name}`;
 
   const [fields, setFields] = useState<ApplicantFields>(() => (initial ? fromRow(initial) : blank()));
+  /** Contract only: Annex I's place, optional. */
+  const [signingPlace, setSigningPlace] = useState("");
   const [loading, setLoading] = useState(initial === null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -174,13 +308,9 @@ export function ApplicantDetailsForm({
     };
   }, []);
 
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, []);
+  // Counted with the order modal's own lock: this dialog opens inside it, and
+  // when both unmount in one commit the page must end up scrolling again.
+  useEffect(() => lockBodyScroll(), []);
 
   // Without a row on this order, ask the route: it answers with the row if
   // one appeared meanwhile, or with the newest one from another order.
@@ -214,6 +344,21 @@ export function ApplicantDetailsForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending || loading) return;
+    // Nothing is opened or sent for details the route is sure to refuse.
+    const predicted = predictedRefusal(fields, props.purpose === "contract" ? signingPlace : null);
+    if (predicted) {
+      setError(predicted);
+      return;
+    }
+    // Contract only, and before any await: a tab opened now still belongs to
+    // the click, so no popup blocker steps in.
+    const tab = props.purpose === "contract" ? openPendingTab() : null;
+    const refuse = (message: string) => {
+      closeTab(tab);
+      setError(message);
+      setPending(false);
+    };
+
     setError(null);
     setPending(true);
     let response: Response;
@@ -224,18 +369,26 @@ export function ApplicantDetailsForm({
         body: JSON.stringify(fields),
       });
     } catch {
-      setError(copy.errors.generic);
-      setPending(false);
+      refuse(copy.errors.generic);
       return;
     }
     const data = (await response.json().catch(() => null)) as { applicant?: unknown } | null;
     if (!response.ok || !isRow(data?.applicant)) {
-      setError(response.ok ? copy.errors.generic : errorMessage(data));
-      setPending(false);
+      refuse(response.ok ? copy.errors.generic : errorMessage(data));
       return;
     }
-    // The owner unmounts this dialog; nothing to reset here.
-    onSaved(data.applicant);
+    // From here on the owner unmounts this dialog; nothing to reset.
+    if (props.purpose !== "contract") {
+      props.onSaved(data.applicant);
+      return;
+    }
+
+    const refusal = await prepareAgreement(userServiceId, signingPlace);
+    if (refusal) {
+      refuse(refusal);
+      return;
+    }
+    props.onPrepared({ tabOpened: showAgreementIn(tab, userServiceId) });
   }
 
   /** Esc. Ignored while saving: only the request finishing closes the dialog. */
@@ -275,6 +428,17 @@ export function ApplicantDetailsForm({
   }
 
   const disabled = loading || pending;
+  const title = forContract ? copy.contract.title : copy.title[applicantIndex];
+  const lead = forContract ? copy.contract.lead : copy.lead[applicantIndex];
+  const genderLegend = forContract ? copy.contract.gender : copy.gender[applicantIndex];
+  const submitText =
+    props.purpose === "contract"
+      ? pending
+        ? copy.contract.preparing
+        : copy.contract.submit
+      : pending
+        ? copy.saving
+        : (props.submitLabel ?? copy.save);
 
   return (
     <dialog
@@ -291,10 +455,10 @@ export function ApplicantDetailsForm({
         <header className="flex items-start justify-between gap-4 border-b border-navy/10 bg-white px-6 py-5 sm:px-8">
           <div className="min-w-0 flex-1">
             <h2 id={titleId} className="font-serif text-xl leading-snug text-navy">
-              {copy.title[applicantIndex]}
+              {title}
             </h2>
             <p id={leadId} className="mt-1.5 text-[0.9rem] leading-relaxed text-navy-soft">
-              {copy.lead[applicantIndex]}
+              {lead}
             </p>
           </div>
           <button
@@ -337,7 +501,7 @@ export function ApplicantDetailsForm({
               </div>
 
               <fieldset>
-                <legend className={labelClass}>{copy.gender[applicantIndex]}</legend>
+                <legend className={labelClass}>{genderLegend}</legend>
                 <div className="mt-2 flex flex-wrap gap-3">
                   <label className={radioClass}>
                     <input
@@ -466,6 +630,37 @@ export function ApplicantDetailsForm({
                   className={cn(inputClass, "mt-2 py-3 leading-relaxed")}
                 />
               </div>
+
+              {props.purpose === "contract" && (
+                <>
+                  <p className="rounded-sm border border-navy/10 bg-white px-4 py-3 text-[0.9rem] leading-relaxed text-navy-soft">
+                    {copy.contract.sentTo} <span className="break-words font-medium text-navy">{props.accountEmail}</span>
+                  </p>
+
+                  <div>
+                    <label htmlFor={placeId} className={labelClass}>
+                      {copy.contract.place}
+                    </label>
+                    <input
+                      id={placeId}
+                      type="text"
+                      autoComplete="off"
+                      autoCapitalize="words"
+                      maxLength={MAX_SIGNING_PLACE_LENGTH}
+                      value={signingPlace}
+                      onChange={(e) => {
+                        setSigningPlace(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      aria-describedby={placeHintId}
+                      className={cn(inputClass, "mt-2 h-12")}
+                    />
+                    <p id={placeHintId} className="mt-2 text-[0.82rem] leading-relaxed text-navy-muted">
+                      {copy.contract.placeHint}
+                    </p>
+                  </div>
+                </>
+              )}
             </fieldset>
 
             {error && (
@@ -477,7 +672,7 @@ export function ApplicantDetailsForm({
 
           <div className="flex flex-wrap items-center gap-3 border-t border-navy/10 bg-white px-6 py-4 sm:px-8">
             <Button type="submit" disabled={disabled} aria-describedby={error ? errorId : undefined}>
-              {pending ? copy.saving : submitLabel}
+              {submitText}
             </Button>
             <Button type="button" variant="ghost" onClick={handleClose} disabled={pending}>
               {copy.cancel}

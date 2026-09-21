@@ -407,6 +407,8 @@ function fallbackService(product: Product, position: number, cents: number): Ser
     currency: "eur",
     includes: [...product.includes],
     timeline: product.time,
+    // A fallback row never claims a contract the database did not confirm.
+    contract_template: null,
     stripe_price_id_test: null,
     stripe_price_id_live: null,
     stripe_payment_link_test: null,

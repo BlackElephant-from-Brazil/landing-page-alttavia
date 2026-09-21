@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "poa:preview": "tsx scripts/poa-preview.mjs",
+    "contracts:generate": "node scripts/generate-contracts.mjs",
+    "contract:preview": "tsx scripts/contract-preview.mjs",
     "stripe:setup": "node scripts/stripe-setup.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "admin:create": "node scripts/create-admin.mjs"

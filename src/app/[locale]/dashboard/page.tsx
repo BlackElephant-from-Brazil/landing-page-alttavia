@@ -149,7 +149,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
         </div>
       </section>
 
-      <OrderModal orderId={orderId} userId={user.id} />
+      <OrderModal orderId={orderId} userId={user.id} email={user.email} />
     </div>
   );
 }

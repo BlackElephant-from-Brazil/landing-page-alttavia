@@ -3,8 +3,9 @@ import { Pencil } from "lucide-react";
 
 import { formatEuro } from "@/content/bank-nif";
 import { cn } from "@/lib/cn";
-import type { ServiceWithConfig } from "@/lib/db/types";
+import type { ContractTemplate, ServiceWithConfig } from "@/lib/db/types";
 
+import { CONTRACT_TEMPLATE_LABELS } from "./editor-model";
 import { servicePath } from "./paths";
 import { StatusBadge } from "./service-editor";
 
@@ -76,6 +77,7 @@ export function ServiceTable({ services }: { services: ServiceWithConfig[] }) {
                     {service.name}
                   </Link>
                   {service.tagline && <span className="mt-0.5 block text-[0.8rem] font-normal text-navy-muted">{service.tagline}</span>}
+                  <AgreementHint template={service.contract_template} />
                 </td>
                 <td className={cn(cellClass, "whitespace-nowrap font-mono text-[0.82rem] text-navy-soft")}>{service.slug}</td>
                 <td className={cn(cellClass, "whitespace-nowrap text-right font-serif text-[1.05rem] text-navy")}>
@@ -106,6 +108,16 @@ export function ServiceTable({ services }: { services: ServiceWithConfig[] }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** "Agreement: NIF" under the name, when the service has a contract the client receives after paying. */
+function AgreementHint({ template }: { template: ContractTemplate | null }) {
+  if (!template) return null;
+  return (
+    <span className="mt-0.5 block text-[0.75rem] font-normal text-navy-muted">
+      Agreement: {CONTRACT_TEMPLATE_LABELS[template]}
+    </span>
   );
 }
 

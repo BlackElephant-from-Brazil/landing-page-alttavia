@@ -1,5 +1,6 @@
 import { Download, FileText } from "lucide-react";
 
+import { contractDrift } from "@/content/contracts/variables";
 import { formatDeedDate } from "@/content/power-of-attorney";
 import { getOrderDetail } from "@/lib/db/admin-queries";
 import type {
@@ -17,10 +18,12 @@ import { Pill } from "./data-table";
 import { formatBytesShort, formatDate, formatDateTime, formatEuro, humanizeKey } from "./lib/format";
 import { isUuid } from "./lib/params";
 import { Modal } from "./modal";
+import { ContractActions } from "./order/contract-actions";
 import { DeliverableUpload } from "./order/deliverable-upload";
 import { DocumentReview } from "./order/document-review";
 import { ReportForm } from "./order/report-form";
 import { StageControls } from "./order/stage-controls";
+import { CONTRACT_TEMPLATE_LABELS } from "./services/editor-model";
 
 /**
  * The order detail, opened by `?order=<id>` on the overview and on the
@@ -47,6 +50,26 @@ const copy = {
   downloadDeed: "Download deed",
   deedDetails: "Details for the deeds",
   noDetails: "The client has not entered their details yet.",
+  agreement: {
+    heading: "Service agreement",
+    notRequired: "Not required",
+    notRequiredBody: "This service has no contract, so nothing is prepared or asked.",
+    unpaid: "After payment",
+    unpaidBody: "The agreement is prepared once the order is paid and the client confirms their details.",
+    waiting: "Waiting for the client's details",
+    waitingBody: "The client confirms their details on the order and the agreement is prepared and emailed at once.",
+    waitingWithDetails:
+      "The client entered their details for a deed but has not confirmed them for the agreement yet. It can be prepared from those details.",
+    prepared: "Prepared",
+    version: (n: number) => `version ${n}`,
+    preparedOn: (when: string) => `Prepared ${when}`,
+    emailedOn: (when: string) => `Emailed ${when}`,
+    notEmailed: "Not emailed yet",
+    drifted:
+      "The client changed their details after this version was prepared. Regenerate and resend to bring the agreement in line.",
+    download: "Download",
+    downloadLabel: "Download the service agreement",
+  },
   deliverables: "Deliverables",
   report: "Report",
   answers: "Answers from the form",
@@ -70,6 +93,7 @@ export async function OrderModal({ orderId }: { orderId: string | undefined }) {
       <div className="space-y-10">
         <StageSection detail={detail} />
         <DocumentsSection detail={detail} />
+        <AgreementSection detail={detail} />
         <DeliverablesSection detail={detail} />
         <ReportSection detail={detail} />
         <AnswersSection detail={detail} />
@@ -410,6 +434,116 @@ function DocumentLine({ doc, compact }: { doc: UserDocumentRow; compact?: boolea
         </a>
       )}
     </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Service agreement
+// ---------------------------------------------------------------------------
+
+/**
+ * The order's service agreement (docs/agreement-contract.md section 7):
+ * where it stands, the stored PDF and "Regenerate and resend".
+ *
+ * Four states, the heading's aside names the one in force: not required (the
+ * service has no contract), after payment, waiting for the client's details,
+ * prepared (with its version and when it was emailed). An agreement that
+ * exists wins over everything else, so one prepared before the service lost
+ * its contract still shows and can be regenerated with the model it was made
+ * from.
+ *
+ * The action shows only when the route could act: the order is paid and
+ * applicant 0's details exist. With details on the order and no agreement
+ * yet (the client typed them for a deed and left the agreement form), the
+ * same route prepares the first version. The action keeps its place in the
+ * tree in both cases, so its result line survives the refresh that turns
+ * "Prepare and send" into "Regenerate and resend".
+ *
+ * The client can still change applicant 0 after the agreement exists ("Edit
+ * your details" on a deed slot): the deeds then print the new details and
+ * the agreement keeps the old ones. An amber line above the action says so
+ * whenever what the stored version printed differs from what the details
+ * would print today (contractDrift). It is a hint only: the client's save is
+ * never blocked and nothing is regenerated without the firm's click.
+ */
+function AgreementSection({ detail }: { detail: AdminOrderDetail }) {
+  const { order, service, contract } = detail;
+  const text = copy.agreement;
+  const paid = !!order.paid_at;
+  const expected = service.contract_template !== null;
+  const detailsEntered = hasDetails(detail, 0);
+  const state = contract ? text.prepared : !expected ? text.notRequired : !paid ? text.unpaid : text.waiting;
+  const canPrepare = paid && detailsEntered && (contract !== null || expected);
+  // Values against values, never timestamps: the row's updated_at moves on every save, changed or not.
+  const drifted =
+    contract !== null &&
+    contractDrift(contract.variables, contract.template, detail.applicants.find((a) => a.applicant_index === 0) ?? null)
+      .length > 0;
+
+  return (
+    <section aria-labelledby="order-agreement-heading">
+      <SectionHeading id="order-agreement-heading" aside={state}>
+        {text.heading}
+      </SectionHeading>
+
+      {contract ? (
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 rounded-lg border border-navy/10 bg-white px-4 py-4">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-navy">
+              {CONTRACT_TEMPLATE_LABELS[contract.template]}
+              <span className="ml-2 text-[0.75rem] font-normal text-navy-muted">{text.version(contract.version)}</span>
+            </p>
+            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.85rem] text-navy-soft">
+              <span className="inline-flex min-w-0 items-center gap-1.5">
+                <FileText className="size-3.5 shrink-0 text-gold-dark" aria-hidden />
+                <span className="truncate">{contract.file_name}</span>
+              </span>
+              <span className="text-navy-muted">{formatBytesShort(contract.size_bytes)}</span>
+            </p>
+            <p className="mt-1 text-[0.82rem] text-navy-muted">
+              {text.preparedOn(formatDateTime(contract.generated_at))}
+              {" · "}
+              {contract.emailed_at ? text.emailedOn(formatDateTime(contract.emailed_at)) : text.notEmailed}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1">
+            <a
+              href={`/api/orders/${order.id}/contract?download=1`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={text.downloadLabel}
+              className="inline-flex items-center gap-1 rounded-sm text-[0.85rem] font-medium text-navy underline-offset-4 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <Download className="size-3.5" aria-hidden />
+              {text.download}
+            </a>
+            <Pill tone={contract.emailed_at ? "green" : "amber"}>{contract.emailed_at ? "Emailed" : "Not emailed"}</Pill>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 max-w-prose text-[0.9rem] leading-relaxed text-navy-muted">
+          {!expected
+            ? text.notRequiredBody
+            : !paid
+              ? text.unpaidBody
+              : detailsEntered
+                ? text.waitingWithDetails
+                : text.waitingBody}
+        </p>
+      )}
+
+      {/* Always a child, shown or not, so the action below keeps its place in the tree. */}
+      {drifted && (
+        <p
+          role="status"
+          className="mt-3 max-w-prose rounded-sm border border-[#B5731A]/30 bg-[#B5731A]/10 px-4 py-3 text-[0.85rem] leading-relaxed text-[#9A5F0F]"
+        >
+          {text.drifted}
+        </p>
+      )}
+
+      {canPrepare && <ContractActions orderId={order.id} exists={contract !== null} />}
+    </section>
   );
 }
 

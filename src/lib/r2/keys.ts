@@ -103,6 +103,18 @@ export function sanitizeFileName(name: string): string {
   return base.slice(0, MAX_FILE_NAME_LENGTH - ext.length).trimEnd() + ext;
 }
 
+/**
+ * A Content-Disposition value that carries a file name safely: a plain ASCII
+ * `filename=` every client understands (no quote, no backslash, nothing
+ * outside printable ASCII, so nothing typed into a name can break out of the
+ * header) and an RFC 5987 `filename*=` with the name as it really is. Used
+ * for the presigned downloads and for the agreement the server streams.
+ */
+export function contentDisposition(disposition: "inline" | "attachment", fileName: string): string {
+  const ascii = fileName.replace(/[^\x20-\x7e]/g, "").replace(/["\\]/g, "") || "file";
+  return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+}
+
 /** "10 MB", "500 KB". Whole numbers, no decimals, for the messages below. */
 export function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${Math.round(bytes / (1024 * 1024))} MB`;

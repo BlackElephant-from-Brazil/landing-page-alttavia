@@ -35,6 +35,7 @@ import type {
   UserFilters,
   UserRow,
   UserServiceApplicantRow,
+  UserServiceContractRow,
   UserServiceDeliverableRow,
   UserServiceEventRow,
   UserServiceRow,
@@ -161,7 +162,7 @@ export async function getOrderDetail(db: Db, id: string): Promise<AdminOrderDeta
   const order = orderData as UserServiceRow | null;
   if (!order) return null;
 
-  const [user, service, stages, docs, documents, events, applicants, templates, files, questions] =
+  const [user, service, stages, docs, documents, events, applicants, contract, templates, files, questions] =
     await Promise.all([
       db.from("users").select("id, email, full_name, phone").eq("id", order.user_id).maybeSingle(),
       db.from("services").select("*").eq("id", order.service_id).maybeSingle(),
@@ -170,6 +171,7 @@ export async function getOrderDetail(db: Db, id: string): Promise<AdminOrderDeta
       db.from("user_documents").select("*").eq("user_service_id", order.id).order("created_at"),
       db.from("user_service_events").select("*").eq("user_service_id", order.id).order("created_at"),
       db.from("user_service_applicants").select("*").eq("user_service_id", order.id).order("applicant_index"),
+      db.from("user_service_contracts").select("*").eq("user_service_id", order.id).maybeSingle(),
       db.from("service_deliverables").select("*").eq("service_id", order.service_id).order("position"),
       db.from("user_service_deliverables").select("*").eq("user_service_id", order.id).order("created_at"),
       db.from("questions").select("*").eq("active", true).order("position"),
@@ -183,6 +185,7 @@ export async function getOrderDetail(db: Db, id: string): Promise<AdminOrderDeta
     ["documents", documents],
     ["events", events],
     ["applicants", applicants],
+    ["contract", contract],
     ["deliverable templates", templates],
     ["deliverables", files],
   ] as const) {
@@ -206,6 +209,7 @@ export async function getOrderDetail(db: Db, id: string): Promise<AdminOrderDeta
     documents: (documents.data ?? []) as UserDocumentRow[],
     events: (events.data ?? []) as UserServiceEventRow[],
     applicants: (applicants.data ?? []) as UserServiceApplicantRow[],
+    contract: (contract.data as UserServiceContractRow | null) ?? null,
     deliverables: {
       templates: (templates.data ?? []) as ServiceDeliverableRow[],
       files: (files.data ?? []) as UserServiceDeliverableRow[],

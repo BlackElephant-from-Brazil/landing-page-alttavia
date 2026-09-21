@@ -54,6 +54,16 @@ Read before writing any code:
 - **No pendencies or notes** (2026-09-14). `user_service_notes`, its routes,
   its email and its panels were removed; `user_service_events.note` and
   `user_services.report` stay.
+- **Service agreement after payment** (2026-09-21,
+  `0009_service_contracts.sql`, `docs/agreement-contract.md`). A service
+  names one of the firm's three contract models in
+  `services.contract_template` (`nif`, `bank`, `package`; null for none, as
+  the couple package has today). On a paid order the client confirms their
+  details, the server generates the PDF once, stores it in R2, records it in
+  `user_service_contracts` and emails it. Nothing on the payment path
+  (`markOrderPaid`, `confirmCheckoutSession`, the webhook) calls the
+  contract module: a contract hook must not be able to turn a payment into
+  a 500. In client facing copy the feature is the "service agreement".
 - **Auth is Supabase email OTP**, 6 digits, 10 minutes, sent through Resend
   SMTP from `Alttavia Relocation <hello@send.alttavia-relocation.com>`. Both
   Supabase templates (Confirm signup and Magic Link) already contain
@@ -176,6 +186,9 @@ create table public.services (
   includes                  jsonb not null default '[]'::jsonb,   -- string[]
   timeline                  text,
   -- supports_quantity was here until 0007: one unit per purchase, no flag.
+  -- 0009: the firm's contract model the service uses; null for a service
+  -- with no contract (nothing is generated, nothing is asked).
+  contract_template         text check (contract_template in ('nif','bank','package')),
   stripe_price_id_test      text,
   stripe_price_id_live      text,
   stripe_payment_link_test  text,
@@ -314,6 +327,23 @@ create table public.user_service_applicants (
   updated_at           timestamptz not null default now(),
   unique (user_service_id, applicant_index)
 );
+
+-- 0009. The service agreement of an order, one row per order at most.
+-- Written only by src/lib/contracts/ensure.ts through the admin client.
+create table public.user_service_contracts (
+  id               uuid primary key default gen_random_uuid(),
+  user_service_id  uuid not null unique references public.user_services(id) on delete cascade,
+  template         text not null check (template in ('nif','bank','package')),
+  version          integer not null default 1 check (version >= 1),
+  storage_key      text not null unique,        -- contracts/{orderId}/v{version}.pdf
+  file_name        text not null,               -- service-agreement-<template>-<name>.pdf
+  size_bytes       integer not null check (size_bytes > 0),
+  variables        jsonb not null,              -- token -> value, exactly what was printed
+  generated_at     timestamptz not null default now(),
+  emailed_at       timestamptz,                 -- null until the sender accepted the email
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
 ```
 
 Also `create table public.schema_migrations (name text primary key, applied_at timestamptz not null default now());`
@@ -339,6 +369,12 @@ remains), so RLS is no longer the only thing between a client and a write.
 `service_docs.template` and `user_service_applicants`, re-aligns the bundle
 and couple stages, documents and deliverables with NIF only and Bank Account
 only, and appends a deed slot to every service (section "Seeds" below).
+`0009_service_contracts.sql` (2026-09-21, `docs/agreement-contract.md`
+section 4) is additive: the nullable `services.contract_template`, set to
+`nif` on `nif-only`, `bank` on `bank-only` and `package` on `bundle`
+(`couple` stays null, the firm has no model for two parties), and the table
+`user_service_contracts` with its `set_updated_at` trigger, RLS and the
+write grants revoked as in 0006. The migrations run from `0001` to `0009`.
 
 ### Row level security
 
@@ -354,9 +390,10 @@ Enable RLS on every table above. Policies, and nothing beyond them:
 | user_documents | none | `select` where the order is own |
 | user_service_deliverables | none | `select` where the order is own |
 | user_service_applicants (0007) | none | `select` where the order is own; admins `select` all through `public.is_admin()`; all write grants revoked, so nothing is written through PostgREST |
+| user_service_contracts (0009) | none (every grant revoked) | `select` where the order is own (`user_service_contracts_select_own`); admins `select` all through `public.is_admin()` (`user_service_contracts_select_admin`); only `select` is granted, so nothing is written through PostgREST |
 
 All inserts and updates on `user_answers`, `user_services`, `user_documents`,
-`user_service_events`, `user_service_applicants` happen through the admin client in route handlers,
+`user_service_events`, `user_service_applicants`, `user_service_contracts` happen through the admin client in route handlers,
 after the handler has checked the session. "Own" for child tables is
 `exists (select 1 from public.user_services s where s.id = user_service_id and s.user_id = auth.uid())`.
 
@@ -508,6 +545,43 @@ src/app/api/orders/[id]/poa/[docId]/route.ts          GET (section 8)
 src/components/dashboard/documents/applicant-details-form.tsx   the nine field dialog (section 10)
 ```
 
+Agreement round (2026-09-21, `docs/agreement-contract.md`):
+
+```
+supabase/migrations/0009_service_contracts.sql   services.contract_template, user_service_contracts
+docs/terms/*.docx                           the firm's four models (NIF, bank account, package, Annex I)
+scripts/generate-contracts.mjs              npm run contracts:generate (-- --check exits 1 when stale,
+                                            -- --stdout prints): reads the .docx files, no dependency
+src/content/contracts/models.generated.ts   GENERATED, never edited by hand: CONTRACT_MODELS (nif, bank,
+                                            package, annex), CONTRACT_MODEL_FILES, ContractBlock
+src/content/contracts/variables.ts          FIRM_CONSTANTS, KNOWN_TOKENS, buildContractValues,
+                                            contractServiceLabel, contractFileName, ContractValues
+src/lib/pdf/layout.ts                       A4 page cursor, word wrap, hanging indents, WinAnsi folding;
+                                            shared by src/lib/poa/generate.ts and the contracts
+src/lib/contracts/generate.ts               generateContractPdf(template, values, { reference? }) -> PDF bytes
+src/lib/contracts/words.ts                  euroAmount(cents), euroWords(cents)
+src/lib/contracts/ensure.ts                 contractState, parseSigningPlace, contractStorageKey,
+                                            ensureContract, regenerateContract, ContractError
+scripts/contract-preview.mjs                npm run contract:preview (-- --bank | --package, -- --filled)
+src/app/api/orders/[id]/contract/route.ts   POST, GET (section 8)
+src/app/api/admin/orders/[id]/contract/route.ts   POST, regenerate (docs/admin-contract.md section 6)
+src/components/dashboard/contract/contract-gate.tsx   client: the card under "Payment received" (section 9)
+src/components/dashboard/contract/fresh-payment.ts    isFreshPayment(paidAt, nowMs), FRESH_PAYMENT_MS = 15 min
+src/components/dashboard/documents/applicant-details-form.tsx   gains purpose: "contract" (accountEmail, onPrepared)
+src/components/dashboard/order-view.tsx     takes accountEmail, renders the gate by contractState
+```
+
+The same round extended, without changing what they already did:
+`src/lib/r2/client.ts` (`putObject`, `getObjectBytes`, `presignDownload`
+takes `disposition: "inline" | "attachment"`), `src/lib/email/send.ts`
+(optional `attachments: { filename, content: Uint8Array }[]`, sent to Resend
+as base64), `src/lib/email/templates.ts` (`serviceAgreement`),
+`src/lib/db/queries.ts` (`getOrderContract`), `client-queries.ts`
+(`OrderViewData.contract`), `admin-queries.ts` (`AdminOrderDetail.contract`),
+`src/lib/orders/services-admin.ts` (`contract_template`) and
+`src/lib/poa/generate.ts`, which now draws through `src/lib/pdf/layout.ts`
+with the deeds' output unchanged (their page pins stay green).
+
 Nobody edits another agent's files. Shared files that more than one stage
 touches (`package.json`, `.env.example`, `CLAUDE.md`) are edited only by the
 foundation agent and by the orchestrator.
@@ -568,6 +642,7 @@ getServiceDocs(db, serviceId): Promise<ServiceDocRow[]>
 getLatestUserService(db, userId): Promise<UserServiceRow | null>
 getUserService(db, id, userId): Promise<UserServiceRow | null>
 getUserDocuments(db, userServiceId): Promise<UserDocumentRow[]>
+getOrderContract(db, userServiceId): Promise<UserServiceContractRow | null>   // 0009, one row per order at most
 getUserServiceEvents(db, userServiceId): Promise<UserServiceEventRow[]>
 ```
 
@@ -631,6 +706,23 @@ Missing `STRIPE_WEBHOOK_SECRET` → 503 with a clear message.
 | `GET /api/orders/[id]/applicants/[index]` | | owner or admin; `index` 0 or 1 and below `applicants`; 200 `{ applicant }`, or 404 `{ error: "No details yet.", prefill }` where `prefill` is the owner's newest row for the same index on another of their orders (null for an admin) |
 | `PUT /api/orders/[id]/applicants/[index]` | the nine fields, camelCase or column names | owner only (an admin gets 403 and corrects through the client); `validateApplicantInput` (lengths and the gender set as in the SQL checks, `YYYY-MM-DD` dates, 18 or older, issue date not in the future, expiry after issue and today or later by Lisbon's calendar); upsert on `(user_service_id, applicant_index)`; 200 `{ applicant }` or 422 with the first message |
 | `GET /api/orders/[id]/poa/[docId]?applicant=0\|1` | | owner or admin; `docId` must be a `service_docs` row of the order's service with a `template` (404 otherwise), `applicant` below `applicants` (422), the order paid (409 `Payment first.`), a row present (409 `details_missing`, the code the slot reacts to by opening the form). Returns `application/pdf`, `Content-Disposition: attachment; filename="power-of-attorney-nif-<name>.pdf"` (or `-bank-`), `Cache-Control: no-store`, dated today in Europe/Lisbon; nothing is stored, a new download gets a fresh date. No session redirects to `/en/login` because the URL is opened by a click |
+| `POST /api/orders/[id]/contract` | optional `{ signingPlace?: string }` (no body at all is fine) | owner only, 2026-09-21; calls `ensureContract` (`src/lib/contracts/ensure.ts`), which prepares the order's service agreement once and is safe to call again. `signingPlace` is the city and country printed in Annex I: line breaks become a space, control characters are dropped, at most 120 characters (422 with a line for the form; 400 when it is not text; 413 for a body over 4 KB). 200 `{ status: "ready" }`; 409 `{ error: "details_missing" }` while applicant 0 has no row, the code the form reacts to; 409 `Payment first.`; 404 `This order has no service agreement.` when the service has no `contract_template`; 401 signed out; 403 `This order is not yours.` for a stranger's or a missing order; an admin gets 403 here (404 for a missing order) and regenerates through `POST /api/admin/orders/[id]/contract` |
+| `GET /api/orders/[id]/contract` | | owner or admin; streams the stored PDF from R2 through the route (200 `application/pdf`, `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`), so the tab stays on our URL and a refresh keeps working. `inline` by default so the browser tab shows it, `?download=1` answers `attachment`. 404 `{ error: "No agreement yet." }` when none was prepared. It generates and sends nothing. No session redirects to `/en/login?next=/en/dashboard/orders/{id}` (to `/en/dashboard` when the id is not a UUID) because the URL is opened by a click |
+
+`ensureContract(admin, orderId, { signingPlace?, origin? })`, in order: the
+order (`off`, reason `order_not_found`); an existing row (`ready`, and when
+`emailed_at` is null the stored file is read back from R2 and the email is
+tried again, generating nothing); the service's template and the payment
+(`off`, reasons `no_template` and `unpaid`); applicant 0's details
+(`needs_details`). Only then anything is written: values from
+`buildContractValues`, the PDF from `generateContractPdf`, `putObject` under
+`contracts/{orderId}/v1.pdf`, then the insert. `unique (user_service_id)`
+settles a race: the loser's insert fails on the duplicate key, it reads the
+winner's row and sends nothing. The email (`serviceAgreement`, subject "Your
+service agreement", the PDF attached, a button to
+`/en/dashboard/orders/{id}`) goes to `users.email` after the row exists, and
+`emailed_at` is stamped only when Resend accepted it. A failed email never
+fails the call. Nothing on the payment path calls this module.
 
 ## 9. Dashboard page behaviour
 
@@ -657,6 +749,51 @@ headings, Inter for body) and the existing `ui/` primitives (`Button`,
 `ButtonLink`, `EyebrowSolo`). Sidebar on the left on `lg`, a top bar with the
 two links on small screens. Keep it calm: this is a lawyer's client area,
 not a SaaS dashboard.
+
+### After payment: the service agreement (2026-09-21)
+
+Design in `docs/agreement-contract.md` section 6. The flow: pay, confirm
+your details, the agreement opens in a new tab, a copy arrives by email, and
+it stays downloadable on the order.
+
+1. Payment is confirmed as above and the dashboard lands on
+   `?order=<paid id>`. No agreement exists yet: the payment path never
+   generates one.
+2. `order-view.tsx` (a server component, it takes the new `accountEmail`
+   prop) renders `contract/contract-gate.tsx` under the "Payment received"
+   notice when the order is paid and its service has a `contract_template`
+   (`contractState` answers `needs_details`). The card reads "Your service
+   agreement" with the button "Confirm my details". When the order was paid
+   less than 15 minutes ago (`isFreshPayment` in
+   `contract/fresh-payment.ts`, tested, tolerant of a browser clock that
+   runs behind) the details dialog opens by itself, once per mount, from a
+   300 ms timer so that inside the order modal it lands above the modal's
+   own `<dialog>`; a later visit shows the card only. A completed order
+   that never had an agreement is not asked for one.
+3. The dialog is `applicant-details-form.tsx` with `purpose: "contract"`:
+   the same nine fields as the deeds (prefilled from the order's row, else
+   from the account's other orders), a read only line with the account
+   email, the optional field "City and country you are in today" and the
+   button "Confirm and open my agreement".
+4. Submit opens a blank tab before any await (so no popup blocker
+   interferes; not while a field is still blank), `PUT`s applicant 0,
+   `POST`s `/api/orders/[id]/contract` with `{ signingPlace }`, then points
+   the tab at `GET /api/orders/[id]/contract`; the gate closes the dialog,
+   turns to the ready state at once and calls `router.refresh()`. On a
+   failure the blank tab is closed and the route's one line shows under the
+   form. A browser that still refused the tab gets the line "Your agreement
+   is ready. Open it below." and the card's View button.
+5. With a row (`contractState` answers `ready`) the card shows "Prepared on
+   {date}." (and "A copy was sent to {email}." once `emailed_at` is set)
+   with **View** (new tab, inline) and **Download** (`?download=1`). The
+   order modal and the full order page both render `order-view.tsx`, so both
+   carry the download button. A row wins over everything else: an agreement
+   prepared before the service lost its template still shows, on a
+   completed order too. Only the date and whether the email went out cross
+   to the client component, never the row with its printed variables.
+6. A service with no template (`couple` today, any custom service) and an
+   unpaid order answer `off`: nothing is shown, nothing is asked. The deed
+   slots work as before and find the details already there.
 
 ## 10. Upload rules
 
@@ -713,6 +850,7 @@ agents may be mid write. Report it if it persists. Never edit their files.
 The purchase drawer says "By purchasing you accept the Terms"; "Terms" links
 to `/en/service-terms` (`src/app/[locale]/service-terms/page.tsx`, what is
 delivered and on what timeline, noindex, also in the landing footer as
-"Service terms"). The firm's contracting terms have not arrived (`docs/terms`
-is empty) and the post-payment contract is not built; both are pending, see
-`docs/documents-contract.md` section 6.
+"Service terms"). The firm's contract models arrived on 2026-09-21
+(`docs/terms/`, three contracts and Annex I) and the post-payment contract
+was built on them the same day: `docs/agreement-contract.md`, and section 9
+above for the flow. The `/en/service-terms` page itself is unchanged.

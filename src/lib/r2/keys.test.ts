@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   acceptedTypesMessage,
   buildStorageKey,
+  contentDisposition,
   extensionFor,
   formatBytes,
   MAX_FILE_NAME_LENGTH,
@@ -98,6 +99,27 @@ describe("sanitizeFileName", () => {
     const out = sanitizeFileName(long);
     expect(out.length).toBe(MAX_FILE_NAME_LENGTH);
     expect(out.endsWith(".pdf")).toBe(true);
+  });
+});
+
+describe("contentDisposition", () => {
+  it("names the file twice: plain ASCII for every client, and as it really is", () => {
+    expect(contentDisposition("inline", "service-agreement-nif-jane-doe.pdf")).toBe(
+      "inline; filename=\"service-agreement-nif-jane-doe.pdf\"; filename*=UTF-8''service-agreement-nif-jane-doe.pdf",
+    );
+    expect(contentDisposition("attachment", "Passaporte João.pdf")).toBe(
+      "attachment; filename=\"Passaporte Joo.pdf\"; filename*=UTF-8''Passaporte%20Jo%C3%A3o.pdf",
+    );
+  });
+
+  it("lets nothing typed into a name break out of the header", () => {
+    const value = contentDisposition("inline", `a"b\\c${String.fromCharCode(13, 10)}X-Evil: 1.pdf`);
+    expect(value).toBe("inline; filename=\"abcX-Evil: 1.pdf\"; filename*=UTF-8''a%22b%5Cc%0D%0AX-Evil%3A%201.pdf");
+    expect(value).not.toMatch(/[\r\n]/);
+  });
+
+  it("falls back to a name when nothing plain is left", () => {
+    expect(contentDisposition("inline", "文件")).toBe("inline; filename=\"file\"; filename*=UTF-8''%E6%96%87%E4%BB%B6");
   });
 });
 

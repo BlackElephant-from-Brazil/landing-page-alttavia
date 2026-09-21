@@ -1,13 +1,15 @@
 /**
  * Reads the client's order view needs beyond src/lib/db/queries.ts: the
- * deliverables that are ready and the principal's details the deeds are
- * filled with. Admin contract (docs/admin-contract.md) section 7, "Client
- * order view"; documents contract section 3 for the applicants.
+ * deliverables that are ready, the principal's details the deeds are
+ * filled with and the service agreement. Admin contract
+ * (docs/admin-contract.md) section 7, "Client order view"; documents
+ * contract section 3 for the applicants; agreement contract
+ * (docs/agreement-contract.md) section 4 for the agreement.
  *
  * Same shape as queries.ts: the Supabase client comes first, so the user
  * client (RLS: `user_service_deliverables_select_own` shows ready rows on
- * own orders, `user_service_applicants` shows own rows) and the admin client
- * both work. The filters are repeated here regardless, so a caller holding
+ * own orders, `user_service_applicants` and `user_service_contracts` show
+ * own rows) and the admin client both work. The filters are repeated here regardless, so a caller holding
  * the admin client cannot leak a pending upload to the client by mistake.
  *
  * Database errors are thrown; the pages decide what to do with them.
@@ -15,7 +17,14 @@
 
 import { documentCounts, progressFraction, type DocumentCounts, type Progress } from "@/components/dashboard/order-status";
 
-import { getActiveQuestions, getServiceDocs, getServiceStages, getUserDocuments, type Db } from "./queries";
+import {
+  getActiveQuestions,
+  getOrderContract,
+  getServiceDocs,
+  getServiceStages,
+  getUserDocuments,
+  type Db,
+} from "./queries";
 import type {
   QuestionRow,
   ServiceDocRow,
@@ -23,6 +32,7 @@ import type {
   ServiceStageRow,
   UserDocumentRow,
   UserServiceApplicantRow,
+  UserServiceContractRow,
   UserServiceDeliverableRow,
   UserServiceRow,
 } from "./types";
@@ -87,6 +97,8 @@ export type OrderViewData = {
   documents: UserDocumentRow[];
   /** The principal's details entered so far, by applicant index; a deed slot reads its applicant's row here. */
   applicants: UserServiceApplicantRow[];
+  /** The service agreement prepared for the order, or null while there is none. */
+  contract: UserServiceContractRow | null;
   deliverables: UserServiceDeliverableRow[];
   /** Undefined when the questions could not be read; the answers summary then uses the copy's labels. */
   questions: QuestionRow[] | undefined;
@@ -103,12 +115,13 @@ export type OrderViewData = {
  * neutral name rather than failing the page.
  */
 export async function getOrderViewData(db: Db, order: UserServiceRow): Promise<OrderViewData> {
-  const [serviceResult, stages, docs, documents, applicants, deliverables, questions] = await Promise.all([
+  const [serviceResult, stages, docs, documents, applicants, contract, deliverables, questions] = await Promise.all([
     db.from("services").select("*").eq("id", order.service_id).maybeSingle(),
     getServiceStages(db, order.service_id),
     getServiceDocs(db, order.service_id),
     getUserDocuments(db, order.id),
     listOrderApplicants(db, order.id),
+    getOrderContract(db, order.id),
     getReadyDeliverables(db, order.id),
     getActiveQuestions(db).catch((err: unknown): QuestionRow[] | undefined => {
       console.error("getOrderViewData: questions unavailable, using the copy's labels:", err);
@@ -118,14 +131,16 @@ export async function getOrderViewData(db: Db, order: UserServiceRow): Promise<O
   if (serviceResult.error) fail("getOrderViewData service", serviceResult.error);
   const service = (serviceResult.data as ServiceRow | null) ?? fallbackService(order);
 
-  return { service, stages, docs, documents, applicants, deliverables, questions };
+  return { service, stages, docs, documents, applicants, contract, deliverables, questions };
 }
 
 const FALLBACK_SERVICE_NAME = "Your order";
 
 /**
  * A service row the catalogue no longer shows (deactivated after the order
- * was placed, so RLS hides it from the client).
+ * was placed, so RLS hides it from the client). It names no contract: an
+ * agreement already prepared still shows, because the order view reads the
+ * contract row itself; a new one is not asked for.
  */
 export function fallbackService(order: UserServiceRow): ServiceRow {
   return {
@@ -138,6 +153,7 @@ export function fallbackService(order: UserServiceRow): ServiceRow {
     currency: order.currency,
     includes: [],
     timeline: null,
+    contract_template: null,
     stripe_price_id_test: null,
     stripe_price_id_live: null,
     stripe_payment_link_test: null,

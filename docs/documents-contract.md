@@ -18,8 +18,9 @@ Five changes, one migration (`supabase/migrations/0007_one_unit_poa.sql`;
 4. **NIF + Bank Account** and **Couple package** are re-aligned with the
    definitions Patrícia gave NIF only and Bank Account only in the editor.
 5. The purchase drawer says **"By purchasing you accept the Terms"** with a
-   link to `/en/service-terms`. The post-payment contract is pending the
-   firm's models (section 6).
+   link to `/en/service-terms`. The post-payment contract was pending the
+   firm's models when this was written; it was built on 2026-09-21, see
+   `agreement-contract.md` (section 6 here is only a pointer now).
 
 House rules for copy still apply: no dashes as punctuation, no "problem",
 "trap", "free", "refund", "money back", "video call", "run by lawyers"; short
@@ -358,9 +359,9 @@ the bank deed's clause d) names a single holder account (*conta de titular
 
 - The page a purchase accepts already exists: `/en/service-terms`
   (`src/app/[locale]/service-terms/page.tsx`, "what you are buying", noindex),
-  linked from the landing footer as "Service terms". No new page. When the
-  firm sends its contracting terms (the `docs/terms` folder is still empty)
-  that page is what they replace or extend.
+  linked from the landing footer as "Service terms". No new page. The firm's
+  contract models arrived on 2026-09-21 (`docs/terms`); whether the contract
+  replaces this page or lives beside it is an open point for the firm.
 - `purchase-drawer.tsx`, under the Confirm button and above "Not now":
   *By purchasing you accept the <a href="/en/service-terms" target="_blank">Terms</a>.*
   The drawer also stops sending `quantity`.
@@ -368,18 +369,11 @@ the bank deed's clause d) names a single holder account (*conta de titular
 
 ---
 
-## 6. Pending: the service contract
+## 6. The service contract
 
-Not built in this round, by the client's instruction: the contract models
-have not been supplied. When they arrive, the intended shape is:
-
-- one template per service in code (same bilingual block model as the
-  deeds), dynamic fields drawn from the applicant row of section 3 plus the
-  order (service name, price, order date, email);
-- generated on `markOrderPaid` (both the return path and the webhook),
-  stored in R2 under `contracts/{orderId}.pdf`, a `user_service_contracts`
-  row, a download link in the order view, and one email through Resend with
-  the PDF attached;
-- until a service has a template, nothing is generated or sent.
-
-Tracked in the checklist as pending.
+Built on 2026-09-21, after the firm sent its four models (`docs/terms/`).
+The design is `docs/agreement-contract.md`, which replaces what this section
+used to sketch; read that file, not this one. Two things differ from the
+sketch: the agreement is never generated on the payment path (the client
+asks for it after paying, by confirming their details), and the R2 key
+carries a version (`contracts/{orderId}/v{n}.pdf`).

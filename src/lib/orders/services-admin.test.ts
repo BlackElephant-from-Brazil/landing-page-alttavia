@@ -211,6 +211,44 @@ describe("validateServiceInput", () => {
     expect(errorOf(input({ docs: [{ key: "x", label: "X", template: 1 }] }))).toBe("Choose a deed or none.");
   });
 
+  it("accepts one of the three contract models, reads null as none, and refuses anything else", () => {
+    for (const model of ["nif", "bank", "package"] as const) {
+      const result = validateServiceInput(input({ contract_template: model }));
+      expect(result.ok && result.value.contract_template).toBe(model);
+    }
+    const none = validateServiceInput(input({ contract_template: null }));
+    expect(none.ok && none.value.contract_template).toBeNull();
+    expect(none.ok && "contract_template" in none.value).toBe(true);
+
+    expect(errorOf(input({ contract_template: "couple" }))).toBe("Choose a contract or none.");
+    expect(errorOf(input({ contract_template: "" }))).toBe("Choose a contract or none.");
+    expect(errorOf(input({ contract_template: "NIF" }))).toBe("Choose a contract or none.");
+    expect(errorOf(input({ contract_template: 1 }))).toBe("Choose a contract or none.");
+    expect(errorOf(input({ contract_template: ["nif"] }))).toBe("Choose a contract or none.");
+  });
+
+  it("keeps an absent contract apart from an explicit null: the key is left out, not set to null", () => {
+    const absent = validateServiceInput(input());
+    expect(absent.ok).toBe(true);
+    expect(absent.ok && "contract_template" in absent.value).toBe(false);
+
+    // What JSON cannot carry reads as absent too.
+    const undefinedValue = validateServiceInput(input({ contract_template: undefined }));
+    expect(undefinedValue.ok && "contract_template" in undefinedValue.value).toBe(false);
+
+    // Every other key of the input is still there, so nothing else changed shape.
+    const explicit = validateServiceInput(input({ contract_template: null }));
+    if (!absent.ok || !explicit.ok) throw new Error("expected both to pass");
+    expect(Object.keys(explicit.value).filter((k) => k !== "contract_template")).toEqual(Object.keys(absent.value));
+  });
+
+  it("reports a wrong contract where the form shows it: after the timeline, before the Stripe fields", () => {
+    expect(errorOf(input({ timeline: "x".repeat(121), contract_template: "couple" }))).toContain("Timeline");
+    expect(errorOf(input({ contract_template: "couple", stripe_price_id_live: "prod_123" }))).toBe(
+      "Choose a contract or none.",
+    );
+  });
+
   it("sorts stages by position whatever order they arrive in", () => {
     const shuffled = input({ stages: [stage("nif_ready", 3, true), stage("awaiting_payment", 1), stage("documents", 2)] });
     const result = validateServiceInput(shuffled);
@@ -420,6 +458,44 @@ describe("upsertService", () => {
     ]);
     // The saved rows carry the column explicitly, so a later save cannot leave a seeded value behind by omission.
     expect(tables.service_docs.every((d) => "template" in d)).toBe(true);
+  });
+
+  it("writes the contract model on insert and on update, even on an application form service", async () => {
+    const created = await upsertService(db, valid({ slug: "niss-only", contract_template: "package" }));
+    expect(created.contract_template).toBe("package");
+    expect(tables.services.find((s) => s.id === created.id)?.contract_template).toBe("package");
+
+    seedExisting();
+    tables.services[0].contract_template = "nif";
+
+    // nif-only keeps its slug and price locked; the contract is not part of that lock.
+    const changed = await upsertService(db, valid({ contract_template: "bank" }), SERVICE_ID);
+    expect(changed.contract_template).toBe("bank");
+  });
+
+  it("leaves the contract alone when the save does not name it, and clears it only on an explicit null", async () => {
+    seedExisting();
+    tables.services[0].contract_template = "nif";
+
+    // A caller that predates the field, or a script that only renames: the agreement stays on.
+    const untouched = await upsertService(db, valid({ name: "NIF only, renamed" }), SERVICE_ID);
+    expect(untouched.name).toBe("NIF only, renamed");
+    expect(untouched.contract_template).toBe("nif");
+    const silent = log.filter((l) => l.startsWith("update services")).pop() ?? "";
+    expect(silent).not.toContain("contract_template");
+
+    const cleared = await upsertService(db, valid({ contract_template: null }), SERVICE_ID);
+    expect(cleared.contract_template).toBeNull();
+    const explicit = log.filter((l) => l.startsWith("update services")).pop() ?? "";
+    expect(explicit).toContain('"contract_template":null');
+  });
+
+  it("stores null for a new service whose form did not name a contract", async () => {
+    const created = await upsertService(db, valid({ slug: "niss-only" }));
+
+    const stored = tables.services.find((s) => s.id === created.id);
+    expect(stored && "contract_template" in stored).toBe(true);
+    expect(stored?.contract_template).toBeNull();
   });
 
   it("refuses to remove a stage an order still sits on, with the count, before writing", async () => {

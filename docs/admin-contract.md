@@ -104,6 +104,7 @@ RLS additions (append to the same file, all `create policy ... to authenticated`
 | user_service_deliverables | client `select` own where `status = 'ready'` (replace the existing own-select policy) |
 | services, service_stages, service_docs, service_deliverables | `select` where `public.is_admin()` regardless of `active` (the editor needs inactive rows) |
 | user_service_applicants (0007) | client `select` own through `user_services`; `select` where `public.is_admin()` |
+| user_service_contracts (0009) | client `select` own through `user_services`; `select` where `public.is_admin()`; only `select` is granted to `authenticated`, nothing to `anon` |
 
 No insert/update/delete policies for anyone: writes stay behind route handlers.
 
@@ -113,6 +114,11 @@ No insert/update/delete policies for anyone: writes stay behind route handlers.
 `quantity` and `open_pendencies`. The view now carries the `user_services`
 columns plus `user_email`, `service_name`, `service_slug`, `docs_required`,
 `docs_approved`, `docs_uploaded`, `docs_rejected`, `last_event_at`.
+
+`0009_service_contracts.sql` (2026-09-21, `docs/agreement-contract.md`) adds
+`services.contract_template` and the table `user_service_contracts`. The
+view is untouched: the order modal reads the contract row through
+`getOrderDetail`.
 
 The trigger that mirrors `auth.users` needs no change; `role` defaults to
 `client`. `scripts/create-admin.mjs` then runs
@@ -126,12 +132,17 @@ src/lib/supabase/admin-user.ts   requireAdmin(): Promise<SessionUser & { role: '
                                  getUserWithRole(): Promise<(SessionUser & { role }) | null>
 src/lib/db/admin-queries.ts      see section 5
 src/lib/db/types.ts              add role to UserRow; extend UserServiceDeliverableRow; since 0007 PoaTemplate,
-                                 ServiceDocRow.template and UserServiceApplicantRow
-src/lib/email/send.ts            sendEmail({ to, subject, html, text }) via POST https://api.resend.com/emails with
-                                 EMAIL_API_KEY, from EMAIL_FROM, reply_to EMAIL_REPLY_TO; returns { ok, id? }; never throws
-src/lib/email/templates.ts       documentRejected({ docLabel, reason, dashboardUrl }) and
-                                 orderCompleted({ serviceName, dashboardUrl }) -> { subject, html, text }; house rules; same
+                                 ServiceDocRow.template and UserServiceApplicantRow; since 0009 ContractTemplate,
+                                 ServiceRow.contract_template, UserServiceContractRow and AdminOrderDetail.contract
+src/lib/email/send.ts            sendEmail({ to, subject, html, text, attachments? }) via POST https://api.resend.com/emails
+                                 with EMAIL_API_KEY, from EMAIL_FROM, reply_to EMAIL_REPLY_TO; returns { ok, id? }; never
+                                 throws; attachments are { filename, content: Uint8Array }[], sent as base64 (2026-09-21)
+src/lib/email/templates.ts       documentRejected({ docLabel, reason, dashboardUrl }),
+                                 orderCompleted({ serviceName, dashboardUrl }) and, since 2026-09-21,
+                                 serviceAgreement({ serviceName, dashboardUrl }) -> { subject, html, text }; house rules; same
                                  visual language as the Supabase code email (Georgia, navy, gold eyebrow)
+src/lib/contracts/ensure.ts      regenerateContract(admin, orderId, { origin? }) -> { contract, emailed }; throws
+                                 ContractError(404|409) with a line the admin may read (2026-09-21, section 6)
 src/lib/orders/lifecycle.ts      advanceStage(orderId, actorId, { direction: 'forward'|'back' } | { stageKey }) -> { stageKey, completed }
                                  (uses service_stages positions, writes user_service_events, sets/clears completed_at)
 src/proxy.ts                     add: unauthenticated /admin and /admin/* (except /admin/login) -> /admin/login?next=
@@ -156,8 +167,8 @@ listOrders(db, filters): Promise<{ rows: AdminOrderRow[]; total: number }>
    //                docs_uploaded, docs_rejected, last_event_at }   (the admin_order_summary view, section 3)
 getOrderDetail(db, id): Promise<AdminOrderDetail | null>
    // order, user (email, full_name, phone), service, stages, docs (service_docs), documents (user_documents, all),
-   // events, applicants (user_service_applicants, by applicant_index), deliverables (service_deliverables +
-   // user_service_deliverables), answers summary rows
+   // events, applicants (user_service_applicants, by applicant_index), contract (the user_service_contracts row
+   // or null, since 0009), deliverables (service_deliverables + user_service_deliverables), answers summary rows
 getOverview(db, range: { from: string; to: string }): Promise<Overview>
    // kpis: openOrders (created in range, unpaid), paidOrders (paid in range, any stage), inProgressOrders (paid,
    //       not complete, any date), completedOrders, revenueCents, documentsAwaitingReview
@@ -181,6 +192,7 @@ getServiceForAdmin(db, id): Promise<ServiceWithConfig | null>
 | `POST /api/admin/documents/[id]/review` | `{ decision: 'approve'\|'reject', reason?: string }` | status, reviewed_at, reviewed_by; reason required on reject (422 otherwise); event row; on reject email the client |
 | `POST /api/admin/orders/[id]/stage` | `{ direction: 'forward'\|'back' }` or `{ stageKey }` | `advanceStage`; on terminal set completed_at and email the client |
 | `PATCH /api/admin/orders/[id]` | `{ report?: string }` | update report (markdown allowed, rendered with the existing RichText) |
+| `POST /api/admin/orders/[id]/contract` | none | "Regenerate and resend" (2026-09-21, `docs/agreement-contract.md` sections 5 and 7). `regenerateContract` prepares the service agreement again from the client's details as they are now, as a new version under a new R2 key (`contracts/{orderId}/v{n}.pdf`; the file of the version before stays in the bucket), updates the row (`emailed_at` back to null) and emails the client again. The place printed in Annex I is carried over from the row's `variables`. The template is the service's, or the row's own when the service lost its template. An order with no agreement yet gets its first version. 200 `{ contract, emailed }`; 404 `Order not found.` or `This service has no contract.`; 409 `Payment first.`, `The client has not entered their details yet.`, or, when two regenerations race (the update names the version it replaces, so one wins), `This agreement was regenerated a moment ago. Refresh and try again.` Audit line `contract.regenerate` |
 | `POST /api/admin/deliverables/upload-url` | `{ userServiceId, label, serviceDeliverableId?, fileName, mimeType, sizeBytes }` | pending row + presigned PUT (key `deliverables/{orderId}/{uuid}.{ext}`), same mime and 20 MB limit rules as documents |
 | `POST /api/admin/deliverables/confirm` | `{ deliverableId }` | HeadObject, status ready |
 | `GET /api/admin/documents/[id]` | | presigned download of any document |
@@ -194,6 +206,7 @@ Client routes added:
 | `POST /api/orders` | `{ serviceSlug }` | one unit of that service for the signed-in user, `answers_snapshot = {}`, `applicants = 2` and `joint` only for `couple`, `total_cents = price_cents`, events row; a `quantity` key is ignored; returns `{ userServiceId }` |
 | `GET /api/deliverables/[id]` | | presigned download of a `ready` deliverable on an own order |
 | `GET`/`PUT /api/orders/[id]/applicants/[index]`, `GET /api/orders/[id]/poa/[docId]?applicant=` | | the applicant details and the generated deed (2026-09-14); admins may `GET` both; payloads in `docs/platform-contract.md` section 8 |
+| `POST`/`GET /api/orders/[id]/contract` | | the service agreement (2026-09-21); the `POST` is the client's alone (an admin gets 403 "Use the order's admin page to prepare the agreement."), the `GET` is the download an admin may open too (the PDF streamed through the route, `?download=1` for `attachment`, one `contract.download` line in the server log); payloads in `docs/platform-contract.md` section 8 |
 
 Validation and error shape as in the platform contract: JSON `{ error }`, one
 line, house rules, no provider internals.
@@ -239,6 +252,27 @@ below it, a read-only block with the applicant's nine fields from
 `AdminOrderDetail.applicants`, or the line "The client has not entered their
 details yet." when there is no row.
 
+Since 2026-09-21 the modal also carries a **Service agreement** section
+(`AgreementSection` in `order-modal.tsx`, `docs/agreement-contract.md`
+section 7), fed by `AdminOrderDetail.contract` and the service's
+`contract_template`. The heading carries the state: "Not required" (the
+service has no template), "After payment" (a template, not paid yet),
+"Waiting for the client's details" (paid, a template, no row yet; the body
+says so when the client already typed details for a deed) or "Prepared".
+With a row it shows the model's label, "version N", the file name and size,
+"Prepared {date and time}", then "Emailed {date and time}" or "Not emailed
+yet" with a green or amber pill, and a **Download** link
+(`GET /api/orders/[id]/contract?download=1`, the client's route, admin
+allowed, new tab). The action (`order/contract-actions.tsx`) shows only when
+the order is paid and applicant 0's details exist: **Regenerate and resend**
+with a row, **Prepare and send** without one (the same route prepares the
+first version). It asks for confirmation first, in place, then posts to
+`POST /api/admin/orders/[id]/contract` (section 6) and refreshes the modal.
+The line under it reads "Prepared and emailed to the client." or "Prepared,
+but the email did not go out. Try again in a moment.", or the route's own
+404 or 409 line. The first version is normally the client's doing: they
+confirm their details after paying.
+
 ### `/admin/services` (admin-services agent)
 List (name, slug, price, active, orders count) with New service. Editor page
 `/admin/services/[id]` and `/admin/services/new`: fields per `services`
@@ -255,6 +289,22 @@ and the table's `x1 or x2` hint went with `supports_quantity`. Save posts
 the whole thing. Deactivating hides the service from the client gallery and
 the wizard but keeps history. The four wizard slugs keep slug and price
 locked and everything else editable.
+
+Since 2026-09-21 the service's main fields include a select **Service
+contract**: None, NIF, Bank account, NIF + Bank account package, written to
+`services.contract_template` (`null`, `nif`, `bank`, `package`), with the
+hint "The agreement the client confirms their details for and receives right
+after paying. With None, nothing is prepared or asked." The labels live in
+`CONTRACT_TEMPLATE_LABELS` (`editor-model.ts`); the services list shows
+"Agreement: NIF" (or the other label) under the name of a service that has
+one. The four wizard slugs may change it. `validateServiceInput` leaves the column
+alone when the key is missing, clears it on an explicit `null`, accepts one of
+the three ids, and answers anything else with 422 "Choose a contract or none.".
+The editor always sends the key. A service set to
+None generates nothing and asks the client nothing; an agreement already
+prepared for an order stays viewable. On 2026-09-21 NIF only holds `nif`,
+Bank Account only `bank`, NIF + Bank Account `package` and the Couple
+package none, because the firm has no model for two parties.
 
 What the four services hold on 2026-09-14 (Patrícia's edits to NIF only and
 Bank Account only, `0007_one_unit_poa.sql` for the other two; the 2026-09-11

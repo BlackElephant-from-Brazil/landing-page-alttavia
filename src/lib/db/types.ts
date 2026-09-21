@@ -96,6 +96,13 @@ export type UserAnswerRow = {
   created_at: Timestamp;
 };
 
+/**
+ * The firm's contract model a service uses (0009, docs/agreement-contract.md):
+ * `nif`, `bank` or `package`. The text lives in
+ * src/content/contracts/models.generated.ts, generated from docs/terms.
+ */
+export type ContractTemplate = "nif" | "bank" | "package";
+
 /** public.services: what Alttavia sells. `slug` matches ProductId. */
 export type ServiceRow = {
   id: string;
@@ -107,6 +114,8 @@ export type ServiceRow = {
   currency: string;
   includes: string[];
   timeline: string | null;
+  /** Null when the service has no contract: nothing is generated or asked. */
+  contract_template: ContractTemplate | null;
   stripe_price_id_test: string | null;
   stripe_price_id_live: string | null;
   stripe_payment_link_test: string | null;
@@ -264,6 +273,27 @@ export type UserServiceApplicantRow = {
   updated_at: Timestamp;
 };
 
+/**
+ * public.user_service_contracts: the contract for legal services prepared
+ * for an order, one row per order (0009). `variables` is exactly what was
+ * printed, keyed by the model's token. Written only by
+ * src/lib/contracts/ensure.ts through the admin client.
+ */
+export type UserServiceContractRow = {
+  id: string;
+  user_service_id: string;
+  template: ContractTemplate;
+  version: number;
+  storage_key: string;
+  file_name: string;
+  size_bytes: number;
+  variables: Record<string, string>;
+  generated_at: Timestamp;
+  emailed_at: Timestamp | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+};
+
 /** public.schema_migrations: the migrate script's ledger. */
 export type SchemaMigrationRow = {
   name: string;
@@ -335,6 +365,8 @@ export type AdminOrderDetail = {
   events: UserServiceEventRow[];
   /** The principal's details entered so far, by applicant index. */
   applicants: UserServiceApplicantRow[];
+  /** The service agreement prepared for the order, or null. */
+  contract: UserServiceContractRow | null;
   deliverables: {
     /** The service's template. */
     templates: ServiceDeliverableRow[];

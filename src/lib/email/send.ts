@@ -4,11 +4,16 @@ import "server-only";
  * Sends one transactional email through Resend's REST API. Contract
  * (docs/admin-contract.md) section 4.
  *
- * Best effort by design: the two emails this sends (document rejected,
- * order complete) must never block the admin action that triggers them. So
- * this never throws. A missing key, a network error or a
+ * Best effort by design: the emails this sends (document rejected, order
+ * complete, service agreement) must never block the action that triggers
+ * them. So this never throws. A missing key, a network error or a
  * non 2xx answer is logged with the subject and the recipient and answered
  * with `{ ok: false }`; the caller carries on.
+ *
+ * `attachments` ride along as base64, which is how Resend's REST API takes a
+ * file (docs/agreement-contract.md section 5). Resend caps a message at
+ * 40 MB after encoding; the one attachment sent today is a PDF of a few
+ * dozen kilobytes.
  *
  * Configuration, all in .env.local (see .env.example):
  *
@@ -21,11 +26,17 @@ import "server-only";
 
 const RESEND_URL = "https://api.resend.com/emails";
 
+export type EmailAttachment = {
+  filename: string;
+  content: Uint8Array;
+};
+
 export type SendEmailInput = {
   to: string;
   subject: string;
   html: string;
   text: string;
+  attachments?: EmailAttachment[];
 };
 
 export type SendEmailResult = {
@@ -58,6 +69,14 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         html: input.html,
         text: input.text,
         ...(replyTo ? { reply_to: replyTo } : {}),
+        ...(input.attachments?.length
+          ? {
+              attachments: input.attachments.map((file) => ({
+                filename: file.filename,
+                content: Buffer.from(file.content).toString("base64"),
+              })),
+            }
+          : {}),
       }),
     });
 

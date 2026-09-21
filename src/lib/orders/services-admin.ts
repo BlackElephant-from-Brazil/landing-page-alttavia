@@ -1,7 +1,7 @@
 import { isProductId } from "@/lib/apply/types";
 import { getServiceForAdmin } from "@/lib/db/admin-queries";
 import type { Db } from "@/lib/db/queries";
-import type { DeliverableKind, PoaTemplate, ServiceRow, ServiceWithConfig } from "@/lib/db/types";
+import type { ContractTemplate, DeliverableKind, PoaTemplate, ServiceRow, ServiceWithConfig } from "@/lib/db/types";
 import { extensionFor } from "@/lib/r2/keys";
 
 /**
@@ -16,7 +16,14 @@ import { extensionFor } from "@/lib/r2/keys";
  * plus `stages`, `docs` and `deliverables`) and answers either the typed
  * input or one line naming the first thing wrong, in the order the form
  * shows its fields. Nothing from the browser reaches the database without
- * passing here.
+ * passing here. `contract_template` names the firm's contract model the
+ * service uses (docs/agreement-contract.md section 5). Three cases, kept
+ * apart on purpose: one of `nif`, `bank`, `package` sets it; an explicit
+ * `null` clears it; a body WITHOUT the key says nothing about it, so the key
+ * is left out of the validated input and an update does not touch the
+ * column (a caller that predates the field, or a script that only renames a
+ * service, must not switch a service's agreement off by omission). The
+ * editor always sends the key. A create without it stores null.
  *
  * upsertService writes the service row, then reconciles each child table by
  * (service_id, key): rows in the input are upserted, rows no longer present
@@ -74,6 +81,12 @@ export type ServiceInput = {
   currency: string;
   includes: string[];
   timeline: string | null;
+  /**
+   * The firm's contract model the service uses (agreement contract section 4);
+   * null for none. The key is absent when the body did not carry it: an update
+   * then leaves the column alone, a create stores null.
+   */
+  contract_template?: ContractTemplate | null;
   stripe_price_id_test: string | null;
   stripe_price_id_live: string | null;
   stripe_payment_link_test: string | null;
@@ -115,6 +128,8 @@ const KEY = /^[a-z][a-z0-9_]*$/;
 const CURRENCY = /^[a-z]{3}$/;
 const POA_TEMPLATES: readonly PoaTemplate[] = ["poa_nif", "poa_bank"];
 const TEMPLATE_MESSAGE = "Choose a deed or none.";
+const CONTRACT_TEMPLATES: readonly ContractTemplate[] = ["nif", "bank", "package"];
+const CONTRACT_TEMPLATE_MESSAGE = "Choose a contract or none.";
 
 /** Thrown inside the validator and turned into `{ ok: false }` at its edge. */
 class Invalid extends Error {}
@@ -188,6 +203,22 @@ function template(value: unknown): PoaTemplate | null {
   if (value === undefined || value === null) return null;
   if (typeof value === "string" && (POA_TEMPLATES as readonly string[]).includes(value)) return value as PoaTemplate;
   return fail(TEMPLATE_MESSAGE);
+}
+
+/**
+ * The `contract_template` key of the input, or no key at all. Absent
+ * (`undefined`, which is all a JSON body without the key can be) is "the
+ * body did not say": nothing is returned, so an update does not touch the
+ * column. Null is a service with no contract; otherwise one of the three
+ * models, and nothing else.
+ */
+function contractTemplateField(value: unknown): Pick<ServiceInput, "contract_template"> {
+  if (value === undefined) return {};
+  if (value === null) return { contract_template: null };
+  if (typeof value === "string" && (CONTRACT_TEMPLATES as readonly string[]).includes(value)) {
+    return { contract_template: value as ContractTemplate };
+  }
+  return fail(CONTRACT_TEMPLATE_MESSAGE);
 }
 
 function stage(raw: unknown, index: number): StageInput {
@@ -301,6 +332,8 @@ export function validateServiceInput(body: unknown): ValidationResult {
       currency: (currencyRaw as string).trim().toLowerCase(),
       includes: includes(b.includes),
       timeline: optionalText(b.timeline, "Timeline", LIMITS.timeline),
+      // Checked here, where the form shows it; the key exists only when the body carried it.
+      ...contractTemplateField(b.contract_template),
       stripe_price_id_test: stripeId(b.stripe_price_id_test, "Test price id", "price_"),
       stripe_price_id_live: stripeId(b.stripe_price_id_live, "Live price id", "price_"),
       stripe_payment_link_test: stripeId(b.stripe_payment_link_test, "Test payment link", "https://"),
@@ -455,7 +488,9 @@ export async function upsertService(db: Db, input: ServiceInput, id?: string): P
     }
   }
 
-  // The service row.
+  // The service row. `columns` holds `contract_template` only when the body
+  // carried it, so an update without it leaves the column as it is; a new
+  // service without it has no contract, said explicitly.
   let serviceId: string;
   if (id) {
     const { data, error } = await db.from("services").update(columns).eq("id", id).select("id").maybeSingle();
@@ -463,7 +498,11 @@ export async function upsertService(db: Db, input: ServiceInput, id?: string): P
     if (!data) throw new ServiceError("service_not_found", 404, "Service not found.");
     serviceId = id;
   } else {
-    const { data, error } = await db.from("services").insert(columns).select("id").single();
+    const { data, error } = await db
+      .from("services")
+      .insert({ ...columns, contract_template: columns.contract_template ?? null })
+      .select("id")
+      .single();
     if (error || !data) dbFail("upsertService insert", error ?? { message: "no row" });
     serviceId = (data as { id: string }).id;
   }

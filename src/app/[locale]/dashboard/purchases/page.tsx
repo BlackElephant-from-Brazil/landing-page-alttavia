@@ -76,7 +76,7 @@ export default async function PurchasesPage({ params, searchParams }: Props) {
         <PurchasesTable items={orders} basePath={PURCHASES_PATH} caption={copy.caption} />
       )}
 
-      <OrderModal orderId={first(query.order)} userId={user.id} />
+      <OrderModal orderId={first(query.order)} userId={user.id} email={user.email} />
     </div>
   );
 }

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type { PoaTemplate, ServiceWithConfig } from "@/lib/db/types";
+import type { ContractTemplate, PoaTemplate, ServiceWithConfig } from "@/lib/db/types";
 
 import {
+  CONTRACT_TEMPLATE_LABELS,
+  CONTRACT_TEMPLATES,
   bodyFromService,
   centsToPrice,
+  contractTemplateFromOption,
   draftFromService,
   emptyDraft,
   messages,
@@ -29,6 +32,7 @@ const SERVICE: ServiceWithConfig = {
   currency: "eur",
   includes: ["Official NIF", "12 months of tax representation **included**"],
   timeline: "NIF in 3 to 5 business days",
+  contract_template: null,
   stripe_price_id_test: "price_test",
   stripe_price_id_live: null,
   stripe_payment_link_test: null,
@@ -118,6 +122,64 @@ describe("draftFromService", () => {
     expect(draft.stages[0].key).toBe("awaiting_payment");
     expect(draft.active).toBe(true);
     expect(draft.currency).toBe("eur");
+    expect(draft.contract_template).toBeNull();
+  });
+
+  it("reads the service contract off the row, none when the column is null", () => {
+    expect(draftFromService(SERVICE).contract_template).toBeNull();
+    for (const model of CONTRACT_TEMPLATES) {
+      expect(draftFromService({ ...SERVICE, contract_template: model }).contract_template).toBe(model);
+    }
+  });
+});
+
+describe("service contract", () => {
+  it("offers the firm's three models, each with a name", () => {
+    expect(CONTRACT_TEMPLATES).toEqual(["nif", "bank", "package"]);
+    expect(CONTRACT_TEMPLATES.map((model) => CONTRACT_TEMPLATE_LABELS[model])).toEqual([
+      "NIF",
+      "Bank account",
+      "NIF + Bank account package",
+    ]);
+  });
+
+  it("maps the select's value back to the model, anything else to none", () => {
+    expect(contractTemplateFromOption("nif")).toBe("nif");
+    expect(contractTemplateFromOption("bank")).toBe("bank");
+    expect(contractTemplateFromOption("package")).toBe("package");
+    expect(contractTemplateFromOption("")).toBeNull();
+    expect(contractTemplateFromOption("couple")).toBeNull();
+    expect(contractTemplateFromOption("NIF")).toBeNull();
+  });
+
+  it("always sends the key, null for none", () => {
+    const none = validateDraft(validDraft());
+    expect(none.ok).toBe(true);
+    if (!none.ok) return;
+    expect(Object.keys(none.body)).toContain("contract_template");
+    expect(none.body.contract_template).toBeNull();
+
+    const chosen = validateDraft({ ...validDraft(), contract_template: "package" });
+    expect(chosen.ok && chosen.body.contract_template).toBe("package");
+
+    const cleared = validateDraft({ ...draftFromService({ ...SERVICE, contract_template: "bank" }), contract_template: null });
+    expect(cleared.ok && cleared.body.contract_template).toBeNull();
+  });
+
+  it("keeps the contract when a saved service is only deactivated or reactivated", () => {
+    const saved: ServiceWithConfig = { ...SERVICE, contract_template: "nif" };
+    expect(bodyFromService(saved, false).contract_template).toBe("nif");
+    expect(bodyFromService(saved, true).contract_template).toBe("nif");
+    expect(Object.keys(bodyFromService(SERVICE, false))).toContain("contract_template");
+    expect(bodyFromService(SERVICE, false).contract_template).toBeNull();
+  });
+
+  it("refuses a contract it does not know", () => {
+    const draft = { ...validDraft(), contract_template: "couple" as unknown as ContractTemplate };
+    const result = validateDraft(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.contract_template).toBe(messages.contractTemplate);
   });
 });
 

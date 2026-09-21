@@ -12,8 +12,11 @@ import type { ServiceWithConfig } from "@/lib/db/types";
 
 import { DeliverablesList, DocsList, StagesList } from "./config-lists";
 import {
+  CONTRACT_TEMPLATES,
+  CONTRACT_TEMPLATE_LABELS,
   LIMITS,
   bodyFromService,
+  contractTemplateFromOption,
   draftFromService,
   emptyDraft,
   newDeliverable,
@@ -29,7 +32,7 @@ import {
   type ServiceDraft,
   type StageDraft,
 } from "./editor-model";
-import { FieldGroup, TextAreaField, TextField } from "./fields";
+import { FieldGroup, SelectField, TextAreaField, TextField } from "./fields";
 import { SERVICES_API_PATH, SERVICES_PATH } from "./paths";
 
 /**
@@ -42,6 +45,11 @@ import { SERVICES_API_PATH, SERVICES_PATH } from "./paths";
  * the list with a refresh so the server re-reads. A server message (409
  * with the orders count, 422, anything) is shown on one line above the
  * buttons; field messages sit next to their field.
+ *
+ * "Service contract" names the firm's model the client's agreement is
+ * prepared from (docs/agreement-contract.md section 7): None, NIF, Bank
+ * account or the package. The four application form services may change it
+ * too; only their slug and price are locked.
  *
  * Deactivate and Reactivate send the saved service as it is with `active`
  * flipped, not the unsaved draft: a click on Deactivate should change one
@@ -71,6 +79,9 @@ const copy = {
   positionHint: "Order in the gallery, lowest first.",
   timeline: "Timeline",
   timelineHint: "One line, for example NIF in 3 to 5 business days.",
+  contract: "Service contract",
+  contractNone: "None",
+  contractHint: "The agreement the client confirms their details for and receives right after paying. With None, nothing is prepared or asked.",
   includes: "Includes",
   includesHint: "One item per line. **bold** is rendered.",
   stripe: {
@@ -99,6 +110,12 @@ const copy = {
   fixFields: "Check the highlighted fields.",
   genericError: "Something went wrong on our side.",
 } as const;
+
+/** "" stands for null in the select: a service with no contract. */
+const CONTRACT_OPTIONS = [
+  { value: "", label: copy.contractNone },
+  ...CONTRACT_TEMPLATES.map((model) => ({ value: model, label: CONTRACT_TEMPLATE_LABELS[model] })),
+];
 
 type Props = {
   initial?: ServiceWithConfig;
@@ -329,7 +346,19 @@ export function ServiceEditor({ initial }: Props) {
             maxLength={LIMITS.timeline}
             onChange={(e) => patch({ timeline: e.target.value })}
             hint={copy.timelineHint}
-            className="sm:col-span-2"
+          />
+          <SelectField
+            id={`${id}-contract`}
+            label={copy.contract}
+            value={draft.contract_template ?? ""}
+            disabled={busy}
+            options={CONTRACT_OPTIONS}
+            onChange={(e) => {
+              patch({ contract_template: contractTemplateFromOption(e.target.value) });
+              clearError("contract_template");
+            }}
+            hint={copy.contractHint}
+            error={errors.contract_template}
           />
           <TextAreaField
             id={`${id}-includes`}

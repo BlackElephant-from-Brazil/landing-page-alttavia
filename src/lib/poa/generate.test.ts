@@ -10,7 +10,7 @@ import {
   type PoaBlock,
   type PrincipalDetails,
 } from "@/content/power-of-attorney";
-import { generatePowerOfAttorney } from "./generate";
+import { generatePowerOfAttorney, printable } from "./generate";
 
 /**
  * Reads back the text pdf-lib wrote, one string per page. Strings are stored
@@ -206,6 +206,41 @@ describe("power of attorney PDF", () => {
     const pdf = await generatePowerOfAttorney("poa_nif", { ...FILLED, fullName: "Nguyễn Văn Łukasz" }, SIGNED);
     const text = await textOf(pdf);
     expect(text).toContain("Nguyen Van Lukasz");
+  });
+
+  it("never prints a name half accented, in the paragraph or under the signature", async () => {
+    // Letter by letter this printed "Lukasz Zólc": WinAnsi holds the o with acute and not the other three.
+    const samples: [typed: string, printed: string][] = [
+      ["Łukasz Żółć", "Lukasz Zolc"], // Polish
+      ["Jiří Dvořák Růžička", "Jiri Dvorak Ruzicka"], // Czech
+      ["İbrahim Şahin Çağlar", "Ibrahim Sahin Caglar"], // Turkish
+      ["Ștefan Țăran", "Stefan Taran"], // Romanian
+      ["Nguyễn Thị Đặng Hồng", "Nguyen Thi Dang Hong"], // Vietnamese
+    ];
+    for (const [typed, printed] of samples) {
+      const text = await textOf(await generatePowerOfAttorney("poa_bank", { ...FILLED, fullName: typed }, SIGNED));
+      // Portuguese paragraph, English paragraph, and the line under the signature.
+      expect(text.split(printed).length - 1, typed).toBe(3);
+      expect(text, typed).not.toContain("?");
+    }
+  });
+
+  it("keeps the accents the fonts can print, also when they were typed as combining marks", async () => {
+    const principal = { ...FILLED, fullName: "José António Conceição".normalize("NFD"), birthPlace: "São Paulo, Brasil" };
+    const text = await textOf(await generatePowerOfAttorney("poa_nif", principal, SIGNED));
+    expect(text).toContain("José António Conceição");
+    expect(text).toContain("São Paulo, Brasil");
+  });
+
+  it("prepares the principal's fields and nothing else", () => {
+    const polish = printable({ ...FILLED, fullName: "Łukasz Żółć", taxAddress: "ul. Żółkiewskiego 5, 31-539 Kraków" });
+    expect(polish).toEqual({
+      ...FILLED,
+      fullName: "Lukasz Zolc",
+      taxAddress: "ul. Zolkiewskiego 5, 31-539 Krakow",
+    });
+    expect(printable(FILLED)).toEqual(FILLED);
+    expect(printable({})).toEqual({});
   });
 });
 

@@ -4,6 +4,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, type MouseEvent, type SyntheticEvent } from "react";
 
+import { lockBodyScroll } from "@/components/ui/scroll-lock";
+
 /**
  * The centered `<dialog>` a client's order opens in, driven by the URL
  * (`?order=<id>`) the way the admin modal is, so a refresh, the back button
@@ -63,13 +65,8 @@ export function Modal({
     };
   }, []);
 
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, []);
+  // Counted, not saved and restored: the details dialog locks the body too, from inside this one.
+  useEffect(() => lockBodyScroll(), []);
 
   function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
     event.preventDefault();

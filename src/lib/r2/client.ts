@@ -8,6 +8,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+import { contentDisposition } from "./keys";
+
 /**
  * The private bucket where a client's documents live: Cloudflare R2, spoken
  * to through the S3 API. Server only, like the Supabase admin client, because
@@ -17,6 +19,14 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
  * a route handler and PUTs the file straight to the bucket; the route then
  * asks the bucket what actually arrived (HeadObject) before it believes the
  * upload.
+ *
+ * One kind of file is written and read from here rather than by a browser:
+ * the service agreement the server generates after payment. putObject stores
+ * it; getObjectBytes reads it back, to attach it to an email again
+ * (src/lib/contracts/ensure.ts) and to stream it to its owner
+ * (GET /api/orders/[id]/contract), which answers the PDF itself instead of a
+ * redirect to a presigned URL: a tab that is refreshed after two minutes
+ * must still show the agreement, not the bucket's XML for an expired link.
  *
  * Environment is read lazily, inside the functions, so importing this module
  * in a build or a test never throws for a missing key.
@@ -92,23 +102,69 @@ export async function presignUpload(input: {
 }
 
 /**
+ * Writes one object from the server, for a file the server made itself (the
+ * service agreement). `ContentType` is stored with the object, so a download
+ * that names no type of its own is still served as what it is.
+ */
+export async function putObject(input: { key: string; body: Uint8Array; contentType: string }): Promise<void> {
+  const { client, bucket } = getR2();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: input.key,
+      Body: input.body,
+      ContentType: input.contentType,
+      ContentLength: input.body.byteLength,
+    }),
+  );
+}
+
+/**
+ * The bytes of one object, or null when it does not exist. For a file the
+ * server reads back itself: the agreement, attached again when its email is
+ * retried and streamed to its owner by the contract route. The whole object
+ * is read into memory, which suits a PDF of a hundred kilobytes and nothing
+ * much bigger. Any other failure is thrown, as in headObjectSize.
+ */
+export async function getObjectBytes(key: string): Promise<Uint8Array | null> {
+  const { client, bucket } = getR2();
+  try {
+    const found = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    if (!found.Body) return null;
+    return await found.Body.transformToByteArray();
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
+}
+
+/**
  * A URL that serves one object for two minutes. The file name travels in the
  * response's Content-Disposition so the browser tab and any download carry
  * the name the client gave the file, not the uuid it is stored under.
+ *
+ * `disposition` is `inline` unless said otherwise, so the browser shows what
+ * it can show; `attachment` makes it save the file instead. A disposition
+ * without a file name is sent only for `attachment`, because a bare `inline`
+ * is what a browser does anyway.
  */
 export async function presignDownload(input: {
   key: string;
   fileName?: string;
   contentType?: string;
+  disposition?: "inline" | "attachment";
 }): Promise<{ url: string; expiresIn: number }> {
   const { client, bucket } = getR2();
+  const disposition = input.disposition ?? "inline";
   const command = new GetObjectCommand({
     Bucket: bucket,
     Key: input.key,
     ResponseContentType: input.contentType,
     ResponseContentDisposition: input.fileName
-      ? `inline; filename="${asciiFileName(input.fileName)}"; filename*=UTF-8''${encodeURIComponent(input.fileName)}`
-      : undefined,
+      ? contentDisposition(disposition, input.fileName)
+      : disposition === "attachment"
+        ? "attachment"
+        : undefined,
   });
   const url = await getSignedUrl(client, command, { expiresIn: PRESIGN_DOWNLOAD_SECONDS });
   return { url, expiresIn: PRESIGN_DOWNLOAD_SECONDS };
@@ -134,10 +190,4 @@ function isNotFound(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const e = error as { name?: string; $metadata?: { httpStatusCode?: number } };
   return e.name === "NotFound" || e.name === "NoSuchKey" || e.$metadata?.httpStatusCode === 404;
-}
-
-/** The plain ASCII fallback of a file name for the first `filename=` parameter. */
-function asciiFileName(name: string): string {
-  const ascii = name.replace(/[^\x20-\x7e]/g, "").replace(/["\\]/g, "");
-  return ascii || "file";
 }

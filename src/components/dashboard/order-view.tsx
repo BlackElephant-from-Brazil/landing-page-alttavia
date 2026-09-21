@@ -4,10 +4,12 @@ import { ArrowLeft } from "lucide-react";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import { formatEuro } from "@/content/bank-nif";
 import { summarizeAnswers } from "@/lib/apply/summary";
+import { contractState } from "@/lib/contracts/state";
 import type { OrderViewData } from "@/lib/db/client-queries";
 import type { UserServiceRow } from "@/lib/db/types";
 
 import { AnswersSummary } from "./answers-summary";
+import { ContractGate } from "./contract/contract-gate";
 import { Deliverables } from "./deliverables";
 import { DocumentList } from "./documents/document-list";
 import { HelpBox } from "./help-box";
@@ -27,17 +29,27 @@ import { StageTimeline } from "./stage-timeline";
  *
  * Order of sections, top to bottom: notices, heading, the package card, the
  * stage timeline (with its completed state), then what needs the client
- * (payment, then rejected files above the upload slots once paid), then what
+ * (payment; once paid, the service agreement card right under the "Payment
+ * received" notice, then rejected files above the upload slots), then what
  * the firm returned (files and the closing report), the wizard answers when
  * the order has any, and the help box. Compact mode drops the heading and
  * the package card: the modal's own header carries the name, the amount and
  * the status.
+ *
+ * The service agreement card (contract/contract-gate.tsx, agreement contract
+ * section 6) follows `contractState`: nothing for a service with no contract,
+ * "Confirm my details" while the agreement is still to be prepared, View and
+ * Download once it exists. A completed order keeps a prepared agreement to
+ * download and is not asked for one it never had. Only the agreement's date
+ * and whether it was emailed are handed to the client component, not the row.
  */
 
 export type OrderNotice = "cancelled" | "unconfirmed";
 
 type Props = OrderViewData & {
   order: UserServiceRow;
+  /** The signed in account's address: where the service agreement is sent. */
+  accountEmail: string;
   notice?: OrderNotice;
   /** The eyebrow above the heading. */
   eyebrow?: string;
@@ -71,8 +83,10 @@ export function OrderView({
   docs,
   documents,
   applicants,
+  contract,
   deliverables,
   questions,
+  accountEmail,
   notice,
   eyebrow = copy.eyebrow,
   backHref,
@@ -85,6 +99,8 @@ export function OrderView({
   const answers = hasAnswers(order.answers_snapshot) ? summarizeAnswers(order.answers_snapshot, questions) : [];
   const rejected = paid ? rejectedSlots(docs, documents, order.applicants) : [];
   const returned = deliverables.length > 0 || !!order.report;
+  const agreement = contractState(order, service, applicants, contract);
+  const showAgreement = paid && (agreement === "ready" || (agreement === "needs_details" && !completed));
 
   return (
     <div className={compact ? "space-y-10" : "space-y-12"}>
@@ -115,14 +131,28 @@ export function OrderView({
 
       <StageTimeline stages={stages} currentKey={order.stage_key} completed={completed} />
 
-      {completed ? (
-        <Notice tone="success" title={copy.completedTitle}>
-          {returned ? copy.completedBodyWithFiles : copy.completedBody}
-        </Notice>
-      ) : paid ? (
-        <Notice tone="success" title={copy.paidTitle}>
-          {copy.paidBody}
-        </Notice>
+      {paid ? (
+        <div className="space-y-6">
+          {completed ? (
+            <Notice tone="success" title={copy.completedTitle}>
+              {returned ? copy.completedBodyWithFiles : copy.completedBody}
+            </Notice>
+          ) : (
+            <Notice tone="success" title={copy.paidTitle}>
+              {copy.paidBody}
+            </Notice>
+          )}
+          {showAgreement && (
+            <ContractGate
+              orderId={order.id}
+              paidAt={order.paid_at}
+              accountEmail={accountEmail}
+              applicant={applicants.find((row) => row.applicant_index === 0) ?? null}
+              preparedAt={contract?.generated_at ?? null}
+              emailed={!!contract?.emailed_at}
+            />
+          )}
+        </div>
       ) : (
         <section aria-labelledby="payment-heading">
           <h2 id="payment-heading" className="text-xs uppercase tracking-wider text-navy-muted">

@@ -41,10 +41,13 @@ const copy = {
 export async function OrderModal({
   orderId,
   userId,
+  email,
   notice,
 }: {
   orderId: string | undefined;
   userId: string;
+  /** The signed in account's address, for the service agreement card. */
+  email: string;
   notice?: OrderNotice;
 }) {
   if (!orderId) return null;
@@ -58,7 +61,7 @@ export async function OrderModal({
 
   return (
     <Modal key={order.id} titleId={TITLE_ID} title={<Header order={order} service={data.service} stages={data.stages} />}>
-      <OrderView order={order} {...data} notice={notice} compact />
+      <OrderView order={order} {...data} accountEmail={email} notice={notice} compact />
     </Modal>
   );
 }

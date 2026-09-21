@@ -42,7 +42,7 @@ export default async function OrderPage({ params }: Props) {
 
   return (
     <div className="max-w-3xl">
-      <OrderView order={order} {...data} eyebrow="Your order" backHref={PURCHASES_PATH} />
+      <OrderView order={order} {...data} accountEmail={user.email} eyebrow="Your order" backHref={PURCHASES_PATH} />
     </div>
   );
 }

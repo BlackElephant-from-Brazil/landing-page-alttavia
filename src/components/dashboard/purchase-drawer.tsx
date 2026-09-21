@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useRef, useState, type MouseEvent, type 
 
 import { RichText } from "@/components/bank/rich-text";
 import { Button } from "@/components/ui/button";
+import { lockBodyScroll } from "@/components/ui/scroll-lock";
 import { formatEuro } from "@/content/bank-nif";
 import { cn } from "@/lib/cn";
 import type { ServiceRow } from "@/lib/db/types";
@@ -91,12 +92,11 @@ export function PurchaseDrawer({
     if (!dialog.open) dialog.showModal();
     const frame = window.requestAnimationFrame(() => setEntered(true));
     const fallback = window.setTimeout(() => setEntered(true), 120);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScroll = lockBodyScroll();
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(fallback);
-      document.body.style.overflow = previous;
+      releaseScroll();
     };
   }, []);
 

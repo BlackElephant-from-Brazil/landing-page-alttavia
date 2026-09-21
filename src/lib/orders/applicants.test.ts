@@ -15,6 +15,8 @@ import {
 /** A fixed "today" in Lisbon, so the age and expiry rules are deterministic. */
 const TODAY = "2026-09-14";
 
+const LATIN_LETTERS = "Use Latin letters, as in the machine readable line of your passport.";
+
 const VALID = {
   fullName: "  Jane Alice Doe ",
   gender: "f",
@@ -106,8 +108,49 @@ describe("validateApplicantInput", () => {
   });
 
   it("counts characters, not UTF-16 units, like the database", () => {
-    // 200 astral characters are 400 UTF-16 units and still within the limit.
-    expect(check({ fullName: "𝔘".repeat(200) }).ok).toBe(true);
+    // 200 astral characters are 400 UTF-16 units and still within the limit: what stops them is that no
+    // document can print them, not their length. One more and the length is what is wrong.
+    expect(message({ fullName: "𝔘".repeat(200) })).toBe(LATIN_LETTERS);
+    expect(message({ fullName: "𝔘".repeat(201) })).toBe("Keep it under 200 characters.");
+  });
+
+  it("refuses, in every text field, letters the documents would print as question marks", () => {
+    expect(message({ fullName: "Иван Иванов" })).toBe(LATIN_LETTERS);
+    expect(message({ fullName: "王小明" })).toBe(LATIN_LETTERS);
+    expect(message({ fullName: "محمد علي" })).toBe(LATIN_LETTERS);
+    expect(message({ birthPlace: "Москва, Россия" })).toBe(LATIN_LETTERS);
+    expect(message({ passportNumber: "АВ1234567" })).toBe(LATIN_LETTERS); // Cyrillic А and В
+    expect(message({ passportIssuer: "公安部出入境管理局" })).toBe(LATIN_LETTERS);
+    expect(message({ taxAddress: "ул. Тверская, 7, Москва, 125009" })).toBe(LATIN_LETTERS);
+    expect(message({ fullName: "Jane 🙂 Doe" })).toBe(LATIN_LETTERS);
+  });
+
+  it("accepts accents, the ones the documents print and the ones they spell without", () => {
+    for (const fullName of [
+      "José António Conceição",
+      "Łukasz Żółć",
+      "Jiří Dvořák Růžička",
+      "İbrahim Şahin Çağlar",
+      "Ștefan Țăran",
+      "Nguyễn Thị Đặng Hồng",
+      "Anne‑Marie O’Connor",
+    ]) {
+      const result = check({ fullName });
+      expect(result.ok, fullName).toBe(true);
+      // Stored as typed (composed): the spelling without accents is the documents' business, not the row's.
+      if (result.ok) expect(result.value.full_name).toBe(fullName.normalize("NFC"));
+    }
+    expect(check({ fullName: "Why? Street" }).ok).toBe(true);
+  });
+
+  it("stores a name typed with combining accents in its composed form", () => {
+    const result = check({ fullName: "José António".normalize("NFD") });
+    expect(result.ok && result.value.full_name).toBe("José António".normalize("NFC"));
+  });
+
+  it("measures before it reads the letters, so the first thing wrong is the first thing said", () => {
+    expect(message({ fullName: "И" })).toBe("Enter your full name as it appears in your passport.");
+    expect(message({ fullName: "И".repeat(201) })).toBe("Keep it under 200 characters.");
   });
 
   it("drops control and zero width characters before saving", () => {
@@ -133,9 +176,9 @@ describe("validateApplicantInput", () => {
   });
 
   it("requires the gender to be f or m", () => {
-    expect(message({ gender: "x" })).toBe("Tell us how the deed should refer to you.");
-    expect(message({ gender: undefined })).toBe("Tell us how the deed should refer to you.");
-    expect(message({ gender: "F" })).toBe("Tell us how the deed should refer to you.");
+    expect(message({ gender: "x" })).toBe("Choose She or He.");
+    expect(message({ gender: undefined })).toBe("Choose She or He.");
+    expect(message({ gender: "F" })).toBe("Choose She or He.");
   });
 
   it("parses dates as real calendar dates", () => {
@@ -150,8 +193,8 @@ describe("validateApplicantInput", () => {
 
   it("requires the principal to be 18 by today's date in Lisbon", () => {
     expect(check({ birthDate: "2008-09-14" }).ok).toBe(true);
-    expect(message({ birthDate: "2008-09-15" })).toBe("You need to be 18 or older to sign the deed.");
-    expect(message({ birthDate: "2030-01-01" })).toBe("You need to be 18 or older to sign the deed.");
+    expect(message({ birthDate: "2008-09-15" })).toBe("You need to be 18 or older.");
+    expect(message({ birthDate: "2030-01-01" })).toBe("You need to be 18 or older.");
     // Born on 29 February: 18 on 1 March of the eighteenth year.
     expect(validateApplicantInput({ ...VALID, birthDate: "2008-02-29" }, "2026-02-28").ok).toBe(false);
     expect(validateApplicantInput({ ...VALID, birthDate: "2008-02-29" }, "2026-03-01").ok).toBe(true);
@@ -330,8 +373,10 @@ describe("poaFileName", () => {
 
   it("folds accents and punctuation to an ascii slug", () => {
     expect(poaFileName("poa_nif", "  José María O'Connor-Ávila ")).toBe("power-of-attorney-nif-jose-maria-o-connor-avila.pdf");
-    // Marks are stripped; a letter with no decomposition (Ł) is dropped from the slug.
-    expect(poaFileName("poa_bank", "Nguyễn Văn Łukasz")).toBe("power-of-attorney-bank-nguyen-van-ukasz.pdf");
+    // Spelled the way the deed prints the name: a letter with no decomposition (Ł) keeps its plain form.
+    expect(poaFileName("poa_bank", "Nguyễn Văn Łukasz")).toBe("power-of-attorney-bank-nguyen-van-lukasz.pdf");
+    expect(poaFileName("poa_nif", "Łukasz Żółć")).toBe("power-of-attorney-nif-lukasz-zolc.pdf");
+    expect(poaFileName("poa_nif", "Søren Straße")).toBe("power-of-attorney-nif-soren-strasse.pdf");
   });
 
   it("drops the suffix when nothing of the name survives", () => {
