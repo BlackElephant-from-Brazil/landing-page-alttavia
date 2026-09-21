@@ -5,6 +5,7 @@ import { formatEuro } from "@/content/bank-nif";
 import { cn } from "@/lib/cn";
 import type { ContractTemplate, ServiceWithConfig } from "@/lib/db/types";
 
+import { tableCopy as copy } from "./copy";
 import { CONTRACT_TEMPLATE_LABELS } from "./editor-model";
 import { servicePath } from "./paths";
 import { StatusBadge } from "./service-editor";
@@ -13,20 +14,9 @@ import { StatusBadge } from "./service-editor";
  * The services list: one row per service, inactive ones included and
  * greyed, in catalogue position. Server component; the only interaction is
  * the Edit link. The table scrolls inside its own container on narrow
- * screens rather than pushing the page sideways.
+ * screens rather than pushing the page sideways. The slug column is headed
+ * "Code"; every line comes from `tableCopy` in ./copy.ts.
  */
-
-const copy = {
-  name: "Service",
-  slug: "Slug",
-  price: "Price",
-  status: "Status",
-  orders: "Orders",
-  stages: "Stages",
-  docs: "Documents",
-  edit: "Edit",
-  empty: "No services yet. Create the first one.",
-} as const;
 
 const headClass = "px-4 py-3 text-left text-[0.7rem] font-medium uppercase tracking-[0.16em] text-navy-muted";
 const cellClass = "px-4 py-3.5 align-middle text-[0.9rem]";
@@ -116,7 +106,7 @@ function AgreementHint({ template }: { template: ContractTemplate | null }) {
   if (!template) return null;
   return (
     <span className="mt-0.5 block text-[0.75rem] font-normal text-navy-muted">
-      Agreement: {CONTRACT_TEMPLATE_LABELS[template]}
+      {copy.agreement}: {CONTRACT_TEMPLATE_LABELS[template]}
     </span>
   );
 }
@@ -124,5 +114,5 @@ function AgreementHint({ template }: { template: ContractTemplate | null }) {
 /** "2 deeds" under the documents count, when some of the slots generate a power of attorney. */
 function DeedsHint({ count }: { count: number }) {
   if (count === 0) return null;
-  return <span className="block text-[0.75rem] font-normal text-navy-muted">{count === 1 ? "1 deed" : `${count} deeds`}</span>;
+  return <span className="block text-[0.75rem] font-normal text-navy-muted">{count === 1 ? copy.oneDeed : `${count} ${copy.deeds}`}</span>;
 }

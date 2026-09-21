@@ -6,7 +6,9 @@ import type { ServiceStageRow } from "@/lib/db/types";
  * advanceStage against a fake admin client. No network: the admin client is
  * replaced with vi.mock before the module under test loads. The fake answers
  * reads from the `tables` fixture and records every update and insert in
- * `writes`, so each test asserts what would have reached the database.
+ * `writes`, so each test asserts what would have reached the database. An
+ * insert also lands in `tables`, so a later call reads the events an earlier
+ * one wrote, as the first completion rule needs.
  */
 
 const { tables, writes, hooks } = vi.hoisted(() => ({
@@ -23,6 +25,7 @@ vi.mock("@/lib/supabase/admin", () => ({
       let op: "select" | "update" = "select";
       let payload: Record<string, unknown> = {};
       let orderBy: string | null = null;
+      let limit: number | null = null;
 
       const matching = () =>
         (tables[table] ?? []).filter((row) => filters.every(([column, value]) => row[column] === value));
@@ -37,7 +40,7 @@ vi.mock("@/lib/supabase/admin", () => ({
         }
         const rows = matching();
         if (orderBy) rows.sort((a, b) => (a[orderBy!] as number) - (b[orderBy!] as number));
-        return { data: rows, error: null };
+        return { data: limit === null ? rows : rows.slice(0, limit), error: null };
       };
 
       const query = {
@@ -52,6 +55,10 @@ vi.mock("@/lib/supabase/admin", () => ({
           orderBy = column;
           return query;
         },
+        limit(count: number) {
+          limit = count;
+          return query;
+        },
         update(values: Record<string, unknown>) {
           op = "update";
           payload = values;
@@ -59,6 +66,7 @@ vi.mock("@/lib/supabase/admin", () => ({
         },
         insert(values: Record<string, unknown>) {
           writes.push({ table, op: "insert", payload: values, filters: [] });
+          (tables[table] ??= []).push({ id: crypto.randomUUID(), ...values });
           return Promise.resolve({ data: null, error: null });
         },
         maybeSingle() {
@@ -123,7 +131,7 @@ describe("advanceStage", () => {
 
     const result = await advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" });
 
-    expect(result).toEqual({ stageKey: "awaiting_financas", completed: false });
+    expect(result).toEqual({ stageKey: "awaiting_financas", completed: false, firstCompletion: false });
     expect(order().stage_key).toBe("awaiting_financas");
     expect(order().completed_at).toBeNull();
     expect(lastEvent()).toEqual({
@@ -139,7 +147,7 @@ describe("advanceStage", () => {
 
     const result = await advanceStage(ORDER_ID, ACTOR_ID, { direction: "back" });
 
-    expect(result).toEqual({ stageKey: "documents", completed: false });
+    expect(result).toEqual({ stageKey: "documents", completed: false, firstCompletion: false });
     expect(order().stage_key).toBe("documents");
     expect(lastEvent()).toMatchObject({ from_stage: "awaiting_financas", to_stage: "documents" });
   });
@@ -149,7 +157,7 @@ describe("advanceStage", () => {
 
     const result = await advanceStage(ORDER_ID, ACTOR_ID, { stageKey: "awaiting_financas" });
 
-    expect(result).toEqual({ stageKey: "awaiting_financas", completed: false });
+    expect(result).toEqual({ stageKey: "awaiting_financas", completed: false, firstCompletion: false });
     expect(lastEvent()).toMatchObject({ from_stage: "documents", to_stage: "awaiting_financas" });
   });
 
@@ -158,7 +166,7 @@ describe("advanceStage", () => {
 
     const result = await advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" });
 
-    expect(result).toEqual({ stageKey: "nif_ready", completed: true });
+    expect(result).toEqual({ stageKey: "nif_ready", completed: true, firstCompletion: true });
     expect(typeof order().completed_at).toBe("string");
     expect(new Date(order().completed_at as string).getTime()).not.toBeNaN();
   });
@@ -168,7 +176,7 @@ describe("advanceStage", () => {
 
     const result = await advanceStage(ORDER_ID, ACTOR_ID, { direction: "back" });
 
-    expect(result).toEqual({ stageKey: "awaiting_financas", completed: false });
+    expect(result).toEqual({ stageKey: "awaiting_financas", completed: false, firstCompletion: false });
     expect(order().completed_at).toBeNull();
     const update = writes.find((w) => w.op === "update");
     expect(update?.payload).toEqual({ stage_key: "awaiting_financas", completed_at: null });
@@ -211,7 +219,7 @@ describe("advanceStage", () => {
 
     const result = await advanceStage(ORDER_ID, ACTOR_ID, { stageKey: "documents" });
 
-    expect(result).toEqual({ stageKey: "documents", completed: false });
+    expect(result).toEqual({ stageKey: "documents", completed: false, firstCompletion: false });
     expect(writes).toHaveLength(0);
   });
 
@@ -230,7 +238,7 @@ describe("advanceStage", () => {
 
     // Naming the first stage itself is still allowed: nothing to write.
     const result = await advanceStage(ORDER_ID, ACTOR_ID, { stageKey: "awaiting_payment" });
-    expect(result).toEqual({ stageKey: "awaiting_payment", completed: false });
+    expect(result).toEqual({ stageKey: "awaiting_payment", completed: false, firstCompletion: false });
     expect(writes).toHaveLength(0);
   });
 
@@ -243,6 +251,16 @@ describe("advanceStage", () => {
     });
   });
 
+  it("answers stale before it writes an event on a terminal move that lost the race", async () => {
+    seed("awaiting_financas");
+    hooks.beforeUpdate = () => {
+      tables.user_services[0].stage_key = "documents";
+    };
+
+    await expect(advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" })).rejects.toMatchObject({ code: "stale" });
+    expect(lastEvent()).toBeUndefined();
+  });
+
   it("updates only when the stage is still the one it read", async () => {
     seed("documents");
     // Someone else moves the order between our read and our write.
@@ -253,5 +271,63 @@ describe("advanceStage", () => {
     await expect(advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" })).rejects.toMatchObject({ code: "stale" });
     expect(lastEvent()).toBeUndefined();
     expect(order().stage_key).toBe("awaiting_financas");
+  });
+});
+
+describe("advanceStage firstCompletion", () => {
+  function event(to_stage: string, from_stage: string | null, user_service_id = ORDER_ID) {
+    return { id: crypto.randomUUID(), user_service_id, from_stage, to_stage, note: null, actor_id: ACTOR_ID };
+  }
+
+  it("is true only on the first arrival: back and forward again, or a jump, is not", async () => {
+    seed("awaiting_financas");
+
+    const first = await advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" });
+    expect(first).toEqual({ stageKey: "nif_ready", completed: true, firstCompletion: true });
+
+    const back = await advanceStage(ORDER_ID, ACTOR_ID, { direction: "back" });
+    expect(back.firstCompletion).toBe(false);
+
+    const again = await advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" });
+    expect(again).toEqual({ stageKey: "nif_ready", completed: true, firstCompletion: false });
+
+    await advanceStage(ORDER_ID, ACTOR_ID, { stageKey: "documents" });
+    const jump = await advanceStage(ORDER_ID, ACTOR_ID, { stageKey: "nif_ready" });
+    expect(jump).toEqual({ stageKey: "nif_ready", completed: true, firstCompletion: false });
+  });
+
+  it("counts an earlier event that reached the terminal stage, a review on it included", async () => {
+    seed("awaiting_financas");
+    tables.user_service_events = [event("nif_ready", "awaiting_financas")];
+    expect((await advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" })).firstCompletion).toBe(false);
+
+    seed("awaiting_financas");
+    // A document reviewed while the order sat on the terminal stage: from and to are the same.
+    tables.user_service_events = [event("nif_ready", "nif_ready")];
+    expect((await advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" })).firstCompletion).toBe(false);
+  });
+
+  it("ignores events of other stages and of other orders", async () => {
+    seed("awaiting_financas");
+    tables.user_service_events = [
+      event("awaiting_payment", null),
+      event("documents", "awaiting_payment"),
+      event("awaiting_financas", "documents"),
+      event("nif_ready", "awaiting_financas", "66666666-6666-4666-8666-666666666666"),
+    ];
+
+    const result = await advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" });
+
+    expect(result.firstCompletion).toBe(true);
+  });
+
+  it("is false for a move that does not reach the terminal stage and for one that writes nothing", async () => {
+    seed("documents");
+    expect((await advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" })).firstCompletion).toBe(false);
+
+    seed("nif_ready", "2026-09-11T10:00:00.000Z");
+    tables.user_service_events = [];
+    const stay = await advanceStage(ORDER_ID, ACTOR_ID, { stageKey: "nif_ready" });
+    expect(stay).toEqual({ stageKey: "nif_ready", completed: true, firstCompletion: false });
   });
 });

@@ -18,6 +18,10 @@ import { getStripe } from "./client";
  * `confirmCheckoutSession` never throws. A bad, foreign or unpaid session is
  * logged and reported as `{ ok: false }`, because the page that calls it is
  * rendering for a person who may simply have an old link.
+ *
+ * The first time an order is paid, `settleVerifiedSession` also sends the
+ * payment emails (client and team), best effort. Nothing here imports the
+ * service agreement code: the client asks for the agreement after paying.
  */
 
 export type ConfirmResult = { ok: true; userServiceId: string } | { ok: false; reason: string };
@@ -30,7 +34,21 @@ export type VerifiedSession = {
   currency: string;
 };
 
-export type VerifyResult = { ok: true; verified: VerifiedSession } | { ok: false; reason: string };
+export type VerifyResult =
+  | { ok: true; verified: VerifiedSession }
+  | {
+      ok: false;
+      reason: string;
+      /**
+       * Set when the session paid a known order, for the wrong amount or in
+       * the wrong currency: money was taken and the order stays unpaid, so
+       * the webhook tells the team (src/lib/orders/notify.ts).
+       */
+      mismatchedOrder?: UserServiceRow;
+    };
+
+export const AMOUNT_MISMATCH = "Paid amount does not match the order.";
+export const CURRENCY_MISMATCH = "Paid currency does not match the order.";
 
 const SESSION_ID = /^cs_(test|live)_[A-Za-z0-9]+$/;
 
@@ -64,11 +82,11 @@ export async function verifyPaidSession(
 
   const amountCents = session.amount_total;
   if (amountCents === null || amountCents !== order.total_cents) {
-    return { ok: false, reason: "Paid amount does not match the order." };
+    return { ok: false, reason: AMOUNT_MISMATCH, mismatchedOrder: order };
   }
   const currency = session.currency ?? "";
   if (currency.toLowerCase() !== order.currency.toLowerCase()) {
-    return { ok: false, reason: "Paid currency does not match the order." };
+    return { ok: false, reason: CURRENCY_MISMATCH, mismatchedOrder: order };
   }
 
   const intent = session.payment_intent;
@@ -80,14 +98,39 @@ export async function verifyPaidSession(
   };
 }
 
-/** Records a verified session on its order. Throws on a database error. */
-export async function settleVerifiedSession(verified: VerifiedSession): Promise<ConfirmResult> {
-  await markOrderPaid(verified.order.id, {
+/**
+ * Records a verified session on its order. Throws on a database error.
+ *
+ * The one funnel the dashboard return and the webhook share, so it is also
+ * where the payment emails start: "Payment received" to the client and "New
+ * paid order" to the team, only when `markOrderPaid` answers `changed`. That
+ * flag comes from a conditional update, so of the two callers exactly one
+ * sends and a repeat sends nothing. The emails are best effort and never
+ * throw (src/lib/orders/notify.ts): a failed send cannot undo the payment or
+ * turn the webhook into a 500. `origin` builds their links when
+ * NEXT_PUBLIC_SITE_URL is empty; absent, the request's headers are read.
+ */
+export async function settleVerifiedSession(
+  verified: VerifiedSession,
+  opts: { origin?: string | null } = {},
+): Promise<ConfirmResult> {
+  const paid = await markOrderPaid(verified.order.id, {
     sessionId: verified.sessionId,
     paymentIntentId: verified.paymentIntentId,
     amountCents: verified.amountCents,
     currency: verified.currency,
   });
+  if (paid.changed) {
+    try {
+      // Loaded on the first payment only, so the dashboard page that imports
+      // this module stays free of the email code (src/lib/contracts/state.test.ts
+      // guards its import graph). A failed load is caught like a failed send.
+      const { notifyOrderPaid } = await import("@/lib/orders/notify");
+      await notifyOrderPaid(verified.order, opts);
+    } catch (err) {
+      console.error(`settleVerifiedSession: payment emails for ${verified.order.id} failed:`, err);
+    }
+  }
   return { ok: true, userServiceId: verified.order.id };
 }
 
@@ -112,7 +155,7 @@ export async function confirmCheckoutSession(sessionId: string, userId: string):
     const result = await verifyPaidSession(session, userId);
     if (!result.ok) {
       console.warn(`confirmCheckoutSession: ${sessionId} rejected for user ${userId}: ${result.reason}`);
-      return result;
+      return { ok: false, reason: result.reason };
     }
     return await settleVerifiedSession(result.verified);
   } catch (err) {

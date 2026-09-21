@@ -18,8 +18,11 @@ const CLIENT_DASHBOARD_PATH = "/en/dashboard";
  * src/proxy.ts already sends a visitor without a session to /admin/login
  * with the path they wanted in `next`; the check here is the one that
  * validates the token with Supabase and reads the role. No user goes to the
- * login page; a client goes to their own dashboard. Reading cookies makes
- * everything under this layout dynamic, which is what an admin page wants.
+ * login page; an admin whose session came from an emailed code goes there
+ * too, and the page asks for the password with one line (admin powers need
+ * a password session, src/lib/supabase/admin-user.ts); a client goes to
+ * their own dashboard. Reading cookies makes everything under this layout
+ * dynamic, which is what an admin page wants.
  *
  * The login page is not under this folder (it lives in the
  * `(admin-login)` route group at the same URL prefix), so this guard never
@@ -27,7 +30,7 @@ const CLIENT_DASHBOARD_PATH = "/en/dashboard";
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getUserWithRole();
-  if (!user) redirect(ADMIN_LOGIN_PATH);
+  if (!user || user.needsPassword) redirect(ADMIN_LOGIN_PATH);
   if (user.role !== "admin") redirect(CLIENT_DASHBOARD_PATH);
 
   return <AdminShell email={user.email}>{children}</AdminShell>;

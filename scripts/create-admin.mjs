@@ -6,9 +6,25 @@
  *   npm run admin:create -- someone@example.com            another address
  *   npm run admin:create -- someone@example.com --reset-password
  *   npm run admin:create -- someone@example.com --reset-password --promote
+ *   npm run admin:create -- --support                      the support admin, see below
  *
  * Run it in your own terminal, never through an agent: the password is
- * printed to the screen and would land in the agent's transcript.
+ * printed to the screen and would land in the agent's transcript. The one
+ * exception is --support, which prints no password and may be run by an
+ * agent or a test script.
+ *
+ * --support (2026-09-21) creates or updates the support admin,
+ * business+admin@guyshore.com (the developer's inbox, never the firm's):
+ * a new 24 character password every run (letters and digits only, so the
+ * .env reader of Next.js neither cuts it at a # nor expands a $), role
+ * admin, and then ADMIN_SUPPORT_EMAIL and ADMIN_SUPPORT_PASSWORD written
+ * into .env.local. Those two lines are replaced when present and appended
+ * otherwise; every other line of the file stays byte for byte. The
+ * password is never printed. This is the account the developer and the
+ * test scripts sign in to /admin with, since the admin area only accepts a
+ * password session (src/lib/supabase/admin-user.ts). The email is fixed,
+ * so no typo can promote a client: --reset-password and --promote are
+ * implied.
  *
  * What it does, in order:
  *
@@ -22,7 +38,9 @@
  *   3. Reads the role back and prints it, then prints the password ONCE.
  *
  * The password is never written anywhere: not to .env.local, not to the
- * repo. Hand it over and have the owner change it at /admin/settings.
+ * repo (--support is the one exception, above, and writes only its own
+ * account's password). Hand it over and have the owner change it at
+ * /admin/settings.
  *
  * If the auth user already exists the script stops with exit code 1 and
  * says how to reset instead; with --reset-password it generates a new
@@ -37,7 +55,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -50,6 +68,14 @@ const API = `https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`
 const DEFAULT_EMAIL = "info@alttavia-relocation.com";
 const PASSWORD_LENGTH = 20;
 const PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*+=?";
+
+const SUPPORT_EMAIL = "business+admin@guyshore.com";
+const SUPPORT_PASSWORD_LENGTH = 24;
+/** No symbols: the value lives in .env.local, where # starts a comment and $ a variable. */
+const SUPPORT_PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+const SUPPORT_ENV_FILE = ".env.local";
+const SUPPORT_EMAIL_VAR = "ADMIN_SUPPORT_EMAIL";
+const SUPPORT_PASSWORD_VAR = "ADMIN_SUPPORT_PASSWORD";
 
 /**
  * Minimal .env reader, the same one scripts/stripe-setup.mjs uses. CRLF
@@ -80,27 +106,65 @@ const SECRET_KEY = env("SUPABASE_SECRET_KEY");
 const ACCESS_TOKEN = env("SUPABASE_ACCESS_TOKEN");
 
 const args = process.argv.slice(2);
-const resetPassword = args.includes("--reset-password");
-const promote = args.includes("--promote");
-const email = (args.find((arg) => !arg.startsWith("--")) ?? DEFAULT_EMAIL).trim().toLowerCase();
+const support = args.includes("--support");
+const resetPassword = support || args.includes("--reset-password");
+const promote = support || args.includes("--promote");
+const email = support
+  ? SUPPORT_EMAIL
+  : (args.find((arg) => !arg.startsWith("--")) ?? DEFAULT_EMAIL).trim().toLowerCase();
 
 /**
- * 20 characters from the alphabet above, each picked with rejection
- * sampling so no character is likelier than another. Ambiguous glyphs
- * (0, O, 1, l, I) are left out of the alphabet: this gets read off a
+ * `length` characters from `alphabet`, each picked with rejection sampling
+ * so no character is likelier than another. Ambiguous glyphs (0, O, 1, l,
+ * I) are left out of both alphabets: the admin password gets read off a
  * screen once.
  */
-function generatePassword() {
+function generatePassword(length = PASSWORD_LENGTH, alphabet = PASSWORD_ALPHABET) {
   const chars = [];
-  const limit = 256 - (256 % PASSWORD_ALPHABET.length);
-  while (chars.length < PASSWORD_LENGTH) {
-    for (const byte of randomBytes(PASSWORD_LENGTH)) {
+  const limit = 256 - (256 % alphabet.length);
+  while (chars.length < length) {
+    for (const byte of randomBytes(length)) {
       if (byte >= limit) continue;
-      chars.push(PASSWORD_ALPHABET[byte % PASSWORD_ALPHABET.length]);
-      if (chars.length === PASSWORD_LENGTH) break;
+      chars.push(alphabet[byte % alphabet.length]);
+      if (chars.length === length) break;
     }
   }
   return chars.join("");
+}
+
+/**
+ * Sets `values` in .env.local: every line that already assigns one of the
+ * names is replaced in place (a stale duplicate further down would
+ * otherwise win), the names not found are appended at the end. Every other
+ * line, the file's line endings and its final newline stay as they were.
+ */
+function writeEnvValues(name, values) {
+  const path = join(ROOT, name);
+  let source = "";
+  try {
+    source = readFileSync(path, "utf8");
+  } catch (err) {
+    if (err?.code !== "ENOENT") throw err;
+  }
+  const eol = source.includes("\r\n") ? "\r\n" : "\n";
+  const wanted = new Map(Object.entries(values));
+  const found = new Set();
+
+  const lines = source.length > 0 ? source.split(/\r?\n/) : [];
+  const endsWithNewline = /\r?\n$/.test(source);
+  if (endsWithNewline) lines.pop();
+
+  const out = lines.map((line) => {
+    const match = line.match(/^\s*([A-Za-z0-9_]+)\s*=/);
+    if (!match || !wanted.has(match[1])) return line;
+    found.add(match[1]);
+    return `${match[1]}=${wanted.get(match[1])}`;
+  });
+  const appended = [...wanted].filter(([key]) => !found.has(key));
+  for (const [key, value] of appended) out.push(`${key}=${value}`);
+
+  const body = out.join(eol);
+  writeFileSync(path, endsWithNewline || appended.length > 0 ? body + eol : body, "utf8");
 }
 
 /** Posts one query to the Management API and returns the rows. */
@@ -160,7 +224,9 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 
-  const password = generatePassword();
+  const password = support
+    ? generatePassword(SUPPORT_PASSWORD_LENGTH, SUPPORT_PASSWORD_ALPHABET)
+    : generatePassword();
   let action;
 
   const created = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
@@ -202,6 +268,22 @@ async function main() {
   );
   const role = check?.[0]?.role;
   if (role !== "admin") throw new Error(`public.users.role for ${email} is "${role ?? "missing"}", not admin.`);
+
+  if (support) {
+    try {
+      writeEnvValues(SUPPORT_ENV_FILE, { [SUPPORT_EMAIL_VAR]: email, [SUPPORT_PASSWORD_VAR]: password });
+    } catch (err) {
+      // The account now has a password nobody holds; running again sets a new one.
+      throw new Error(
+        `The password was set but ${SUPPORT_ENV_FILE} could not be written (${err?.code ?? err?.message}). Run again.`,
+      );
+    }
+    console.log(`\nSupport admin ${action}: ${email}`);
+    console.log(`public.users.role = ${role}`);
+    console.log(`Password (${SUPPORT_PASSWORD_LENGTH} characters, not shown) written to ${SUPPORT_ENV_FILE}`);
+    console.log(`as ${SUPPORT_PASSWORD_VAR}, next to ${SUPPORT_EMAIL_VAR}. Sign in at /admin/login with them.\n`);
+    return;
+  }
 
   console.log(`\nAdmin account ${action}: ${email}`);
   console.log(`public.users.role = ${role}\n`);

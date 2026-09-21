@@ -7,7 +7,7 @@ import { AdminLoginForm } from "@/components/admin/login-form";
 import { Container } from "@/components/ui/container";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import { Logo } from "@/components/ui/logo";
-import { getUserWithRole } from "@/lib/supabase/admin-user";
+import { PASSWORD_REQUIRED, getUserWithRole } from "@/lib/supabase/admin-user";
 
 export const metadata: Metadata = {
   title: "Admin sign in",
@@ -54,14 +54,22 @@ function safeNext(value: string | string[] | undefined): string {
  * so the admin layout's guard (no user goes to this page) does not wrap it;
  * the URL is still /admin/login. A signed in admin skips the form and goes
  * to `next`, which defaults to /admin; a signed in client goes to their own
- * dashboard. Dynamic by nature (cookies are read).
+ * dashboard. An admin whose session came from an emailed code (the client
+ * area's sign in, or a password reset code) stays here: the form opens
+ * with "Sign in with your password." and their email filled in, and a
+ * password sign in replaces that session. Dynamic by nature (cookies are
+ * read).
+ *
+ * "Forgot your password?" runs entirely inside the form (a mode switch, no
+ * other URL), so src/proxy.ts needs no exception for it.
  */
 export default async function AdminLoginPage({ searchParams }: Props) {
   const query = await searchParams;
   const next = safeNext(query.next);
 
   const user = await getUserWithRole();
-  if (user) redirect(user.role === "admin" ? next : CLIENT_DASHBOARD_PATH);
+  const needsPassword = user?.needsPassword === true;
+  if (user && !needsPassword) redirect(user.role === "admin" ? next : CLIENT_DASHBOARD_PATH);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -87,7 +95,11 @@ export default async function AdminLoginPage({ searchParams }: Props) {
             {copy.heading}
           </h1>
           <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-navy-soft">{copy.lead}</p>
-          <AdminLoginForm next={next} />
+          <AdminLoginForm
+            next={next}
+            notice={needsPassword ? PASSWORD_REQUIRED : undefined}
+            defaultEmail={needsPassword ? user?.email : undefined}
+          />
         </Container>
       </main>
     </div>

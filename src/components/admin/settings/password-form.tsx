@@ -3,23 +3,26 @@
 import { useId, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/cn";
 
 /**
  * Change the signed in admin's password. Contract (docs/admin-contract.md)
- * section 7: `supabase.auth.updateUser({ password })` on the current
- * session, at least 12 characters, typed twice.
+ * section 7, amended 2026-09-21: the current password first, then the new
+ * one, at least 12 characters, typed twice.
  *
- * The browser client updates the user and rotates the session cookies
- * itself; nothing goes through a route of ours. Errors from Supabase never
- * reach the screen as they are: a rejected password reads one line, and
- * anything else the generic one.
+ * The form posts to POST /api/admin/password, which checks the current
+ * password with a sign in of its own before it sets the new one, so a
+ * session left open on a shared screen is not enough to take the account
+ * over. The route's `{ error }` lines are written for this screen and shown
+ * as they are; anything without one reads the generic line.
  */
 
 const MIN_LENGTH = 12;
+/** Supabase Auth refuses passwords longer than 72 characters (bcrypt). */
+const MAX_LENGTH = 72;
 
 const copy = {
+  currentLabel: "Current password",
   newLabel: "New password",
   confirmLabel: "Type it again",
   hint: `At least ${MIN_LENGTH} characters. A short sentence works well.`,
@@ -27,10 +30,11 @@ const copy = {
   submitting: "Saving",
   success: "Password changed. Use it next time you sign in.",
   errors: {
+    current: "Enter your current password.",
     short: `Use at least ${MIN_LENGTH} characters.`,
+    long: `Use at most ${MAX_LENGTH} characters.`,
     mismatch: "The two entries do not match.",
-    weak: "Choose a password that is harder to guess.",
-    rejected: "That password was not accepted. Try a longer one.",
+    same: "Choose a password different from the current one.",
     generic: "Something went wrong on our side.",
   },
 } as const;
@@ -43,12 +47,15 @@ const inputClass = cn(
 
 const labelClass = "block text-xs uppercase tracking-wider text-navy-muted";
 
-export function PasswordForm() {
+export function PasswordForm({ email }: { email?: string }) {
   const id = useId();
+  const currentId = `${id}-current`;
   const passwordId = `${id}-password`;
   const confirmId = `${id}-confirm`;
+  const hintId = `${id}-hint`;
   const messageId = `${id}-message`;
 
+  const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -60,27 +67,42 @@ export function PasswordForm() {
     if (pending) return;
     setDone(false);
 
+    if (!current) {
+      setError(copy.errors.current);
+      return;
+    }
     if (password.length < MIN_LENGTH) {
       setError(copy.errors.short);
+      return;
+    }
+    if (password.length > MAX_LENGTH) {
+      setError(copy.errors.long);
       return;
     }
     if (password !== confirm) {
       setError(copy.errors.mismatch);
       return;
     }
+    if (password === current) {
+      setError(copy.errors.same);
+      return;
+    }
 
     setError(null);
     setPending(true);
     try {
-      const supabase = createClient();
-      const { error: authError } = await supabase.auth.updateUser({ password });
-      if (authError) {
-        const rejected = authError.status !== undefined && authError.status >= 400 && authError.status < 500;
-        setError(
-          authError.code === "weak_password" ? copy.errors.weak : rejected ? copy.errors.rejected : copy.errors.generic,
-        );
+      const res = await fetch("/api/admin/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: current, newPassword: password }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
+        setError(typeof body?.error === "string" && body.error ? body.error : copy.errors.generic);
+        if (res.status === 422 && body?.error === "Your current password is not right.") setCurrent("");
         return;
       }
+      setCurrent("");
       setPassword("");
       setConfirm("");
       setDone(true);
@@ -91,9 +113,39 @@ export function PasswordForm() {
     }
   }
 
+  function edit(setter: (value: string) => void) {
+    return (value: string) => {
+      setter(value);
+      if (error) setError(null);
+      if (done) setDone(false);
+    };
+  }
+
   return (
     <form onSubmit={handleSubmit} noValidate className="max-w-md" aria-busy={pending}>
+      {/* Lets a password manager file the new password under the right account. */}
+      {email && <input type="text" name="username" autoComplete="username" value={email} readOnly hidden />}
+
       <div>
+        <label htmlFor={currentId} className={labelClass}>
+          {copy.currentLabel}
+        </label>
+        <input
+          id={currentId}
+          name="current-password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={current}
+          onChange={(e) => edit(setCurrent)(e.target.value)}
+          disabled={pending}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={messageId}
+          className={cn(inputClass, "mt-2", error && "border-clay/60")}
+        />
+      </div>
+
+      <div className="mt-5">
         <label htmlFor={passwordId} className={labelClass}>
           {copy.newLabel}
         </label>
@@ -104,17 +156,17 @@ export function PasswordForm() {
           autoComplete="new-password"
           required
           minLength={MIN_LENGTH}
+          maxLength={MAX_LENGTH}
           value={password}
-          onChange={(e) => {
-            setPassword(e.target.value);
-            if (error) setError(null);
-          }}
+          onChange={(e) => edit(setPassword)(e.target.value)}
           disabled={pending}
           aria-invalid={error ? true : undefined}
-          aria-describedby={messageId}
+          aria-describedby={`${hintId} ${messageId}`}
           className={cn(inputClass, "mt-2", error && "border-clay/60")}
         />
-        <p className="mt-2 text-[0.82rem] text-navy-muted">{copy.hint}</p>
+        <p id={hintId} className="mt-2 text-[0.82rem] text-navy-muted">
+          {copy.hint}
+        </p>
       </div>
 
       <div className="mt-5">
@@ -128,11 +180,9 @@ export function PasswordForm() {
           autoComplete="new-password"
           required
           minLength={MIN_LENGTH}
+          maxLength={MAX_LENGTH}
           value={confirm}
-          onChange={(e) => {
-            setConfirm(e.target.value);
-            if (error) setError(null);
-          }}
+          onChange={(e) => edit(setConfirm)(e.target.value)}
           disabled={pending}
           aria-invalid={error ? true : undefined}
           aria-describedby={messageId}

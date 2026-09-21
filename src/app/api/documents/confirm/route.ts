@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getUserService } from "@/lib/db/queries";
 import type { UserDocumentRow } from "@/lib/db/types";
+import { notifyDocumentsReady } from "@/lib/orders/notify";
 import { headObjectSize } from "@/lib/r2/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/user";
@@ -15,12 +16,29 @@ import { getUser } from "@/lib/supabase/user";
  * row was created with, and only then moves the row from `pending` to
  * `uploaded`. A second call on an already uploaded row is a no-op that
  * returns the row, so a retried request never fails.
+ *
+ * When the upload fills the last required slot of the order, the team inbox
+ * gets "Documents ready to review" (src/lib/orders/notify.ts). A replaced
+ * file after a rejection can complete the set again and send again, on
+ * purpose. The no-op path sends nothing, and a failed email never fails the
+ * upload.
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function refuse(status: number, message: string) {
   return NextResponse.json({ error: message }, { status });
+}
+
+/** The origin links inside the email are built on: the site URL when set, else where the request came from. */
+function requestOrigin(request: Request): string | null {
+  const given = process.env.NEXT_PUBLIC_SITE_URL || request.headers.get("origin");
+  if (given) return given;
+  try {
+    return new URL(request.url).origin;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(request: Request) {
@@ -67,8 +85,13 @@ export async function POST(request: Request) {
     if (updateError || !updated) {
       throw new Error(`user_documents update: ${updateError?.message ?? "no row"}`);
     }
+    const confirmed = updated as UserDocumentRow;
 
-    return NextResponse.json({ document: updated as UserDocumentRow });
+    // The upload is recorded. When it filled the last required slot, the team
+    // hears about it. Best effort: notifyDocumentsReady never throws.
+    await notifyDocumentsReady({ order, document: confirmed }, { db: admin, origin: requestOrigin(request) });
+
+    return NextResponse.json({ document: confirmed });
   } catch (error) {
     console.error("[documents/confirm]", error);
     return refuse(500, "Something did not work. Try again.");

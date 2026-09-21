@@ -21,6 +21,10 @@ import { NextResponse, type NextRequest } from "next/server";
  * This is an optimistic check only. Pages and route handlers still call
  * getUser() themselves before reading or writing anything for a user.
  *
+ * The refreshed session cookies are SameSite lax and, in a production build,
+ * Secure: the same options as src/lib/supabase/client.ts and server.ts, so a
+ * cookie written here is never weaker than one written there.
+ *
  * Next.js 16: this file replaces middleware.ts and runs on the Node.js
  * runtime.
  */
@@ -41,6 +45,7 @@ export async function proxy(request: NextRequest) {
 
   if (url && key) {
     const supabase = createServerClient(url, key, {
+      cookieOptions: { sameSite: "lax", secure: process.env.NODE_ENV === "production" },
       cookies: {
         getAll() {
           return request.cookies.getAll();

@@ -6,6 +6,7 @@ import type { UserRole } from "@/lib/db/types";
 import { findOrder } from "@/lib/orders/applicants";
 import { getObjectBytes } from "@/lib/r2/client";
 import { contentDisposition } from "@/lib/r2/keys";
+import { siteOrigin } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserWithRole } from "@/lib/supabase/admin-user";
 
@@ -37,7 +38,8 @@ import { getUserWithRole } from "@/lib/supabase/admin-user";
  * `{ error: "No agreement yet." }` when none was prepared. A visitor without
  * a session is sent to login rather than given a JSON 401, because this URL
  * is opened by a click, with `next` set to the order, so they land on it
- * after signing in.
+ * after signing in. The redirect is built on siteOrigin
+ * (src/lib/site-url.ts), never on 0.0.0.0.
  *
  * An order that does not exist, or is not the caller's, answers 403 "This
  * order is not yours." the way the other order routes do, so a client cannot
@@ -182,7 +184,7 @@ export async function GET(request: Request, ctx: Params) {
   try {
     const { id } = await ctx.params;
     const user = await getUserWithRole();
-    if (!user) return NextResponse.redirect(new URL(loginPath(id), request.url), 302);
+    if (!user) return NextResponse.redirect(new URL(loginPath(id), siteOrigin(request)), 302);
 
     if (!UUID.test(id)) return missingOrder(user);
 

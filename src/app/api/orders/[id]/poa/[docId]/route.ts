@@ -4,6 +4,7 @@ import { signingDateFor } from "@/content/power-of-attorney";
 import type { ServiceDocRow, UserRole } from "@/lib/db/types";
 import { findApplicant, findOrder, poaFileName, toPrincipal } from "@/lib/orders/applicants";
 import { generatePowerOfAttorney } from "@/lib/poa/generate";
+import { siteOrigin } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserWithRole } from "@/lib/supabase/admin-user";
 
@@ -28,8 +29,9 @@ import { getUserWithRole } from "@/lib/supabase/admin-user";
  * slot is looked at after that, so a stranger learns nothing about it.
  *
  * A visitor without a session is sent to login rather than given a JSON
- * 401, because this URL is opened by a click. `ctx.params` is a Promise in
- * this Next.js.
+ * 401, because this URL is opened by a click; the redirect is built on
+ * siteOrigin (src/lib/site-url.ts), never on 0.0.0.0. `ctx.params` is a
+ * Promise in this Next.js.
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -63,7 +65,7 @@ function missingOrder(user: { role: UserRole }) {
 export async function GET(request: Request, ctx: Params) {
   try {
     const user = await getUserWithRole();
-    if (!user) return NextResponse.redirect(new URL(LOGIN, request.url), 302);
+    if (!user) return NextResponse.redirect(new URL(LOGIN, siteOrigin(request)), 302);
 
     const { id, docId } = await ctx.params;
     if (!UUID.test(id)) return missingOrder(user);

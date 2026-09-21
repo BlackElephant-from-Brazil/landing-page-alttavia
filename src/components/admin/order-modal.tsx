@@ -18,7 +18,9 @@ import { Pill } from "./data-table";
 import { formatBytesShort, formatDate, formatDateTime, formatEuro, humanizeKey } from "./lib/format";
 import { isUuid } from "./lib/params";
 import { Modal } from "./modal";
+import { completedBefore } from "./order/completion";
 import { ContractActions } from "./order/contract-actions";
+import { DeliverableRemove } from "./order/deliverable-remove";
 import { DeliverableUpload } from "./order/deliverable-upload";
 import { DocumentReview } from "./order/document-review";
 import { ReportForm } from "./order/report-form";
@@ -217,6 +219,7 @@ function StageSection({ detail }: { detail: AdminOrderDetail }) {
           currentKey={order.stage_key}
           paid={!!order.paid_at}
           unapprovedRequired={unapprovedRequired}
+          completedBefore={completedBefore(order, ordered, detail.events)}
         />
       </div>
     </section>
@@ -591,6 +594,7 @@ function DeliverablesSection({ detail }: { detail: AdminOrderDetail }) {
   );
 }
 
+/** One returned file: Download, and Remove for a file sent by mistake (it asks first, inline, under the row). */
 function DeliverableLine({ file }: { file: UserServiceDeliverableRow }) {
   return (
     <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3">
@@ -617,6 +621,7 @@ function DeliverableLine({ file }: { file: UserServiceDeliverableRow }) {
         <Download className="size-3.5" aria-hidden />
         Download
       </a>
+      <DeliverableRemove deliverableId={file.id} label={file.label} />
     </li>
   );
 }

@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Settings" };
  * turned on for the Supabase project yet.
  */
 export default async function SettingsPage() {
-  await requireAdminPage();
+  const admin = await requireAdminPage();
   return (
     <div>
       <EyebrowSolo>Alttavia · Admin</EyebrowSolo>
@@ -26,7 +26,7 @@ export default async function SettingsPage() {
           You stay signed in on this device after the change. Other devices need the new password next time.
         </p>
         <div className="mt-6">
-          <PasswordForm />
+          <PasswordForm email={admin.email} />
         </div>
       </section>
 

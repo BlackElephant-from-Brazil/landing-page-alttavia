@@ -391,7 +391,8 @@ function nullable(text: string): string | null {
 /**
  * Messages keyed by field. Service fields use their own name; list rows use
  * `stages.<uid>.<field>`; list level messages use `stages`, `docs`,
- * `deliverables`. Every message is one line under the house rules.
+ * `deliverables`. Every message is one line under the house rules, in the
+ * words the screens use (a key is a "code"); ./copy.test.ts checks them.
  */
 export type DraftErrors = Record<string, string>;
 
@@ -405,17 +406,17 @@ export const messages = {
   includesCount: `Keep to ${LIMITS.includes.items} items or fewer.`,
   includesLength: `Keep each item under ${LIMITS.includes.chars} characters.`,
   tooManyStages: `Keep to ${LIMITS.stages.max} stages or fewer.`,
-  twoStages: "Add at least one stage after awaiting_payment.",
+  twoStages: "Add at least one stage after Awaiting payment.",
   contiguous: "Positions must run from 1 with no gaps.",
   price: "Enter a price above zero, for example 149 or 149.50.",
   currency: "Use a three letter code, for example eur.",
   integer: "Enter a whole number.",
   key: "Use lower case letters, numbers and underscores, starting with a letter.",
-  duplicateKey: "This key is used twice.",
+  duplicateKey: "This code is used twice.",
   duplicatePosition: "This position is used twice.",
   positionFrom1: "Positions start at 1.",
   noStages: "Add at least one stage.",
-  firstStage: `The first stage must be ${FIRST_STAGE_KEY}.`,
+  firstStage: `The first stage must be Awaiting payment, with the code ${FIRST_STAGE_KEY}.`,
   oneTerminal: "Mark exactly one stage as final.",
   terminalLast: "The final stage must have the highest position.",
   mime: "Tick at least one file type.",

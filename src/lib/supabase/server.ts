@@ -11,6 +11,9 @@ import { cookies } from "next/headers";
  *
  * A new client per request, never shared: the cookie store belongs to the
  * request. `cookies()` is async in this Next.js, hence the await.
+ *
+ * Session cookies it writes are SameSite lax and, in a production build,
+ * Secure. Same options as client.ts and src/proxy.ts; keep the three in step.
  */
 export async function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -24,6 +27,7 @@ export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient(url, key, {
+    cookieOptions: { sameSite: "lax", secure: process.env.NODE_ENV === "production" },
     cookies: {
       getAll() {
         return cookieStore.getAll();

@@ -1,29 +1,40 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The deliverable upload pair against a fake admin client and a fake R2:
- * presignUpload answers a URL built from the key, headObjectSize answers
- * whatever the test says the bucket holds.
+ * The deliverable upload pair and the removal against a fake admin client
+ * and a fake R2: presignUpload answers a URL built from the key,
+ * headObjectSize answers whatever the test says the bucket holds, and
+ * deleteObject records the key it was asked to remove in `steps`, as the
+ * fake's row delete does, so a test can read the order the two happened in.
  */
 
-const { tables, writes, presignUpload, headObjectSize } = vi.hoisted(() => ({
+const { tables, writes, steps, presignUpload, headObjectSize, deleteObject } = vi.hoisted(() => ({
   tables: {} as Record<string, Record<string, unknown>[]>,
-  writes: [] as { table: string; op: "update" | "insert"; payload: Record<string, unknown> }[],
+  writes: [] as { table: string; op: "update" | "insert" | "delete"; payload: Record<string, unknown> }[],
+  steps: [] as string[],
   presignUpload: vi.fn(),
   headObjectSize: vi.fn(),
+  deleteObject: vi.fn(),
 }));
 
-vi.mock("@/lib/r2/client", () => ({ presignUpload, headObjectSize }));
+vi.mock("@/lib/r2/client", () => ({ presignUpload, headObjectSize, deleteObject }));
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from(table: string) {
       const filters: [string, unknown][] = [];
-      let op: "select" | "update" | "insert" = "select";
+      let op: "select" | "update" | "insert" | "delete" = "select";
       let payload: Record<string, unknown> = {};
       const rows = () => (tables[table] ??= []);
       const matching = () => rows().filter((row) => filters.every(([c, v]) => row[c] === v));
       const run = () => {
+        if (op === "delete") {
+          const hit = matching();
+          tables[table] = rows().filter((row) => !hit.includes(row));
+          writes.push({ table, op, payload: Object.fromEntries(filters) });
+          steps.push(`row ${String(Object.fromEntries(filters).id)}`);
+          return { data: [] as Record<string, unknown>[], error: null };
+        }
         if (op === "update") {
           const hit = matching();
           for (const row of hit) Object.assign(row, payload);
@@ -56,6 +67,10 @@ vi.mock("@/lib/supabase/admin", () => ({
           payload = values;
           return query;
         },
+        delete() {
+          op = "delete";
+          return query;
+        },
         maybeSingle() {
           const r = run();
           return Promise.resolve({ data: r.data[0] ?? null, error: null });
@@ -81,6 +96,7 @@ import {
   buildDeliverableKey,
   confirmDeliverable,
   createDeliverableUpload,
+  deleteDeliverable,
 } from "./deliverables";
 
 const ORDER_ID = "33333333-3333-4333-8333-333333333333";
@@ -107,6 +123,11 @@ function upload(overrides: Partial<Parameters<typeof createDeliverableUpload>[0]
 
 beforeEach(() => {
   writes.length = 0;
+  steps.length = 0;
+  deleteObject.mockReset();
+  deleteObject.mockImplementation(async (key: string) => {
+    steps.push(`object ${key}`);
+  });
   presignUpload.mockReset();
   presignUpload.mockImplementation(async ({ key }: { key: string }) => ({ url: `https://r2.example/${key}`, expiresIn: 300 }));
   headObjectSize.mockReset();
@@ -257,5 +278,79 @@ describe("confirmDeliverable", () => {
 
   it("answers 404 for an unknown id", async () => {
     await expect(confirmDeliverable(DELIVERABLE_ID)).rejects.toMatchObject({ code: "deliverable_not_found", status: 404 });
+  });
+});
+
+describe("deleteDeliverable", () => {
+  const KEY = `deliverables/${ORDER_ID}/abc.pdf`;
+
+  function seed(overrides: Record<string, unknown> = {}) {
+    tables.user_service_deliverables = [
+      {
+        id: DELIVERABLE_ID,
+        user_service_id: ORDER_ID,
+        service_deliverable_id: TEMPLATE_ID,
+        label: "NIF certificate",
+        storage_key: KEY,
+        status: "ready",
+        file_name: "nif.pdf",
+        mime_type: "application/pdf",
+        size_bytes: 2048,
+        uploaded_by: ADMIN_ID,
+        ...overrides,
+      },
+      { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", user_service_id: ORDER_ID, storage_key: `deliverables/${ORDER_ID}/other.pdf`, status: "ready" },
+    ];
+  }
+
+  it("removes the object first, then the row, and answers the row as it was", async () => {
+    seed();
+
+    const row = await deleteDeliverable(DELIVERABLE_ID);
+
+    expect(steps).toEqual([`object ${KEY}`, `row ${DELIVERABLE_ID}`]);
+    expect(row).toMatchObject({ id: DELIVERABLE_ID, user_service_id: ORDER_ID, label: "NIF certificate" });
+    expect(tables.user_service_deliverables.map((r) => r.id)).toEqual(["dddddddd-dddd-4ddd-8ddd-dddddddddddd"]);
+  });
+
+  it("keeps the row when the bucket refuses, so Remove can be pressed again", async () => {
+    seed();
+    deleteObject.mockRejectedValueOnce(new Error("bucket down"));
+
+    await expect(deleteDeliverable(DELIVERABLE_ID)).rejects.toThrow("bucket down");
+    expect(tables.user_service_deliverables).toHaveLength(2);
+
+    await deleteDeliverable(DELIVERABLE_ID);
+    expect(tables.user_service_deliverables).toHaveLength(1);
+  });
+
+  it("removes a pending row with no file without asking the bucket", async () => {
+    seed({ status: "pending", storage_key: null });
+
+    await deleteDeliverable(DELIVERABLE_ID);
+
+    expect(deleteObject).not.toHaveBeenCalled();
+    expect(steps).toEqual([`row ${DELIVERABLE_ID}`]);
+  });
+
+  it("refuses a key outside the order's deliverables folder before touching anything", async () => {
+    for (const key of [`documents/${ORDER_ID}/passport.pdf`, "deliverables/cccccccc-cccc-4ccc-8ccc-cccccccccccc/x.pdf"]) {
+      seed({ storage_key: key });
+      // A plain Error: the route logs it and answers a generic 500, never the key.
+      await expect(deleteDeliverable(DELIVERABLE_ID)).rejects.toThrow("outside its order's folder");
+    }
+    expect(deleteObject).not.toHaveBeenCalled();
+    expect(writes).toHaveLength(0);
+  });
+
+  it("answers 404 for an unknown id and deletes nothing", async () => {
+    seed();
+
+    await expect(deleteDeliverable("00000000-0000-4000-8000-000000000000")).rejects.toMatchObject({
+      code: "deliverable_not_found",
+      status: 404,
+      message: "This file is not on record.",
+    });
+    expect(steps).toEqual([]);
   });
 });

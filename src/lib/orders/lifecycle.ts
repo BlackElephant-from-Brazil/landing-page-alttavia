@@ -14,6 +14,15 @@ import type { ServiceStageRow, UserServiceRow } from "@/lib/db/types";
  * else clears it. Every move writes a `user_service_events` row with the
  * actor. Jumping to the stage the order is already on writes nothing.
  *
+ * `firstCompletion` says whether this move is the first time the order
+ * reaches its terminal stage, which is when the route emails the client.
+ * No column records it: the answer is whether `user_service_events` already
+ * holds a row whose `to_stage` is the terminal key, read before this move's
+ * own row is written. A document review on the terminal stage writes such a
+ * row too (from and to are the same), and it can only exist once the order
+ * got there, so it counts the same way. Back to an earlier stage and forward
+ * again is therefore never a first time.
+ *
  * The update carries the stage the order was read at, so two admins moving
  * the same order at once cannot both win: the second sees no row and gets a
  * StageError to refresh. Stage transitions are the admin's call, documents
@@ -32,6 +41,12 @@ export type StageResult = {
   stageKey: string;
   /** True when that stage is the terminal one and `completed_at` is set. */
   completed: boolean;
+  /**
+   * True only when this call moved the order onto its terminal stage and no
+   * earlier event had taken it there. False for every other call, including
+   * one that writes nothing.
+   */
+  firstCompletion: boolean;
 };
 
 export type StageErrorCode =
@@ -107,7 +122,21 @@ export async function advanceStage(orderId: string, actorId: string, move: Stage
   }
 
   if (target.key === order.stage_key) {
-    return { stageKey: target.key, completed: target.is_terminal && order.completed_at !== null };
+    return { stageKey: target.key, completed: target.is_terminal && order.completed_at !== null, firstCompletion: false };
+  }
+
+  // Read before the update and the insert below, so this move's own event
+  // row can never be mistaken for an earlier arrival.
+  let reachedBefore = false;
+  if (target.is_terminal) {
+    const { data: earlier, error: earlierError } = await admin
+      .from("user_service_events")
+      .select("id")
+      .eq("user_service_id", orderId)
+      .eq("to_stage", target.key)
+      .limit(1);
+    if (earlierError) throw new Error(`advanceStage: ${earlierError.message}`);
+    reachedBefore = (earlier ?? []).length > 0;
   }
 
   const completedAt = target.is_terminal ? (order.completed_at ?? new Date().toISOString()) : null;
@@ -135,5 +164,9 @@ export async function advanceStage(orderId: string, actorId: string, move: Stage
     console.error(`advanceStage: event insert failed for ${orderId}: ${eventError.message}`);
   }
 
-  return { stageKey: target.key, completed: completedAt !== null };
+  return {
+    stageKey: target.key,
+    completed: completedAt !== null,
+    firstCompletion: target.is_terminal && !reachedBefore,
+  };
 }

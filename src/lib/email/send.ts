@@ -22,6 +22,14 @@ import "server-only";
  *   EMAIL_REPLY_TO   where a client's reply lands (optional)
  *
  * Content comes from src/lib/email/templates.ts. No SDK: one fetch.
+ *
+ * Reserved addresses are never sent to. A recipient on `.invalid` (RFC 2606;
+ * the demo accounts of scripts/seed-demo.mjs live on demo.alttavia.invalid)
+ * can never receive mail, and a message to one would hard bounce on the
+ * sending domain and hurt its reputation. Such a send is skipped with one
+ * info line and answered `{ ok: true }`, so the admin UI reads as it would
+ * for a real client (training runs on the demo data). No real client can
+ * have such an address.
  */
 
 const RESEND_URL = "https://api.resend.com/emails";
@@ -45,7 +53,20 @@ export type SendEmailResult = {
   id?: string;
 };
 
+/** True for an address on the reserved `.invalid` top level domain, which never receives mail. */
+export function isReservedAddress(to: string): boolean {
+  const at = to.lastIndexOf("@");
+  if (at < 0) return false;
+  const domain = to.slice(at + 1).trim().replace(/>$/, "").replace(/\.$/, "").toLowerCase();
+  return domain === "invalid" || domain.endsWith(".invalid");
+}
+
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
+  if (isReservedAddress(input.to)) {
+    console.info(`sendEmail: "${input.subject}" to a reserved .invalid address skipped`);
+    return { ok: true };
+  }
+
   const apiKey = process.env.EMAIL_API_KEY;
   const from = process.env.EMAIL_FROM;
   const replyTo = process.env.EMAIL_REPLY_TO;

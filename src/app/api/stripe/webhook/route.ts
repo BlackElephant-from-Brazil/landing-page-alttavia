@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 
+import { notifyPaymentMismatch } from "@/lib/orders/notify";
 import { getStripe, isLiveMode } from "@/lib/stripe/client";
 import { settleVerifiedSession, verifyPaidSession } from "@/lib/stripe/confirm";
 
@@ -20,6 +21,12 @@ import { settleVerifiedSession, verifyPaidSession } from "@/lib/stripe/confirm";
  * Status codes drive Stripe's retries: 200 means done or deliberately
  * ignored (a session that fails verification will never pass, so retrying
  * is pointless); 500 means a database hiccup and asks for another attempt.
+ *
+ * One ignored case is not quiet: a paid session that names a known order
+ * but paid another amount or currency (a Payment Link or price id that
+ * costs something else). The money was taken and the order stays unpaid,
+ * so the team inbox gets "Paid amount does not match the order" (best
+ * effort, never throws, src/lib/orders/notify.ts) and the answer stays 200.
  */
 
 export const runtime = "nodejs";
@@ -69,6 +76,14 @@ export async function POST(request: Request) {
     const result = await verifyPaidSession(session);
     if (!result.ok) {
       console.warn(`POST /api/stripe/webhook: ${event.type} ${session.id} ignored: ${result.reason}`);
+      if (result.mismatchedOrder) {
+        await notifyPaymentMismatch({
+          order: result.mismatchedOrder,
+          sessionId: session.id,
+          paidCents: session.amount_total,
+          paidCurrency: session.currency,
+        });
+      }
       return Response.json({ received: true, ignored: result.reason });
     }
     await settleVerifiedSession(result.verified);

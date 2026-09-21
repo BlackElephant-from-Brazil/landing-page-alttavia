@@ -8,11 +8,11 @@ import { cn } from "@/lib/cn";
 
 import type { PoaTemplate } from "@/lib/db/types";
 
+import { listsCopy as copy } from "./copy";
 import {
   ACCEPTED_MIME_OPTIONS,
   DELIVERABLE_KINDS,
   LIMITS,
-  MAX_DOC_MB,
   POA_TEMPLATES,
   suggestKey,
   type DeliverableDraft,
@@ -29,58 +29,11 @@ import { CheckboxField, FieldGroup, ListError, SelectField, TextAreaField, TextF
  *
  * Keys follow the label through `suggestKey` until the admin types in the
  * key field; saved rows show their key read only, because the API upserts
- * by key and a different key would be a new row, not a rename.
+ * by key and a different key would be a new row, not a rename. On screen the
+ * key is called "Code"; every line comes from `listsCopy` in ./copy.ts.
  */
 
-const copy = {
-  stages: {
-    title: "Lifecycle stages",
-    intro: "The order moves through these in position order. The first is always awaiting_payment; mark the last one as final.",
-    add: "Add stage",
-    empty: "No stages yet.",
-  },
-  docs: {
-    title: "Required documents",
-    intro: "One upload slot per document, per applicant when ticked. Notes appear under the slot on the client's dashboard.",
-    add: "Add document",
-    empty: "No documents. The client is asked for nothing after paying.",
-  },
-  deliverables: {
-    title: "Deliverables",
-    intro: "What the client receives when the order is complete.",
-    add: "Add deliverable",
-    empty: "No deliverables yet.",
-  },
-  key: "Key",
-  keyHint: "Lower snake case. Follows the label until you edit it.",
-  keySavedHint: "Saved keys stay fixed. A different key would create a new row.",
-  label: "Label",
-  position: "Position",
-  description: "Description",
-  descriptionHint: "Shown to the client while the order sits on this stage.",
-  terminal: "Final stage",
-  terminalHint: "Reaching it marks the order complete.",
-  note: "Note",
-  noteHint: "Under 200 characters.",
-  fileTypes: "Accepted file types",
-  maxMb: "Max size (MB)",
-  maxMbHint: `Up to ${MAX_DOC_MB} MB.`,
-  perApplicant: "One per applicant",
-  perApplicantHint: "A couple order asks for two.",
-  required: "Required",
-  requiredHint: "Counted on the admin's documents column.",
-  template: "Generated deed",
-  templateHint: "The client downloads it filled with their passport details, signs it by hand and uploads the signed copy into this slot.",
-  templateNone: "None",
-  templates: {
-    poa_nif: "Power of attorney (NIF)",
-    poa_bank: "Power of attorney (bank account)",
-  } satisfies Record<PoaTemplate, string>,
-  kind: "Kind",
-  remove: "Remove",
-} as const;
-
-const KIND_OPTIONS = DELIVERABLE_KINDS.map((kind) => ({ value: kind, label: kind === "document" ? "Document" : "Report" }));
+const KIND_OPTIONS = DELIVERABLE_KINDS.map((kind) => ({ value: kind, label: copy.kinds[kind] }));
 
 /** "" stands for null in the select: a plain upload slot. */
 const TEMPLATE_OPTIONS = [

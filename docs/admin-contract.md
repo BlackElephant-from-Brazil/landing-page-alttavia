@@ -38,6 +38,11 @@ payment to delivery, the client's order gallery, and the service editor.
   definer` function `public.is_admin()` reads it for RLS. Server code checks
   the same column through `requireAdmin()`. No JWT custom claims, so a role
   change takes effect on the next request, not the next token.
+- Admin powers need a session opened with a password (2026-09-21). The app
+  reads the standard `amr` claim in `requireAdmin()`; since
+  `0011_admin_password_session.sql` `is_admin()` asks the same of the JWT, so
+  an admin account's emailed code session reads only its own rows through
+  PostgREST too. `npm run authz:matrix` probes both sessions.
 - Every admin write goes through a route handler under `/api/admin/*` that
   calls `requireAdmin()` first and then uses the admin client. RLS admin
   policies exist so admin **pages** can read with the user client, nothing

@@ -32,6 +32,7 @@ import {
   type ServiceDraft,
   type StageDraft,
 } from "./editor-model";
+import { editorCopy as copy } from "./copy";
 import { FieldGroup, SelectField, TextAreaField, TextField } from "./fields";
 import { SERVICES_API_PATH, SERVICES_PATH } from "./paths";
 
@@ -55,61 +56,12 @@ import { SERVICES_API_PATH, SERVICES_PATH } from "./paths";
  * flipped, not the unsaved draft: a click on Deactivate should change one
  * thing. Deactivate asks first, because the service disappears from the
  * client gallery and the wizard the moment it lands.
+ *
+ * Every line on screen comes from `editorCopy` in ./copy.ts, written for
+ * Patrícia rather than for a developer: the slug is "Short code", the price
+ * warns that Stripe needs a new price id for a new price, and the Stripe
+ * group says where in Stripe the ids are found.
  */
-
-const copy = {
-  newTitle: "New service",
-  editTitle: "Edit service",
-  back: "All services",
-  basics: {
-    title: "Service",
-    intro: "What the client sees on the gallery, the checkout and the dashboard.",
-  },
-  name: "Name",
-  slug: "Slug",
-  slugHint: "Lower kebab case, unique. Follows the name until you edit it.",
-  slugLockedHint: "This slug is one the wizard sells. It cannot change here.",
-  priceLockedHint: "Prices of the four application form services change in code, not here.",
-  tagline: "Tagline",
-  description: "Description",
-  descriptionHint: "Shown by Stripe at checkout.",
-  price: "Price (euros)",
-  currency: "Currency",
-  position: "Position",
-  positionHint: "Order in the gallery, lowest first.",
-  timeline: "Timeline",
-  timelineHint: "One line, for example NIF in 3 to 5 business days.",
-  contract: "Service contract",
-  contractNone: "None",
-  contractHint: "The agreement the client confirms their details for and receives right after paying. With None, nothing is prepared or asked.",
-  includes: "Includes",
-  includesHint: "One item per line. **bold** is rendered.",
-  stripe: {
-    title: "Stripe",
-    intro: "Test ids and links come from npm run stripe:setup; live ids from stripe:setup --live. Leave blank until the script prints them.",
-  },
-  priceIdTest: "Price id (test)",
-  priceIdLive: "Price id (live)",
-  linkTest: "Payment link (test)",
-  linkLive: "Payment link (live)",
-  status: {
-    active: "Active",
-    inactive: "Inactive",
-    activeHint: "Shown in the client gallery and to the wizard.",
-    inactiveHint: "Hidden from the gallery and the wizard. Orders keep their history.",
-    deactivate: "Deactivate",
-    reactivate: "Reactivate",
-    confirmTitle: "Deactivate this service?",
-    confirmBody: "It disappears from the gallery and the wizard at once. Existing orders keep their history. Unsaved edits on this page are not included.",
-    confirm: "Yes, deactivate",
-    cancel: "Keep it active",
-  },
-  save: "Save service",
-  create: "Create service",
-  saving: "Saving",
-  fixFields: "Check the highlighted fields.",
-  genericError: "Something went wrong on our side.",
-} as const;
 
 /** "" stands for null in the select: a service with no contract. */
 const CONTRACT_OPTIONS = [
@@ -309,7 +261,7 @@ export function ServiceEditor({ initial }: Props) {
                 patch({ price: e.target.value });
                 clearError("price");
               }}
-              hint={slugLocked ? copy.priceLockedHint : undefined}
+              hint={slugLocked ? copy.priceLockedHint : copy.priceHint}
               error={errors.price}
             />
             <TextField
@@ -391,6 +343,7 @@ export function ServiceEditor({ initial }: Props) {
               patch({ stripe_price_id_test: e.target.value });
               clearError("stripe_price_id_test");
             }}
+            hint={copy.priceIdTestHint}
             error={errors.stripe_price_id_test}
           />
           <TextField
@@ -405,6 +358,7 @@ export function ServiceEditor({ initial }: Props) {
               patch({ stripe_price_id_live: e.target.value });
               clearError("stripe_price_id_live");
             }}
+            hint={copy.priceIdLiveHint}
             error={errors.stripe_price_id_live}
           />
           <TextField
@@ -419,6 +373,7 @@ export function ServiceEditor({ initial }: Props) {
               patch({ stripe_payment_link_test: e.target.value });
               clearError("stripe_payment_link_test");
             }}
+            hint={copy.linkHint}
             error={errors.stripe_payment_link_test}
           />
           <TextField
@@ -433,6 +388,7 @@ export function ServiceEditor({ initial }: Props) {
               patch({ stripe_payment_link_live: e.target.value });
               clearError("stripe_payment_link_live");
             }}
+            hint={copy.linkHint}
             error={errors.stripe_payment_link_live}
           />
         </div>

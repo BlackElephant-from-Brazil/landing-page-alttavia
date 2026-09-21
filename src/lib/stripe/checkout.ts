@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServiceRow, UserRow, UserServiceRow } from "@/lib/db/types";
+import { siteOrigin, siteOriginFrom, type RequestLike } from "@/lib/site-url";
 import { getStripe, stripeMode } from "./client";
 
 /**
@@ -13,9 +14,15 @@ import { getStripe, stripeMode } from "./client";
  *
  * Checkout Sessions are preferred: they carry the order id as
  * `client_reference_id`, lock the buyer's email and send the buyer back to
- * whatever origin the request came from, localhost included. A mode with no
- * price id yet (live, until `stripe:setup --live` is run) falls back to that
- * mode's Payment Link.
+ * the site. A mode with no price id yet (live, until `stripe:setup --live` is
+ * run) falls back to that mode's Payment Link.
+ *
+ * Where "back to the site" is: src/lib/site-url.ts. NEXT_PUBLIC_SITE_URL when
+ * set; otherwise the origin the browser used (localhost and LAN included,
+ * never 0.0.0.0); on Netlify's production deploy a missing variable throws
+ * before anything is sent to Stripe. The third argument is the request
+ * (preferred) or an origin string the route already worked out; both go
+ * through the same rule.
  */
 
 /** An error the route can turn into a status code and a short message. */
@@ -31,10 +38,13 @@ export class CheckoutError extends Error {
 
 export type CheckoutResult = { url: string };
 
+/** What the buyer reads when the service's Stripe price does not match the order. */
+export const PRICE_MISMATCH = "This service cannot be paid for right now. Write to us and we will sort it out.";
+
 export async function createCheckoutForOrder(
   userServiceId: string,
   userId: string,
-  origin: string,
+  from: RequestLike | string,
 ): Promise<CheckoutResult> {
   const admin = createAdminClient();
 
@@ -69,10 +79,28 @@ export async function createCheckoutForOrder(
 
   const mode = stripeMode();
   const priceId = mode === "live" ? service.stripe_price_id_live : service.stripe_price_id_test;
-  const base = origin.replace(/\/+$/, "");
 
   if (priceId) {
+    // Worked out before Stripe is touched, so a missing site URL on the
+    // production deploy stops here instead of after a session was expired.
+    const base = typeof from === "string" ? siteOriginFrom(from) : siteOrigin(from);
     const stripe = getStripe();
+
+    // Stripe charges what the price id costs; the order records what the
+    // service costs. Both checks that mark an order paid compare the session
+    // with the order (src/lib/stripe/confirm.ts), so a price id that costs
+    // something else (a wrong id pasted in the editor, a price changed on one
+    // side only) would take the money and leave the order unpaid with the
+    // Pay button still there. Refused before any session is created or
+    // reused, so an old open session at the wrong price is never handed out.
+    const price = await stripe.prices.retrieve(priceId);
+    if (price.unit_amount !== order.total_cents || price.currency.toLowerCase() !== order.currency.toLowerCase()) {
+      console.error(
+        `createCheckoutForOrder: ${mode} price of ${service.slug} is ${price.unit_amount} ${price.currency}, ` +
+          `order ${order.id} expects ${order.total_cents} ${order.currency}; checkout refused`,
+      );
+      throw new CheckoutError(409, PRICE_MISMATCH);
+    }
 
     // A buyer who clicked Pay, closed Stripe and clicked again should land on
     // the session they already have, not on a second one that could also be

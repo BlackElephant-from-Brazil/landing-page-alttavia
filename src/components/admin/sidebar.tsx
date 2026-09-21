@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, FolderOpen, LayoutDashboard, Settings, Users } from "lucide-react";
+import { Briefcase, FolderOpen, LayoutDashboard, MessageSquare, Settings, Users } from "lucide-react";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Logo } from "@/components/ui/logo";
@@ -15,14 +15,16 @@ import { cn } from "@/lib/cn";
  * client's. Client module for `usePathname` only; everything rendered is
  * plain links and one sign out form.
  *
- * Five entries: Overview, Orders, Users, Services, Settings (the contract's
- * four plus the users page).
+ * Six entries: Overview, Orders, Users, Services, Feedback, Settings (the
+ * contract's four plus the users page and the notes sent with the Feedback
+ * button).
  */
 
 export const ADMIN_PATH = "/admin";
 export const ADMIN_ORDERS_PATH = "/admin/orders";
 export const ADMIN_USERS_PATH = "/admin/users";
 export const ADMIN_SERVICES_PATH = "/admin/services";
+export const ADMIN_FEEDBACK_PATH = "/admin/feedback";
 export const ADMIN_SETTINGS_PATH = "/admin/settings";
 
 const EYEBROW = "Alttavia · Admin";
@@ -32,6 +34,7 @@ const NAV = [
   { href: ADMIN_ORDERS_PATH, label: "Orders", icon: FolderOpen, exact: false },
   { href: ADMIN_USERS_PATH, label: "Users", icon: Users, exact: false },
   { href: ADMIN_SERVICES_PATH, label: "Services", icon: Briefcase, exact: false },
+  { href: ADMIN_FEEDBACK_PATH, label: "Feedback", icon: MessageSquare, exact: false },
   { href: ADMIN_SETTINGS_PATH, label: "Settings", icon: Settings, exact: false },
 ] as const;
 

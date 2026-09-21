@@ -15,7 +15,13 @@
     "contract:preview": "tsx scripts/contract-preview.mjs",
     "stripe:setup": "node scripts/stripe-setup.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
-    "admin:create": "node scripts/create-admin.mjs"
+    "admin:create": "node scripts/create-admin.mjs",
+    "auth:config": "node scripts/auth-config.mjs",
+    "db:dump": "node scripts/db-dump.mjs",
+    "db:restore": "node scripts/db-restore.mjs",
+    "db:purge": "node scripts/purge-test-data.mjs",
+    "demo:seed": "tsx scripts/seed-demo.mjs",
+    "authz:matrix": "node scripts/authz-matrix.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1130.0",

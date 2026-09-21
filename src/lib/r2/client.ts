@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
@@ -184,6 +185,17 @@ export async function headObjectSize(key: string): Promise<number | null> {
     if (isNotFound(error)) return null;
     throw error;
   }
+}
+
+/**
+ * Removes one object, for a file the firm returned by mistake
+ * (DELETE /api/admin/deliverables/[id]). Deleting a key that is not there is
+ * not an error in S3 or R2, so a retry after a half finished removal is safe.
+ * Any other failure is thrown, as in headObjectSize.
+ */
+export async function deleteObject(key: string): Promise<void> {
+  const { client, bucket } = getR2();
+  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
 
 function isNotFound(error: unknown): boolean {

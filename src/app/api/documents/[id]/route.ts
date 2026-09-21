@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getUserService } from "@/lib/db/queries";
 import type { UserDocumentRow } from "@/lib/db/types";
 import { presignDownload } from "@/lib/r2/client";
+import { siteOrigin } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/user";
 
@@ -15,7 +16,8 @@ import { getUser } from "@/lib/supabase/user";
  * Anything that is not the caller's file answers 404, including files that
  * exist but belong to someone else: a document id is not something another
  * user should be able to confirm. A visitor without a session is sent to
- * login, because this URL is opened by a click, not by fetch.
+ * login, because this URL is opened by a click, not by fetch; the redirect
+ * is built on siteOrigin (src/lib/site-url.ts), never on 0.0.0.0.
  *
  * `ctx.params` is a Promise in this Next.js.
  */
@@ -29,7 +31,7 @@ function refuse(status: number, message: string) {
 
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const user = await getUser();
-  if (!user) return NextResponse.redirect(new URL(LOGIN, request.url), 302);
+  if (!user) return NextResponse.redirect(new URL(LOGIN, siteOrigin(request)), 302);
 
   const { id } = await ctx.params;
   if (!UUID.test(id)) return refuse(404, "This file is not on record.");

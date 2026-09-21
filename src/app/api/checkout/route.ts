@@ -36,11 +36,9 @@ export async function POST(request: Request) {
     return error(400, "Invalid order reference.");
   }
 
-  const origin =
-    process.env.NEXT_PUBLIC_SITE_URL || request.headers.get("origin") || new URL(request.url).origin;
-
   try {
-    const { url } = await createCheckoutForOrder(userServiceId, user.id, origin);
+    // The return URLs are built on src/lib/site-url.ts from the request itself.
+    const { url } = await createCheckoutForOrder(userServiceId, user.id, request);
     return Response.json({ url });
   } catch (err) {
     if (err instanceof CheckoutError) {
