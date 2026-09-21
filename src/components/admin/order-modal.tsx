@@ -18,7 +18,7 @@ import { Pill } from "./data-table";
 import { formatBytesShort, formatDate, formatDateTime, formatEuro, humanizeKey } from "./lib/format";
 import { isUuid } from "./lib/params";
 import { Modal } from "./modal";
-import { completedBefore } from "./order/completion";
+import { completedBefore, completionGaps } from "./order/completion";
 import { ContractActions } from "./order/contract-actions";
 import { DeliverableRemove } from "./order/deliverable-remove";
 import { DeliverableUpload } from "./order/deliverable-upload";
@@ -179,6 +179,10 @@ function StageSection({ detail }: { detail: AdminOrderDetail }) {
   const unapprovedRequired = buildSlots(detail).filter(
     (slot) => slot.doc.required && slot.latest?.status !== "approved",
   ).length;
+  const gaps = completionGaps(
+    missingDeliverables(detail).map((t) => t.label),
+    !!order.report?.trim(),
+  );
 
   return (
     <section aria-labelledby="order-stage-heading">
@@ -220,6 +224,7 @@ function StageSection({ detail }: { detail: AdminOrderDetail }) {
           paid={!!order.paid_at}
           unapprovedRequired={unapprovedRequired}
           completedBefore={completedBefore(order, ordered, detail.events)}
+          completionGaps={gaps}
         />
       </div>
     </section>
@@ -554,11 +559,19 @@ function AgreementSection({ detail }: { detail: AdminOrderDetail }) {
 // Deliverables
 // ---------------------------------------------------------------------------
 
+/** The deliverables from the service's list that have no file sent to the client yet. */
+function missingDeliverables(detail: AdminOrderDetail) {
+  const { templates, files } = detail.deliverables;
+  const covered = new Set(
+    files.filter((f) => f.status === "ready").map((f) => f.service_deliverable_id).filter(Boolean),
+  );
+  return templates.filter((t) => !covered.has(t.id));
+}
+
 function DeliverablesSection({ detail }: { detail: AdminOrderDetail }) {
   const { templates, files } = detail.deliverables;
   const ready = files.filter((f) => f.status === "ready");
-  const covered = new Set(ready.map((f) => f.service_deliverable_id).filter(Boolean));
-  const missing = templates.filter((t) => !covered.has(t.id));
+  const missing = missingDeliverables(detail);
 
   return (
     <section aria-labelledby="order-deliverables-heading">

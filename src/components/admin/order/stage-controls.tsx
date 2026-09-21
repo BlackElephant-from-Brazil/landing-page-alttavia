@@ -22,7 +22,9 @@ import { fieldClass, outlineActionClass, primaryActionClass, smallLabelClass, us
  * the route emails the client the first time. The question says which:
  * `completedBefore` (an earlier event already took the order to the
  * terminal stage, the route's own test) turns it into "no email goes out".
- * After it the line under the
+ * When a deliverable from the list or the report has not been sent,
+ * `completionGaps` adds a line naming them above the buttons, since the
+ * completion email tells the client both are ready. After it the line under the
  * controls says "Order completed.", and adds that the email could not be
  * sent only when the route answers `emailed: false`. The route leaves
  * `emailed` out when the order had been complete before, so nothing is
@@ -70,6 +72,7 @@ export function StageControls({
   paid,
   unapprovedRequired,
   completedBefore,
+  completionGaps = null,
 }: {
   orderId: string;
   stages: ServiceStageRow[];
@@ -80,6 +83,8 @@ export function StageControls({
   unapprovedRequired: number;
   /** The order reached its terminal stage before, so completing it again sends no email. */
   completedBefore: boolean;
+  /** "Not sent yet: ..." for the deliverables and report the client does not have, or null. */
+  completionGaps?: string | null;
 }) {
   const { pending, error, run, clear } = useAction();
   const selectId = useId();
@@ -199,6 +204,7 @@ export function StageControls({
           <p id={confirmId} className="text-[0.9rem] font-medium leading-relaxed text-navy">
             {completedBefore ? copy.confirmCompletionAgain : copy.confirmCompletion}
           </p>
+          {completionGaps && <p className="mt-1.5 text-[0.85rem] leading-relaxed text-clay">{completionGaps}</p>}
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={() => void send(confirming)} disabled={pending} className={primaryActionClass}>
               {copy.confirm}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { completedBefore } from "./completion";
+import { completedBefore, completionGaps } from "./completion";
 
 /**
  * completedBefore mirrors the stage route's test for the completion email
@@ -44,5 +44,25 @@ describe("completedBefore", () => {
 
   it("is false with no history at all", () => {
     expect(completedBefore(open, STAGES, [])).toBe(false);
+  });
+});
+
+describe("completionGaps", () => {
+  it("is null when every file from the list is sent and the report is written", () => {
+    expect(completionGaps([], true)).toBeNull();
+  });
+
+  it("names the one thing missing", () => {
+    expect(completionGaps([], false)).toBe("Not sent yet: the report for the client.");
+    expect(completionGaps(["Your Portuguese NIF"], true)).toBe("Not sent yet: Your Portuguese NIF.");
+  });
+
+  it("lists several with a final and", () => {
+    expect(completionGaps(["Your Portuguese NIF", "Finanças access", "Your Portuguese IBAN"], false)).toBe(
+      "Not sent yet: Your Portuguese NIF, Finanças access, Your Portuguese IBAN and the report for the client.",
+    );
+    expect(completionGaps(["Your Portuguese NIF", "Finanças access"], true)).toBe(
+      "Not sent yet: Your Portuguese NIF and Finanças access.",
+    );
   });
 });

@@ -16,3 +16,18 @@ export function completedBefore(
   const terminal = new Set(stages.filter((s) => s.is_terminal).map((s) => s.key));
   return events.some((e) => terminal.has(e.to_stage));
 }
+
+/**
+ * What the client does not have yet when the order is about to be marked
+ * complete: the deliverables from the service's list with no file sent, and
+ * the report when it is empty. The completion email tells the client their
+ * documents and report are ready, so the question before completing names
+ * the gaps. Null when nothing is missing.
+ */
+export function completionGaps(missingDeliverables: readonly string[], hasReport: boolean): string | null {
+  const items = [...missingDeliverables];
+  if (!hasReport) items.push("the report for the client");
+  if (items.length === 0) return null;
+  const list = items.length === 1 ? items[0] : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+  return `Not sent yet: ${list}.`;
+}
