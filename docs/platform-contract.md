@@ -64,6 +64,15 @@ Read before writing any code:
   (`markOrderPaid`, `confirmCheckoutSession`, the webhook) calls the
   contract module: a contract hook must not be able to turn a payment into
   a 500. In client facing copy the feature is the "service agreement".
+- **Emails when an order moves** (2026-09-21, `src/lib/orders/notify.ts`,
+  section 8 "Emails about an order"). The first payment sends "Payment
+  received" to the client and "New paid order" to the team inbox
+  (`EMAIL_TEAM_INBOX`); the upload that fills the last required slot sends
+  "Documents ready to review" to the team; a paid session for the wrong
+  amount sends "Paid amount does not match the order" to the team. Best
+  effort: nothing in `notify.ts` throws, so an email can never undo a
+  payment or an upload, and `notify.ts` imports nothing from the contract
+  code.
 - **Auth is Supabase email OTP**, 6 digits, 10 minutes, sent through Resend
   SMTP from `Alttavia Relocation <hello@send.alttavia-relocation.com>`. Both
   Supabase templates (Confirm signup and Magic Link) already contain
@@ -78,8 +87,10 @@ Read before writing any code:
   values. Users can `select` their own rows through RLS and nothing else.
 - **`public.users`** is the profile table (the user asked for this name).
   `auth.users` is authentication only. A trigger mirrors new auth users.
-- Dashboard sidebar has two entries: Dashboard and Orders. Orders is a
-  placeholder page ("under construction") for now.
+- Dashboard sidebar (since 2026-09-12): Dashboard, Services and My
+  purchases (`src/components/dashboard/paths.ts`). `/en/dashboard/orders`
+  redirects to My purchases; `/en/dashboard/orders/[id]` stays as the full
+  page the emails link to.
 - Locale: everything under `/en/...`; other locales redirect to `/en` like the
   existing pages do.
 
@@ -93,13 +104,26 @@ NEXT_PUBLIC_SUPABASE_URL=https://dgdbrnvgrpixsslgvmns.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 SUPABASE_SECRET_KEY=sb_secret_...            # server only
 SUPABASE_ACCESS_TOKEN=sbp_...                # scripts and the MCP server only
-STRIPE_SECRET_KEY=sk_test_...                # mode is detected from the prefix
+STRIPE_SECRET_KEY=sk_test_...                # mode from the prefix: sk_live_ and rk_live_ are live
 STRIPE_WEBHOOK_SECRET=                       # empty locally (no Stripe CLI)
 STRIPE_PRICE_NIF_ONLY / _BUNDLE / _BANK_ONLY / _COUPLE   # test mode price ids
 S3_ENDPOINT / S3_REGION=auto / S3_BUCKET / S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY
-EMAIL_API_KEY / EMAIL_FROM / EMAIL_REPLY_TO  # Resend, for app emails later
-NEXT_PUBLIC_SITE_URL=                        # empty locally: use request origin
+EMAIL_API_KEY / EMAIL_FROM / EMAIL_REPLY_TO  # Resend
+EMAIL_TEAM_INBOX=                            # 2026-09-21: team notices, one address; locally the test inbox
+FEEDBACK_TO=                                 # 2026-09-21: admin feedback notes; locally the test inbox
+ADMIN_SUPPORT_EMAIL / ADMIN_SUPPORT_PASSWORD # 2026-09-21: .env.local only, written by admin:create -- --support
+NEXT_PUBLIC_SITE_URL=                        # empty locally: use request origin; REQUIRED on Netlify production
 ```
+
+`EMAIL_TEAM_INBOX` unset skips the team emails with one log line (the
+client email still goes); `FEEDBACK_TO` unset skips the feedback email (the
+note is still saved). The site never reads `ADMIN_SUPPORT_EMAIL` and
+`ADMIN_SUPPORT_PASSWORD`: they are for scripts and test runs
+(`docs/admin-contract.md` section 4) and are never set on Netlify.
+`CONTEXT` is set by Netlify on every build and function (`production`,
+`deploy-preview`, `branch-deploy`, `dev`), never by hand and never in
+`.env.local`; only `production` changes behaviour, by making
+`NEXT_PUBLIC_SITE_URL` required (section 13).
 
 `scripts/stripe-setup.mjs` shows how scripts read `.env.local` (a small
 parser, CRLF safe). Reuse that pattern; never add `dotenv`.
@@ -374,7 +398,12 @@ section 4) is additive: the nullable `services.contract_template`, set to
 `nif` on `nif-only`, `bank` on `bank-only` and `package` on `bundle`
 (`couple` stays null, the firm has no model for two parties), and the table
 `user_service_contracts` with its `set_updated_at` trigger, RLS and the
-write grants revoked as in 0006. The migrations run from `0001` to `0009`.
+write grants revoked as in 0006. `0010_admin_feedback.sql` and
+`0011_admin_password_session.sql` (2026-09-21, applied to the live project
+the same day, after a `db:dump`) belong to the admin side: the
+`admin_feedback` table, and an `is_admin()` that also wants a session
+opened with a password (`docs/admin-contract.md` section 3). The
+migrations run from `0001` to `0011`.
 
 ### Row level security
 
@@ -582,6 +611,36 @@ as base64), `src/lib/email/templates.ts` (`serviceAgreement`),
 `src/lib/poa/generate.ts`, which now draws through `src/lib/pdf/layout.ts`
 with the deeds' output unchanged (their page pins stay green).
 
+Monday round (2026-09-21, commit `0a7cd67`; the admin side of it is in
+`docs/admin-contract.md`):
+
+```
+src/lib/orders/notify.ts                    notifyOrderPaid, notifyDocumentsReady, completesDossier,
+                                            notifyPaymentMismatch (section 8, "Emails about an order")
+src/lib/email/templates.ts                  gains paymentReceived, newPaidOrder, documentsReady, paymentMismatch;
+                                            the layout gains `facts` rows and `audience: "team"`
+src/lib/email/send.ts                       gains isReservedAddress: a `.invalid` recipient is skipped, { ok: true }
+src/lib/site-url.ts                         siteOrigin(request), siteOriginFrom(origin), configuredSiteOrigin,
+                                            browsableOrigin (section 13)
+src/app/error.tsx, src/app/global-error.tsx the error pages (section 13)
+scripts/db-dump.mjs                         npm run db:dump (section 13, as are the four below)
+scripts/db-restore.mjs                      npm run db:restore
+scripts/seed-demo.mjs                       npm run demo:seed (runs under tsx)
+scripts/purge-test-data.mjs                 npm run db:purge
+scripts/authz-matrix.mjs                    npm run authz:matrix
+docs/legal/*.md, docs/treinamento/roteiro-sessao-1.md   drafts for Patrícia (section 13)
+```
+
+The same round changed, on the client side: `src/lib/stripe/confirm.ts`
+(`settleVerifiedSession` sends the payment emails, `verifyPaidSession`
+answers `mismatchedOrder`), `src/lib/stripe/checkout.ts` (the price check and
+`site-url.ts`), `src/lib/stripe/client.ts` (`rk_live_`),
+`src/app/api/stripe/webhook/route.ts` (the mismatch email),
+`src/app/api/documents/confirm/route.ts` (the documents email),
+`src/app/robots.ts`, the cookie options of `src/lib/supabase/client.ts`,
+`server.ts` and `src/proxy.ts`, and the login redirects of the download
+routes (`site-url.ts`).
+
 Nobody edits another agent's files. Shared files that more than one stage
 touches (`package.json`, `.env.example`, `CLAUDE.md`) are edited only by the
 foundation agent and by the orchestrator.
@@ -681,8 +740,21 @@ callers decide whether to fall back).
    id on the order, return `{ url: session.url }`.
    Otherwise return the payment link for this mode with
    `?client_reference_id=<order.id>&prefilled_email=<email>`.
-3. `origin` comes from `NEXT_PUBLIC_SITE_URL` when set, else the request's
-   origin header.
+   Since 2026-09-21, before a session is created or an open one reused,
+   `stripe.prices.retrieve(priceId)` must cost what the order costs
+   (`unit_amount === total_cents`, same currency); otherwise 409 "This
+   service cannot be paid for right now. Write to us and we will sort it
+   out." (`PRICE_MISMATCH`) and one log line naming both amounts. Both checks
+   that mark an order paid compare the session with the order, so a price id
+   that costs something else would take the money and leave the order
+   unpaid with the Pay button still there. The Payment Link fallback is not
+   checked this way.
+3. The success and cancel URLs are built on `siteOrigin(request)`
+   (`src/lib/site-url.ts`, section 13, since 2026-09-21):
+   `NEXT_PUBLIC_SITE_URL` when set, else the origin the browser used, never
+   `0.0.0.0`. On Netlify's production deploy a missing
+   `NEXT_PUBLIC_SITE_URL` throws before Stripe is called, and the route
+   answers 500.
 
 `confirmCheckoutSession(sessionId, userId)` (stripe agent): retrieve the
 session, require `payment_status === "paid"`, `client_reference_id` to be an
@@ -692,11 +764,23 @@ currency; then `markOrderPaid`. Returns `{ ok: true, userServiceId }` or
 
 `markOrderPaid` (stripe agent): idempotent. Sets `paid_at`, the Stripe ids,
 moves `stage_key` to the second stage of the service (`service_stages`
-position 2, whatever its key), writes a `user_service_events` row.
+position 2, whatever its key), writes a `user_service_events` row. Answers
+`changed: true` only for the call whose conditional update (`paid_at is
+null`) won.
+
+`settleVerifiedSession` in `confirm.ts` is the one funnel the dashboard
+return and the webhook share. Since 2026-09-21 it also starts the payment
+emails when `markOrderPaid` answers `changed: true` (below, "Emails about
+an order").
 
 Webhook: `checkout.session.completed` → `markOrderPaid` by
 `client_reference_id`, verifying amount as above. Unknown events → 200.
-Missing `STRIPE_WEBHOOK_SECRET` → 503 with a clear message.
+Missing `STRIPE_WEBHOOK_SECRET` → 503 with a clear message. A paid session
+that names a known order but paid another amount or currency is still
+ignored with 200 (retrying would never pass), and since 2026-09-21
+`verifyPaidSession` hands that order back as `mismatchedOrder` so the
+webhook emails the team "Paid amount does not match the order". Only the
+webhook sends it, once per Stripe event, never the dashboard return.
 
 ### Client routes added since
 
@@ -723,6 +807,76 @@ service agreement", the PDF attached, a button to
 `/en/dashboard/orders/{id}`) goes to `users.email` after the row exists, and
 `emailed_at` is stamped only when Resend accepted it. A failed email never
 fails the call. Nothing on the payment path calls this module.
+
+### Emails about an order (2026-09-21)
+
+`src/lib/orders/notify.ts` sends the emails that tell people an order moved
+without anyone opening `/admin`. Content in `src/lib/email/templates.ts`,
+sent through `sendEmail`. The admin's own two (a rejected document, a
+completed order) are in `docs/admin-contract.md` section 6, the service
+agreement in section 8 above.
+
+| email (template) | to | when | sent by |
+|---|---|---|---|
+| "Payment received for your {service} order" (`paymentReceived`) | the owner's `users.email` | the order is paid for the first time | `notifyOrderPaid`, from `settleVerifiedSession` |
+| "New paid order: {service}, {amount}" (`newPaidOrder`) | `EMAIL_TEAM_INBOX` | the same moment | the same call |
+| "Documents ready to review: {service}, {client email}" (`documentsReady`) | `EMAIL_TEAM_INBOX` | a confirmed upload fills the last required slot | `notifyDocumentsReady`, from `POST /api/documents/confirm` |
+| "Paid amount does not match the order: {service}, {client email}" (`paymentMismatch`) | `EMAIL_TEAM_INBOX` | Stripe reports a paid session for a known order with another amount or currency | `notifyPaymentMismatch`, from the webhook only |
+
+- **Best effort.** Nothing in `notify.ts` throws: a failed lookup, a missing
+  address or a failed send is one log line, and the payment or the upload
+  that triggered it stands. The caller only waits for the lookups and the
+  send.
+- **Once per order.** `settleVerifiedSession` calls `notifyOrderPaid` only
+  when `markOrderPaid` answers `changed: true`. That flag comes from the
+  conditional update, so of the two callers (dashboard return and webhook)
+  exactly one sends, and a repeat sends nothing.
+- **Loaded lazily.** `confirm.ts` loads `notify.ts` with
+  `await import("@/lib/orders/notify")` on a first payment only, and a failed
+  load is caught like a failed send. The reason is the import graph guard in
+  `src/lib/contracts/state.test.ts`: the dashboard pages
+  (`app/[locale]/dashboard/page.tsx`, `purchases/page.tsx`,
+  `orders/[id]/page.tsx`) import `confirm.ts`, and the test fails when their
+  static graph reaches anything under `@/lib/email/`, pdf-lib, the R2 client
+  or the contract generator. A static import of `notify.ts` would pull the
+  email sender into those pages. The test follows `import` and
+  `export ... from` statements only, so the dynamic `import()` stays out of
+  the graph it checks.
+- **The payment path rule holds.** `notify.ts` imports nothing from
+  `src/lib/contracts` or `src/content/contracts`. Whether a service has an
+  agreement, which changes the second line of both payment emails ("Next,
+  confirm your details for the service agreement, then upload your
+  documents."), is read from the column `services.contract_template`.
+- **Documents ready** counts slots as `documentCounts` does (one per
+  applicant when `per_applicant`, the newest non pending row deciding); only
+  an upload into a required slot can complete the set, and an optional slot
+  filled later does not count. The email gives the number of files waiting
+  for a review and "Applicants: 2" on a couple order. A replacement after a
+  rejection completes the set again and sends again, on purpose: the set
+  waits for a review again. The no-op path of `confirm` (a row already
+  `uploaded`) sends nothing.
+- **Team inbox.** `EMAIL_TEAM_INBOX` is one address. Unset, every team email
+  is skipped with one warn line and the client email still goes. Locally it
+  points at the test inbox so development mail never reaches the firm.
+- **Layout.** Team emails use `audience: "team"`: a table of facts (service,
+  amount or files to review, client email, order id), the signature
+  "Alttavia Relocation client platform. Sent to the team inbox only." with
+  no invitation to reply, and a button to `/admin/orders?order=<id>`. Client
+  emails keep "Reply to this email if you have a question." and link to
+  `/en/dashboard/orders/<id>`. Every value a person typed, email addresses
+  included, is escaped.
+- **Links.** `dashboardUrl(origin, path)`: `NEXT_PUBLIC_SITE_URL` when set,
+  else the production site in a production build, else the request's
+  origin. A production build without `NEXT_PUBLIC_SITE_URL`, such as the
+  staging branch deploy (section 13), therefore links its emails to the
+  production site.
+- **Reserved addresses.** `sendEmail` skips any recipient on the `.invalid`
+  top level domain (RFC 2606) with one info line and answers `{ ok: true }`,
+  so the demo accounts on `demo.alttavia.invalid` (section 13) never hard
+  bounce off the sending domain, and the admin reads as it would for a real
+  client. This covers every email the platform sends; a service agreement
+  prepared or regenerated for a demo order gets its `emailed_at` stamped
+  although nothing left.
 
 ## 9. Dashboard page behaviour
 
@@ -803,13 +957,17 @@ it stays downloadable on the order.
 - Presigned PUT expires in 5 minutes and pins `ContentType`. After the PUT the
   browser calls `confirm`, which does a `HeadObject` to verify the object
   exists and the size matches before flipping `pending` → `uploaded`.
+  Since 2026-09-21 `confirm` then calls `notifyDocumentsReady`, which emails
+  the team when that upload filled the last required slot (section 8,
+  "Emails about an order"); a failed email never fails the upload.
 - A slot with an `uploaded`, `approved` or `pending` document does not accept a
   new file; a `rejected` one shows the reason and accepts a replacement (new
   row, old row stays for history).
-- The R2 bucket CORS still needs `PUT` from `http://localhost:3000`,
-  `http://192.168.1.173:3000` and the production origin. The R2 token cannot
-  set it (403); it is done in the Cloudflare dashboard. Until then, test the
-  presign and confirm routes with a script, and the browser path last.
+- The R2 bucket CORS allows `PUT` from `http://localhost:3000`,
+  `http://192.168.1.173:3000`, the production origin and, since 2026-09-21,
+  the staging origin `https://staging--bank-and-nif-in-portugal.netlify.app`
+  (section 13). The R2 token cannot set it (403); it is done in the
+  Cloudflare dashboard.
 
 ### Deed slots (2026-09-14)
 
@@ -845,6 +1003,10 @@ grep -rnE "—|–|\bproblem\b|\btrap\b|refund|money back|\bfree\b|video call" <
 If typecheck fails in a file you do not own, wait a minute and rerun; other
 agents may be mid write. Report it if it persists. Never edit their files.
 
+Since 2026-09-21, a change to a route or to RLS also runs
+`npm run authz:matrix` against a running dev server with the demo data
+seeded (section 13); it exits 1 on any LEAK.
+
 ## 12. Terms
 
 The purchase drawer says "By purchasing you accept the Terms"; "Terms" links
@@ -853,4 +1015,161 @@ delivered and on what timeline, noindex, also in the landing footer as
 "Service terms"). The firm's contract models arrived on 2026-09-21
 (`docs/terms/`, three contracts and Annex I) and the post-payment contract
 was built on them the same day: `docs/agreement-contract.md`, and section 9
-above for the flow. The `/en/service-terms` page itself is unchanged.
+above for the flow. The `/en/service-terms` page itself is unchanged;
+`docs/legal/service-terms-changes.md` (2026-09-21, section 13) lists the
+sentences on it that are no longer true and proposes new ones, for the firm
+to approve.
+
+## 13. Environments, hardening and operations (2026-09-21)
+
+### Production and staging
+
+- **Production** is the Netlify project `bank-and-nif-in-portugal` (team
+  guiblackelephant), serving `bank-nif-portugal.alttavia-relocation.com`.
+  **Auto publishing of production is locked since 2026-09-21**: a push
+  still builds, but nothing goes live until a deploy is published by hand.
+  The published deploy is `571eb64`, the landing as it was before the client
+  platform (the platform starts at `738d730`).
+- **Staging** is a Netlify branch deploy of the branch `staging`, at
+  `https://staging--bank-and-nif-in-portugal.netlify.app`. Branch deploys
+  are limited to `staging`. It shares with production the one Supabase
+  project (`dgdbrnvgrpixsslgvmns`), so a service edited on staging is edited
+  for the launch and every staging order is a row in the live database
+  (`db:purge -- --tests` clears Stripe test mode orders); the R2 bucket,
+  whose CORS lists the staging origin (section 10); and the Supabase Auth
+  redirect allow list, which lists the staging origin too. Stripe runs in
+  test mode there, with its own test mode webhook endpoint. The owner
+  imported the environment variables into Netlify with the context "Branch
+  deploys" only, so none of them reaches production. There `CONTEXT` is
+  `branch-deploy`: `site-url.ts` keeps the request fallback, and email links
+  go to the production site unless `NEXT_PUBLIC_SITE_URL` is set to the
+  staging URL in that context (section 8, "Links").
+- **Backup.** The code as it stood before the Monday round is the branch
+  `backup/platform-2026-09-21` on `origin`, at `f126e38` (the agreement
+  round).
+
+### Hardening
+
+- **Session cookies** are SameSite lax and, in a production build, Secure,
+  with the same `cookieOptions` in `src/lib/supabase/client.ts`, `server.ts`
+  and `src/proxy.ts` (keep the three in step, so a cookie written by one is
+  never weaker than one written by another). Development stays without
+  Secure: a phone on the LAN opens `http://192.168.x.y`, where a browser
+  drops Secure cookies.
+- **`src/lib/site-url.ts`** is the one place absolute URLs start from:
+  `siteOrigin(request)` and, for a caller holding only an origin string,
+  `siteOriginFrom(origin)`. `NEXT_PUBLIC_SITE_URL` wins when set (it must be
+  an http or https URL; it is reduced to its origin). Without it, the origin
+  the browser used: the forwarded host and protocol, then the Host header,
+  then the request URL, with `0.0.0.0` and `[::]` mapped to `localhost` (a
+  dev server started with `-H 0.0.0.0` sees every request on an address no
+  browser can open) and a LAN host kept as it is. On Netlify's production
+  deploy (`CONTEXT=production`) a missing `NEXT_PUBLIC_SITE_URL` throws at
+  the moment an origin is needed instead of guessing from a header; deploy
+  previews and branch deploys keep the fallback. Used by the Stripe return
+  URLs (section 8) and by the login redirects of the routes opened by a
+  click: `GET /api/documents/[id]`, `/api/deliverables/[id]`,
+  `/api/orders/[id]/poa/[docId]` and `/api/orders/[id]/contract`. Email
+  links follow their own rule, `dashboardUrl` (section 8).
+- **`src/app/robots.ts`** also disallows `/admin`, `/api`, `/en/dashboard`
+  and `/en/login`, next to `/pt`, `/es`, `/en/service-terms` and
+  `/en/apply`. Robots only asks: the pages themselves are noindex or behind
+  a session.
+- **Stripe mode**: `sk_live_` and `rk_live_` (a restricted key, which
+  production may hold) are live, anything else is test
+  (`src/lib/stripe/client.ts`). `scripts/stripe-setup.mjs` still recognises
+  `sk_live_` only.
+- **Price check** at checkout, section 8.
+- **Error pages.** `src/app/error.tsx`, for anything below the root layout
+  (landing, wizard, client area and admin alike): the logo, "Something did
+  not load.", a line with the contact email, **Try again** (`unstable_retry`
+  of Next.js 16.2, `reset` as the fallback) and a link to `/en`. No message
+  and no stack trace reach the screen; a server error's digest is shown
+  small as a "Reference" the person can quote, matching the server log.
+  `src/app/global-error.tsx` renders the same component inside its own
+  `<html>` when the root layout itself fails.
+
+### Operations scripts
+
+All read `.env.local` with the `readEnvFile` pattern of
+`scripts/stripe-setup.mjs` (an explicit environment variable wins) and
+never print a secret, a key or a row.
+
+- **`npm run db:dump`** (`scripts/db-dump.mjs`) writes one folder per run,
+  named by its start time, **outside the repo**, under
+  `%USERPROFILE%\alttavia-backups\` (`ALTTAVIA_BACKUP_DIR` overrides the
+  parent; `.gitignore` also lists `alttavia-backups/` in case it is pointed
+  inside): `manifest.json`, `tables/<table>.json` for every public table
+  (discovered from PostgREST's OpenAPI description, so a new table is dumped
+  without editing the script; views skipped; a fixed list when the
+  description cannot be read), `auth-users.json`, and with `--with-files`
+  every object of the R2 bucket. Read only. The folder holds personal data:
+  keep it on this machine and delete old ones.
+- **`npm run db:restore`** (`scripts/db-restore.mjs`) is a **dry run by
+  default**: `-- <folder>` or `-- --latest` prints what would be written, in
+  which order; `--apply` inserts only the rows the target is missing;
+  `--apply --overwrite` also overwrites existing rows (rolls back everything
+  changed since the dump; `users.role` is never written);
+  `--replace-catalogue` deletes the target's conflicting services first, only
+  when no order points at them. It never deletes a row, never restores auth
+  users (the Auth admin API gives no password hashes and no way to set an
+  id: a profile comes back only when an auth user with its id exists), never
+  restores files or `schema_migrations` (run `db:migrate` on a new project
+  first).
+- **`npm run demo:seed`** (`scripts/seed-demo.mjs`, under tsx) writes four
+  client accounts on the reserved domain `demo.alttavia.invalid` (ana, ben,
+  carla, dora) and seven orders across the four services, each at a
+  different point of its life (complete, documents under review with one
+  rejection, awaiting payment, issued documents delivery, couple with two
+  applicants, awaiting the bank). The agreements are real ones from the
+  platform's generator; every other file is a one page placeholder under a
+  key containing `/demo/`. Row ids derive from fixed names, so a rerun
+  updates the same rows and resets them. Nobody can sign in as these
+  accounts by email, and `sendEmail` skips `.invalid` recipients (section 8),
+  so training on them sends nothing.
+- **`npm run db:purge`** (`scripts/purge-test-data.mjs`) is a **dry run by
+  default**; `--apply` deletes. `--demo` takes every account on
+  `@demo.alttavia.invalid` with all its orders. `--tests` takes every order
+  whose Stripe session starts with `cs_test_`, unpaid orders without a
+  session only when their owner is a known test client (`TEST_USER_EMAILS`
+  in the script) or an admin, and then those test client accounts. It holds
+  back and lists anything near live data: another person's unpaid order
+  without a session (a prospect paying through a Payment Link has no
+  session until the webhook runs) goes only with `--i-know`; an admin
+  account is never deleted; an account still named on rows that stay is
+  kept. With an order go its events, documents, applicant details,
+  agreement, deliverables, answers and its files under `orders/<id>/`,
+  `deliverables/<id>/` and `contracts/<id>/`. Run `db:dump` first when in
+  doubt.
+- **`npm run authz:matrix`** (`scripts/authz-matrix.mjs`) calls every route
+  under `src/app/api` (discovered from the file tree, so a new route is
+  called too, with a generic probe until one is written for it) against a
+  running server (`--base`, default `http://localhost:3000`) as five
+  callers: anon, own (Ana on her rows), other (Ana on Ben's), admin (the
+  support admin with its password) and admin-code (the same account with an
+  emailed code session). Then both admin sessions go straight to PostgREST
+  with the publishable key: the code session must see only its own rows.
+  Needs `demo:seed`, and `ADMIN_SUPPORT_EMAIL` / `ADMIN_SUPPORT_PASSWORD`
+  for the admin columns (skipped with a warning without them). Probes only
+  read, stop on a check before any write, or write to the demo accounts'
+  own rows. Prints a route by role table and exits 1 on any LEAK.
+- Also added the same day, on the admin side: `npm run auth:config` and
+  `npm run admin:create -- --support` (`docs/admin-contract.md` section 4).
+
+### Drafts for the firm
+
+Written 2026-09-21 from the code, for Patrícia to approve by Thursday
+24 September 2026, 12:00 Lisbon time. Nothing in them is wired into a page.
+
+- `docs/legal/privacy-proposal.md`: a privacy notice for a future
+  `/en/privacy`, with **[TO CONFIRM]** on assumptions and **PROPOSAL** on
+  what only the firm decides (retention periods among them). The footer's
+  "Privacy" link still points at the main site's general policy.
+- `docs/legal/service-terms-changes.md`: the sentences of `/en/service-terms`
+  that are no longer true, the proposed text, and questions on how the page
+  relates to the agreement and Annex I.
+- `docs/legal/fatos-para-patricia.md`: the facts behind both, in Portuguese
+  (what data, where it lives, who handles it).
+- `docs/treinamento/roteiro-sessao-1.md`: the script of the first training
+  session (Tuesday 22 September 2026, 09:00 to 10:30 Lisbon, recorded, on
+  staging with Stripe in test mode), in Portuguese.

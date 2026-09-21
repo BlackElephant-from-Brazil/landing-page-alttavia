@@ -193,6 +193,20 @@ Row types in `src/lib/db/types.ts`: `ContractTemplate`,
 - `validateServiceInput`: `contract_template` absent leaves the column
   alone, `null` clears it, one of the three sets it, anything else is 422
   "Choose a contract or none."
+- Since 2026-09-21 the payment path sends emails of its own
+  (`src/lib/orders/notify.ts`, `docs/platform-contract.md` section 8):
+  "Payment received" to the client, whose second line asks them to confirm
+  their details for the service agreement when the service has a template,
+  and "New paid order" to the team inbox, which says the same. Both read
+  `services.contract_template` as a column; `notify.ts` imports nothing from
+  `src/lib/contracts` or `src/content/contracts`, so the rule above holds.
+  Neither email carries the agreement.
+- Since 2026-09-21 `sendEmail` skips `.invalid` recipients and answers ok.
+  The demo orders of `npm run demo:seed` (accounts on
+  `demo.alttavia.invalid`) carry agreements drawn by the real generator and
+  seeded with `emailed_at` set; an agreement prepared or regenerated for one
+  of them during training also gets `emailed_at` stamped, although nothing
+  was sent.
 
 ## 6. Client
 
@@ -270,4 +284,6 @@ new tab, arrives by email, and stays downloadable on the order.
    `visas.vianaconsultancy.com`)?
 6. The numbering gaps listed in section 1.
 7. The Couple package has no model.
-8. Whether a copy of the email goes to the firm.
+8. Whether a copy of the email goes to the firm. Still open: since
+   2026-09-21 the team inbox hears of every paid order ("New paid order"),
+   but not of the agreement, and gets no copy of it.
