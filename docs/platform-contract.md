@@ -73,6 +73,22 @@ Read before writing any code:
   effort: nothing in `notify.ts` throws, so an email can never undo a
   payment or an upload, and `notify.ts` imports nothing from the contract
   code.
+- **A client changes a file while the order sits on the documents stage,
+  and only there** (2026-09-22, section 10 "Sending a file"). A file waiting
+  for review can be replaced or removed there; an approved one cannot; once
+  the order moves on every slot closes, empty and rejected ones included,
+  and the admin walks the order back when a client has to send something
+  again. The firm's counterpart is that the documents stage now holds the
+  order until every required slot is approved
+  (`docs/admin-contract.md` section 7).
+- **The bank assesses each case by tax residence, not by nationality**
+  (2026-09-22, Patrícia's correction). The wizard's passport help
+  (`src/content/apply.ts`) and the landing FAQ "Do you work with my
+  nationality?" (`src/content/bank-nif.ts`) say so; the NIF is still open to
+  every nationality. Copy only: `recommend()` still reads the passport
+  country against `BANK_UNSUPPORTED_NATIONALITIES` in
+  `src/lib/apply/rules.ts`, which is an empty list today, so nobody is
+  turned away by it.
 - **Auth is Supabase email OTP**, 6 digits, 10 minutes, sent through Resend
   SMTP from `Alttavia Relocation <hello@send.alttavia-relocation.com>`. Both
   Supabase templates (Confirm signup and Magic Link) already contain
@@ -402,8 +418,12 @@ write grants revoked as in 0006. `0010_admin_feedback.sql` and
 `0011_admin_password_session.sql` (2026-09-21, applied to the live project
 the same day, after a `db:dump`) belong to the admin side: the
 `admin_feedback` table, and an `is_admin()` that also wants a session
-opened with a password (`docs/admin-contract.md` section 3). The
-migrations run from `0001` to `0011`.
+opened with a password (`docs/admin-contract.md` section 3).
+`0012_deed_signature_note.sql` (written 2026-09-22) changes no schema at
+all: it rewrites `service_docs.note` on every deed slot so it asks for the
+passport signature (section 10, "Deed slots"). It is the one migration in
+the folder that the live project has not run yet. The migrations run from
+`0001` to `0012`.
 
 ### Row level security
 
@@ -641,6 +661,35 @@ answers `mismatchedOrder`), `src/lib/stripe/checkout.ts` (the price check and
 `server.ts` and `src/proxy.ts`, and the login redirects of the download
 routes (`site-url.ts`).
 
+Review round (2026-09-22, from Patrícia's morning on the staging; the admin
+side of it is in `docs/admin-contract.md`):
+
+```
+src/lib/documents/stage.ts                  DOCUMENTS_STAGE on its own, so the browser may read it
+src/lib/documents/upload-client.ts          readFileBytes, sendBytes: the browser's half of every upload
+src/lib/documents/direct-upload.ts          DIRECT_UPLOAD_MAX_BYTES, directUploadLimit, checkDirectUpload,
+                                            requireDeclaredLength, contentLengthOf, the shared refusal lines
+src/lib/documents/confirm.ts                loadOwnDocument, loadServiceDoc, confirmDocumentUpload,
+                                            deleteOwnDocument, isOrderFile, DocumentError and its lines
+src/lib/deliverables/receive.ts             openDeliverableUpload, receiveDeliverableBytes (the admin's twin)
+src/app/api/documents/upload/route.ts       POST ?documentId= -> { document }, the same origin fallback
+src/app/api/admin/deliverables/upload/route.ts   POST ?deliverableId= -> { deliverable }
+supabase/migrations/0012_deed_signature_note.sql   the deed slots' note (section 10)
+```
+
+The same round changed: `src/app/api/documents/upload-url/route.ts` (the
+stage rule and the pending takeover), `api/documents/confirm/route.ts` (down
+to the shared module), `api/documents/[id]/route.ts` (gains `DELETE`),
+`documents/document-slot.tsx` and `document-list.tsx` (Replace, Remove, the
+stage), `admin/order/deliverable-upload.tsx` (the shared mechanism),
+`src/lib/orders/notify.ts` (the documents email fires on the move to a
+complete set), `src/app/[locale]/dashboard/page.tsx`,
+`dashboard/in-progress-slider.tsx`, `pay-button.tsx`, `order-status.ts`,
+`order-view.tsx`, `purchase-drawer.tsx` and `client-queries.ts` (section 9,
+"The home page"; `dashboard/answers-summary.tsx` is deleted),
+`src/lib/apply/documents.ts` (`DEED_SIGNATURE_NOTE`), `src/content/apply.ts`
+and `src/content/bank-nif.ts` (section 2, the nationality lines).
+
 Nobody edits another agent's files. Shared files that more than one stage
 touches (`package.json`, `.env.example`, `CLAUDE.md`) are edited only by the
 foundation agent and by the orchestrator.
@@ -820,7 +869,7 @@ agreement in section 8 above.
 |---|---|---|---|
 | "Payment received for your {service} order" (`paymentReceived`) | the owner's `users.email` | the order is paid for the first time | `notifyOrderPaid`, from `settleVerifiedSession` |
 | "New paid order: {service}, {amount}" (`newPaidOrder`) | `EMAIL_TEAM_INBOX` | the same moment | the same call |
-| "Documents ready to review: {service}, {client email}" (`documentsReady`) | `EMAIL_TEAM_INBOX` | a confirmed upload fills the last required slot | `notifyDocumentsReady`, from `POST /api/documents/confirm` |
+| "Documents ready to review: {service}, {client email}" (`documentsReady`) | `EMAIL_TEAM_INBOX` | a confirmed upload fills the last required slot and the set was not complete already | `notifyDocumentsReady`, from the shared confirm step (`src/lib/documents/confirm.ts`), whichever upload route finished the file |
 | "Paid amount does not match the order: {service}, {client email}" (`paymentMismatch`) | `EMAIL_TEAM_INBOX` | Stripe reports a paid session for a known order with another amount or currency | `notifyPaymentMismatch`, from the webhook only |
 
 - **Best effort.** Nothing in `notify.ts` throws: a failed lookup, a missing
@@ -854,7 +903,13 @@ agreement in section 8 above.
   for a review and "Applicants: 2" on a couple order. A replacement after a
   rejection completes the set again and sends again, on purpose: the set
   waits for a review again. The no-op path of `confirm` (a row already
-  `uploaded`) sends nothing.
+  `uploaded`) sends nothing. Since 2026-09-22 it is the **move from an
+  incomplete set to a complete one** that sends: `confirmDocumentUpload`
+  answers whether this upload superseded a file that was already waiting for
+  review, and when it did, nothing goes out, since the slot was filled
+  before and the firm already has the set in its queue. Without that rule a
+  client repeating upload, remove and upload would post the firm an email
+  each time.
 - **Team inbox.** `EMAIL_TEAM_INBOX` is one address. Unset, every team email
   is skipped with one warn line and the client email still goes. Locally it
   points at the test inbox so development mail never reaches the firm.
@@ -893,7 +948,8 @@ agreement in section 8 above.
    stages, current one marked); **if unpaid**: the Pay button
    (`pay-button.tsx`) with "Pay {price} and start"; **if paid**: a
    confirmation banner ("Payment received") and the documents section
-   (`document-list.tsx`); then the answers summary (`summarizeAnswers`).
+   (`document-list.tsx`). The answers summary that stood at the end of this
+   list was removed on 2026-09-22 (below, "The home page").
 4. The payment step description under the Pay button says the same thing the
    result screen says today: secure payment through Stripe, documents come
    right after.
@@ -903,6 +959,41 @@ headings, Inter for body) and the existing `ui/` primitives (`Button`,
 `ButtonLink`, `EyebrowSolo`). Sidebar on the left on `lg`, a top bar with the
 two links on small screens. Keep it calm: this is a lawyer's client area,
 not a SaaS dashboard.
+
+### The home page (2026-09-22)
+
+From Patrícia's review of the staging that morning: a client who has just
+created an account should see one thing to do, not a table with one row in
+it. `/en/dashboard` now carries the "In progress" slider and, under it,
+three services to get.
+
+- The "Your purchases" table is gone from the home. The full list stays on
+  `/en/dashboard/purchases`, which the slider links to.
+- The slider takes unpaid orders too (`showsInProgress` in
+  `order-status.ts`; `isInProgress` keeps its old meaning, paid and running,
+  because the rest of the client area and its tests read it that way). An
+  unpaid card carries the "Awaiting payment" pill, "Ordered on {date}"
+  instead of repeating the stage label, and a row aligned right with **See
+  more** (outline) and **Pay {price}** (primary). `pay-button.tsx` takes
+  `size`, `align` and `wide` for that second shape; the refusal line follows
+  the alignment.
+- "Add a service" is now **Get a service**, on the home page and as the
+  purchase drawer's eyebrow. It is hidden while the account's only orders
+  are awaiting payment (`showGetAService`): the first order is chosen before
+  the account exists, and until it is paid this page asks for that payment
+  and nothing else. An account with no order at all still gets the empty
+  state and the service cards. Nothing is read for the cards that are not
+  drawn: the document labels behind them are skipped as well.
+- The heading is "Welcome." until the account has paid for something, then
+  "Welcome back." (`welcomeHeading`, `WELCOME`).
+- The order view no longer repeats the wizard's answers.
+  `dashboard/answers-summary.tsx` is deleted, `hasAnswers` with it,
+  `OrderViewData` lost its `questions` field and `getOrderViewData` stopped
+  reading `getActiveQuestions`, so the client pages make one query fewer.
+  `summarizeAnswers` stays, read by `getOrderDetail` alone: the client typed
+  the answers, the firm reads them in the admin modal.
+- The applicant details dialog puts its primary button on the right, with
+  Cancel to its left (Cancel first in the markup, both aligned to that edge).
 
 ### After payment: the service agreement (2026-09-21)
 
@@ -957,17 +1048,124 @@ it stays downloadable on the order.
 - Presigned PUT expires in 5 minutes and pins `ContentType`. After the PUT the
   browser calls `confirm`, which does a `HeadObject` to verify the object
   exists and the size matches before flipping `pending` → `uploaded`.
-  Since 2026-09-21 `confirm` then calls `notifyDocumentsReady`, which emails
-  the team when that upload filled the last required slot (section 8,
+  Since 2026-09-21 the confirm step then calls `notifyDocumentsReady`, which
+  emails the team when that upload filled the last required slot (section 8,
   "Emails about an order"); a failed email never fails the upload.
-- A slot with an `uploaded`, `approved` or `pending` document does not accept a
-  new file; a `rejected` one shows the reason and accepts a replacement (new
-  row, old row stays for history).
+- Which slot takes a file is decided by the order's stage and by the latest
+  row on the slot, rewritten 2026-09-22 (below, "Sending a file"). The rule
+  it replaced: an `uploaded`, `approved` or `pending` row closed the slot on
+  any stage, a `rejected` one opened it, and a `pending` row older than
+  fifteen minutes opened it again.
 - The R2 bucket CORS allows `PUT` from `http://localhost:3000`,
   `http://192.168.1.173:3000`, the production origin and, since 2026-09-21,
   the staging origin `https://staging--bank-and-nif-in-portugal.netlify.app`
   (section 13). The R2 token cannot set it (403); it is done in the
   Cloudflare dashboard.
+
+### Sending a file (2026-09-22)
+
+Patrícia's review of the staging that morning opened on an upload that
+failed and could not be retried: a proof of address was picked, the browser
+asked for an upload URL, the PUT to the bucket never arrived, `HeadObject`
+found nothing, and every new attempt was then answered "This slot already
+has a file." because the `pending` row held the slot for fifteen minutes. A
+passport from the same browser had gone through seconds earlier, so the one
+request was lost, not the file, the type or CORS. What came out of it is
+below, and the admin's deliverable upload follows the same rules.
+
+**The browser reads the file first.** `src/lib/documents/upload-client.ts`
+is the shared mechanism for the client's slot
+(`documents/document-slot.tsx`) and the admin's deliverable upload
+(`admin/order/deliverable-upload.tsx`): `readFileBytes(file)` before
+anything else, so a file the browser cannot read, because it was moved,
+renamed or synced away since the picker listed it, fails with "We could not
+read this file. Save a new copy or take a new photo, then try again." and no
+row is left waiting for bytes that will never come. `sizeBytes` is then the
+bytes in hand, and what goes to the bucket is a Blob of them with the signed
+type, not the File object. `sendBytes` keeps XHR, the only way to move the
+progress bar, and turns a refusal's own `{ error }` line into what the slot
+shows.
+
+**Same origin fallback.** When the direct PUT fails for any reason the same
+bytes are posted to our own origin, which already carries the session:
+`POST /api/documents/upload?documentId=` for a client,
+`POST /api/admin/deliverables/upload?deliverableId=` for an admin, raw body,
+the row's own type as `Content-Type`. The route writes them with `putObject`
+and finishes the row itself, so the browser does not call `confirm`
+afterwards (`sendBytes` answers `via: "server"`, and the slot says "Sending
+through our server" while it happens). Nothing about the object comes from
+the request: the key, the type and the size are the row's. The rules are
+`src/lib/documents/direct-upload.ts`, which the browser imports too so both
+sides refuse in the same words: `DIRECT_UPLOAD_MAX_BYTES = 4_500_000`
+(a Netlify function takes about 6 MB of request payload, so anything near it
+fails at the edge with nothing worth reading), 411 when the request declares
+no `Content-Length` (otherwise a signed in caller's body would be pulled
+into memory before anyone could measure it), 413 over the cap or over the
+slot's own `max_bytes`, 415 for a type that is not the row's, 422 when the
+declared length or the bytes that arrived are not the size the row promised.
+The direct PUT has no such cap, so a large file still uploads the usual way.
+The admin side is `src/lib/deliverables/receive.ts`
+(`openDeliverableUpload`, `receiveDeliverableBytes`), which finishes through
+`confirmDeliverable`, the function the ordinary confirm route calls: a file
+that came this way is in every respect a file that came the other way. It
+was a 526 KB image that needed it on the admin side.
+
+**A pending row is taken over, not blocked.** `PENDING_GRACE_MS` is gone. A
+new attempt on a slot whose latest row is `pending` updates that row in
+place (conditional on its id, `status = 'pending'` and the key it was read
+with; 409 "This slot changed a moment ago. Refresh the page and try again."
+when nothing matches), keeping its key when the file type has not changed
+and dropping the old object, best effort, when it has. The row is reused
+rather than deleted and written again because `buildStorageKey` ends in a
+fresh uuid: a new row per attempt would let one client hold any number of
+presigned URLs, PUT a full sized file to each of them and leave every object
+but the last with no row pointing at it, storage nobody can see and nobody
+can remove.
+
+**One module finishes an upload.** `src/lib/documents/confirm.ts` is what
+both `POST /api/documents/confirm` and the fallback route call, so they
+cannot drift: `loadOwnDocument` (404 for a row nothing holds, 403 for a
+stranger's), then `confirmDocumentUpload`, which answers a row already
+`uploaded` as it is so a retry never fails, does the `HeadObject` and the
+size comparison (422 "Upload incomplete."), **drops the file this one
+replaces**, flips `pending` → `uploaded` with a conditional update, and only
+then tells the team. The drop comes before the flip because
+`user_documents_live_slot_idx` (0004_hardening.sql) allows one `uploaded` or
+`approved` row per slot: a replacement used to answer 500 and, through the
+fallback route, leave its bytes in the bucket under a stale `pending` row.
+The superseded row goes only while it is still `uploaded` (the delete
+carries the status and answers which rows it took), so a file approved in
+the meantime refuses the replacement instead of being destroyed, and its
+object is removed only after its row has really gone. Refusals are
+`DocumentError` with a status and one line the slot shows as it is:
+`APPROVED_LOCKED` "This file was approved and cannot be changed.",
+`REVIEW_LOCKED` "This file can no longer be changed.", `STAGE_CLOSED` "This
+order has moved on. Write to us if you still need to send a file.",
+`SLOT_FILLED` "Another file reached this slot first. Refresh the page."
+
+**What a slot accepts, and when.** `DOCUMENTS_STAGE` (`documents`) lives in
+`src/lib/documents/stage.ts` on its own, so the browser reads it without
+pulling the admin client and the bucket in with it. On that stage a slot
+takes a file unless its latest row is `approved`: nothing sent yet,
+`pending` (taken over), `rejected` (as before), and now `uploaded` as well,
+so a file still waiting for review may be replaced. On every other stage the
+slot takes nothing at all, an empty or a rejected one included, and the
+client is told to write to us; an order is walked **back** to the documents
+stage by the admin when someone has to send a file again.
+`DELETE /api/documents/[id]` takes a file back under the same rule (the
+order is the caller's, paid, on the documents stage, and the row is
+`uploaded` or `pending`): the row goes first, carrying the status the route
+read, and the object only once it has, so an approval that landed in between
+refuses the delete instead of destroying an approved file. An approved file
+answers `APPROVED_LOCKED`, a rejected one "Send a new file for this document
+instead.", since its slot is open anyway.
+
+**In the slot.** On the documents stage a file waiting for review shows
+**Replace file** (the same upload again, the old file dropped once the new
+one is confirmed) and **Remove**, which asks "Remove this file?" in place,
+with "Yes, remove" and Cancel. A deed slot keeps "Upload the signed copy"
+while it waits for the signed copy, rejected or not. `document-list.tsx`
+passes `orderStage` to every slot for this, and the routes check it again.
 
 ### Deed slots (2026-09-14)
 
@@ -975,7 +1173,8 @@ A `service_docs` row with `template` set is a deed slot: the same upload
 slot, with a generated document in front of it. On the documents stage the
 slot card shows the label, note and status pill, then a primary button
 **Download to sign** (`GET /api/orders/[id]/poa/[docId]?applicant=`), a quiet
-**Edit your details** link once details exist, and the upload control
+**Edit your details** link once details exist, the line "Sign exactly as you
+signed your passport." under that row (2026-09-22), and the upload control
 labelled **Upload the signed copy**. The client prints the PDF, signs by hand
 and uploads a scan or photo into the same slot through `upload-url` and
 `confirm`, unchanged. When the order has no `user_service_applicants` row for
@@ -990,6 +1189,19 @@ one form per applicant, the second card reads "Your partner" like the other
 slots. `nextStep` in `order-status.ts` still counts a missing deed as
 "Upload N documents" (the contract says "Sign and upload N document(s)" when
 only deeds are missing).
+
+The note on both deed slots was rewritten on 2026-09-22, after Patrícia
+said a deed signed with another hand comes back from Finanças and from the
+bank: "We prepare it with your passport details. Download it and sign by
+hand, with the same signature as in your passport. Then upload a scan or a
+photo of the signed pages." The client reads it from `service_docs`, so
+`supabase/migrations/0012_deed_signature_note.sql` is what changes it: one
+idempotent update of every row with `template in ('poa_nif', 'poa_bank')`,
+whatever the service. `DEED_SIGNATURE_NOTE` in `src/lib/apply/documents.ts`
+is the seed source and `documents.test.ts` pins the two to each other by
+reading the migration. **Written 2026-09-22 and not applied yet**: the six
+deed rows on the live project still carry 0007's older line, so run
+`npm run db:migrate` before telling anyone the slot says it.
 
 ## 11. Verification each agent runs before finishing
 

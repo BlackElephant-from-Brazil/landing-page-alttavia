@@ -14,13 +14,17 @@ payment to delivery, the client's order gallery, and the service editor.
    opened with a password counts as admin (section 2), and "Forgot your
    password?" on the same page resets it with a 6 digit code (section 7).
 2. **Admin area** at `/admin` (overview with KPIs, filters and charts),
-   `/admin/orders` (every order, filters, search, a **centered modal** with the
-   order's details and every action), `/admin/services` (create and edit
-   services, their lifecycle stages, required documents and deliverables) and
+   `/admin/orders` (every order, filters, search, a kanban board since
+   2026-09-22 with the paginated table one parameter away, and a **centered
+   modal** with the order's details and every action), `/admin/services`
+   (create and edit services, their lifecycle stages, required documents and
+   deliverables) and
    `/admin/settings` (change password). The initial questions form is **not
    editable** from the admin, by decision. `/admin/users` came on
    2026-09-12 and `/admin/feedback`, with a Feedback button on every admin
-   page, on 2026-09-21 (section 7).
+   page, on 2026-09-21; making, editing, deleting a client account and
+   assigning a purchase to one came to the users page on 2026-09-22
+   (section 7).
 3. **Full service lifecycle**, both sides: review documents (approve, reject
    with a reason), move the order through its stages, upload deliverables
    and a report, close the order. The client sees rejections and re-uploads,
@@ -81,14 +85,21 @@ payment to delivery, the client's order gallery, and the service editor.
   the rows) so a hovered or focused column, marker, slice or legend row
   shows a tooltip; the geometry is pure (`charts/geometry.ts`, tested).
   Every chart has a visually hidden table with the same numbers.
-- Direct purchases (gallery) store `answers_snapshot = '{}'`; the dashboard
-  hides the answers section when it is empty. One unit per purchase and no
-  quantity anywhere (`0007_one_unit_poa.sql`, 2026-09-14): `couple` stores
+- Direct purchases (gallery) store `answers_snapshot = '{}'`. The client
+  order view dropped its answers section altogether on 2026-09-22
+  (`docs/platform-contract.md` section 9, "The home page"); `getOrderDetail`
+  still summarises the snapshot for the admin modal, which is where the firm
+  reads what the client answered. One unit per purchase and no quantity
+  anywhere (`0007_one_unit_poa.sql`, 2026-09-14): `couple` stores
   `applicants = 2` and `joint`, everything else `applicants = 1`;
   `total_cents = price_cents`.
-- Stage transitions are Patrícia's call. Advancing out of `documents` with
-  unapproved required documents shows a warning in the modal and still works.
-  Reaching the terminal stage sets `completed_at`; moving back clears it.
+- Stage transitions are Patrícia's call, with one exception since 2026-09-22,
+  asked for by her: the `documents` stage **holds** the order until every
+  required slot has an approved file. Forward and every later stage in the
+  jump select are refused, by the modal and by the route; Back and a jump to
+  an earlier stage always work, so a mistake can be walked away from. Until
+  then the modal showed a warning and let the move through. Reaching the
+  terminal stage sets `completed_at`; moving back clears it.
   Since 2026-09-21 a move onto the terminal stage asks for confirmation
   first, and the completion email goes out only the first time the order
   reaches that stage (section 6, the stage route).
@@ -240,6 +251,41 @@ src/lib/orders/lifecycle.ts      advanceStage(orderId, actorId, { direction: 'fo
                                  and no earlier user_service_events row has that stage as `to_stage` (read before
                                  this move's own row; a review on the terminal stage writes such a row too, and
                                  counts). No column records it. Back and forward again is never a first time.
+                                 Since 2026-09-22 a move from `documents` to any later stage first reads the
+                                 order's documents (getOrderDocumentState) and throws
+                                 StageError('documents_pending', 409, 'Approve every required document before
+                                 moving on.') while a required slot has no approved file.
+src/components/admin/order/required-docs.ts   2026-09-22: buildDocumentSlots(docs, documents, applicants),
+                                 unapprovedRequired(slots), unapprovedRequiredFor(docs, documents, applicants),
+                                 DOCUMENTS_STAGE (passed on from src/lib/documents/stage.ts). Pure: no React, no
+                                 database client, no `server-only`, so the order modal's list and advanceStage's
+                                 refusal are one rule. A slot stands for its latest upload, skipping a `pending`
+                                 row while it holds anything else
+src/lib/db/order-documents.ts    2026-09-22: getOrderDocumentState(db, { orderId, serviceId }) -> { docs, documents },
+                                 the four columns that rule reads and nothing more; one caller, advanceStage
+src/lib/db/kanban-queries.ts     2026-09-22: listOrdersForBoard(db, filters) -> { rows: KanbanOrderRow[]; total }.
+                                 Its own query because listOrders pages and a board does not: same filters, same
+                                 date column rule, newest first, limit clamped to 500, `total` counted before the
+                                 limit so the page can say what it leaves out; the client's name joined in
+src/lib/documents/confirm.ts     2026-09-22: the shared end of a client upload (docs/platform-contract.md
+                                 section 10, "Sending a file"), used by /api/documents/confirm and the fallback
+src/lib/deliverables/receive.ts  2026-09-22: openDeliverableUpload, receiveDeliverableBytes; the admin's same
+                                 origin fallback, finished by confirmDeliverable so both paths end alike
+src/lib/orders/create.ts         2026-09-22: createOrder(db, { userId, serviceSlug, actorId, note })
+                                 -> { order, service }, CLIENT_ORDER_NOTE / ADMIN_ORDER_NOTE,
+                                 CreateOrderError(400|404). One place builds an order from a slug: the client's
+                                 POST /api/orders and the admin's assign, which differ only in note and actor
+src/lib/orders/manual-payment.ts 2026-09-22: recordManualPayment(admin, orderId, actorId) -> { changed, stageKey },
+                                 secondStageKey(stages), MANUAL_PAYMENT_NOTE. Payment that did not come through
+                                 Stripe: conditional on `paid_at is null` (so `changed` keeps the emails to one
+                                 per order), moves to the second stage, writes the event, never touches the
+                                 Stripe columns
+src/lib/users/accounts.ts        2026-09-22: createClientAccount, updateClientAccount, deleteClientAccount,
+                                 AccountError(403|404|409); the validation is src/lib/users/account-input.ts
+                                 (validateNewAccount, validateAccountPatch). Never touches an admin account
+src/lib/r2/prefix.ts             2026-09-22: orderPrefixes(orderId), listPrefix, deletePrefix, deleteOrderFiles.
+                                 Refuses any prefix outside `orders/`, `deliverables/` and `contracts/` of one
+                                 order id, so a damaged id cannot turn into "delete the bucket"
 src/lib/orders/deliverables.ts   since 2026-09-21 deleteDeliverable(id): refuses a key outside
                                  `deliverables/{orderId}/`, deletes the R2 object (a missing key is not an error),
                                  then the row; answers the row for the audit line; 404 when there is none
@@ -297,6 +343,10 @@ listUsers(db, { q, page, pageSize }): Promise<{ rows: AdminUserRow[]; total: num
    // every profile with orders_count, paid_count, last_order_at, sorted by last activity; q matches the email
 getUserDetail(db, id): Promise<AdminUserDetail | null>
    // user, orders (admin_order_summary rows, newest first), stage labels of their services
+getUserDeletionCounts(db, id): Promise<AdminUserCounts | null>   // 2026-09-22
+   // orders, paidOrders, documents, deliverables, agreements, answers, files; counts only, one head request per
+   // table, returned files counted where they reached the bucket. Null for an id nothing holds. Read by
+   // GET /api/admin/users/[id] for the delete dialog and by the delete itself for its audit line
 listServicesForAdmin(db): Promise<ServiceWithConfig[]>   // includes inactive; stages, docs, deliverables nested
 getServiceForAdmin(db, id): Promise<ServiceWithConfig | null>
 ```
@@ -306,19 +356,25 @@ getServiceForAdmin(db, id): Promise<ServiceWithConfig | null>
 | route | body | effect |
 |---|---|---|
 | `POST /api/admin/documents/[id]/review` | `{ decision: 'approve'\|'reject', reason?: string }` | status, reviewed_at, reviewed_by; reason required on reject (422 otherwise); event row; on reject email the client |
-| `POST /api/admin/orders/[id]/stage` | `{ direction: 'forward'\|'back' }` or `{ stageKey }` | `advanceStage`; on terminal set completed_at. Answers `{ stageKey, completed, emailed?, warning? }`. Since 2026-09-21 the client gets the "all done" email only when `advanceStage` says `firstCompletion`; back to an earlier stage and forward again, or a later jump to the terminal stage, completes the order without a second email. `emailed` is present only when that email was due: `true` when Resend accepted it, `false` when it did not go out (lookup failed, no address, send failed; the move stands and nothing after it can turn the answer into a 500). Its absence tells the modal to say nothing about an email |
+| `POST /api/admin/orders/[id]/stage` | `{ direction: 'forward'\|'back' }` or `{ stageKey }` | `advanceStage`; on terminal set completed_at. Answers `{ stageKey, completed, emailed? }`. Since 2026-09-22 there is no `warning` key: a move from `documents` to a later stage while a required slot has no approved file is refused, 409 "Approve every required document before moving on." (`StageError` code `documents_pending`), which is the line the modal and the board show as it is. Since 2026-09-21 the client gets the "all done" email only when `advanceStage` says `firstCompletion`; back to an earlier stage and forward again, or a later jump to the terminal stage, completes the order without a second email. `emailed` is present only when that email was due: `true` when Resend accepted it, `false` when it did not go out (lookup failed, no address, send failed; the move stands and nothing after it can turn the answer into a 500). Its absence tells the modal to say nothing about an email |
 | `PATCH /api/admin/orders/[id]` | `{ report?: string }` | update report (markdown allowed, rendered with the existing RichText) |
 | `POST /api/admin/orders/[id]/contract` | none | "Regenerate and resend" (2026-09-21, `docs/agreement-contract.md` sections 5 and 7). `regenerateContract` prepares the service agreement again from the client's details as they are now, as a new version under a new R2 key (`contracts/{orderId}/v{n}.pdf`; the file of the version before stays in the bucket), updates the row (`emailed_at` back to null) and emails the client again. The place printed in Annex I is carried over from the row's `variables`. The template is the service's, or the row's own when the service lost its template. An order with no agreement yet gets its first version. 200 `{ contract, emailed }`; 404 `Order not found.` or `This service has no contract.`; 409 `Payment first.`, `The client has not entered their details yet.`, or, when two regenerations race (the update names the version it replaces, so one wins), `This agreement was regenerated a moment ago. Refresh and try again.` Audit line `contract.regenerate` |
 | `POST /api/admin/deliverables/upload-url` | `{ userServiceId, label, serviceDeliverableId?, fileName, mimeType, sizeBytes }` | pending row + presigned PUT (key `deliverables/{orderId}/{uuid}.{ext}`), same mime and 20 MB limit rules as documents |
 | `POST /api/admin/deliverables/confirm` | `{ deliverableId }` | HeadObject, status ready |
+| `POST /api/admin/deliverables/upload?deliverableId=` | the file's bytes, raw, the row's own type as `Content-Type` | 2026-09-22: the same origin fallback, for the PUT to the bucket that does not arrive (a 526 KB image, that morning). Checks in `src/lib/deliverables/receive.ts`: the row is `pending` with a key under `deliverables/{orderId}/`, the declared type and length match it, the row fits `DIRECT_UPLOAD_MAX_BYTES` (4.5 MB, Netlify's payload limit), the request declares a length at all (411 otherwise), and the bytes read are the bytes promised. Then `putObject` and `confirmDeliverable`, so the row is finished exactly as the confirm route finishes it. Answers `{ deliverable }`; a row already `ready` answers 200 and writes nothing |
 | `GET /api/admin/deliverables/[id]` | | presigned download of a returned file, any status but pending, 120 s, as a 302 |
 | `DELETE /api/admin/deliverables/[id]` | | 2026-09-21: takes back a file sent by mistake through `deleteDeliverable` (the R2 object, then the row, whatever its status); `{ deleted: true }`; 404 "This file is not on record." for an id with no row; audit line `deliverable.delete` |
 | `POST /api/admin/password` | `{ currentPassword, newPassword }` | 2026-09-21, the change on `/admin/settings`. `requireAdmin()` first, so only a password session gets here. The current password is checked with a sign in on a separate client (publishable key, nothing persisted), signed out at once; the new one is then set with the admin's own cookie session, because Supabase keeps only the session that made the change, so this device stays signed in and every other one needs the new password. 200 `{ ok: true }`; 400 body not the two strings; 422 "Your current password is not right.", fewer than 12 or more than 72 characters, the same as the current one, or rejected as weak; 429 on Supabase's rate limit; 401 when the session ends before the update. Neither password is logged; audit line `password.change` |
 | `POST /api/admin/feedback` | `{ pageUrl?, expected?, happened?, priority }` | 2026-09-21. Saves one `admin_feedback` row for the signed in admin: text trimmed, control characters dropped (line breaks kept in the two answers), `expected` and `happened` at most 2000 characters each and one of them required, `pageUrl` at most 500, `priority` one of `blocks`, `should_change`, `nice_to_have`. Then `sendFeedbackEmail` to `FEEDBACK_TO`, best effort. 201 `{ id }`; 400 wrong shape; 422 a value out of bounds |
 | `PATCH /api/admin/feedback` | `{ id, status }` | 2026-09-21. `status` one of `open`, `planned`, `done`, `wont_do`. 200 `{ feedback: { id, status } }`; 404 "Note not found."; 422 "Choose a status." |
-| `GET /api/admin/documents/[id]` | | presigned download of any document |
+| `GET /api/admin/documents/[id]` | | presigned link to any client's document, 120 s, answered as a 302. Since 2026-09-22 the file is served **inline** by default, so the firm opens a photograph or a PDF in a tab, and `?download=1` asks for the same file as an attachment; the audit line says which of the two it was |
 | `GET /api/admin/services` / `POST` | service fields + `stages[]`, `docs[]`, `deliverables[]` | create; slug unique, lower kebab |
 | `PATCH /api/admin/services/[id]` | same | update; stages/docs/deliverables upserted by key; a stage removed while an order sits on it -> 409 with the count |
+| `POST /api/admin/users` | `{ email, fullName, phone? }` | 2026-09-22: a client account the firm makes for someone who did not sign up. Created confirmed and with no password, so the client signs in from `/en/login` with a code; nothing is emailed from here. 201 `{ userId }`; 422 names the first field that is wrong; 409 an address already in use. Audit line `user.create` |
+| `GET /api/admin/users/[id]` | | 2026-09-22: `{ user, counts }`, the profile and what would go with it (`getUserDeletionCounts`), which the delete dialog shows before the email is typed. 404 for an id nothing holds |
+| `PATCH /api/admin/users/[id]` | `{ fullName?, phone?, email? }` | 2026-09-22: changes a client. A new email is set in Auth as well, since that is where the sign in code goes. 200 `{ user }`; 403 for an administrator account (only its own session changes it, in Settings); 409 an address already in use; 422 the first field that is wrong. Audit line `user.update` |
+| `DELETE /api/admin/users/[id]` | `{ email }` | 2026-09-22: removes the client and everything under them, in the order `src/lib/users/accounts.ts` documents: the R2 objects under `orders/`, `deliverables/` and `contracts/` of each order first (a bucket that cannot be reached throws before a row is touched), then the child rows, the orders, the answers, the profile and the auth user. The typed email has to match the account (409 otherwise); an administrator and the caller's own account are refused 403. 200 `{ deleted: true, counts }`, and the audit line `user.delete` (email, orders, files removed, agreements) is the only record left of what went. The body is read after the account checks, so a stale link answers 404 rather than 400 |
+| `POST /api/admin/users/[id]/orders` | `{ serviceSlug, paidOutside? }` | 2026-09-22: an order the admin places for a client, built by `createOrder` exactly as the client's own purchase, with the note "Order created by the admin" and the admin as actor; the client then sees it with a Pay button. `paidOutside` records money that did not come through Stripe (`recordManualPayment`): `paid_at`, the second stage, the event, and the payment emails a card payment sends (the client's "Payment received", the team's "New paid order"), through a lazily imported `notifyOrderPaid`; `emailed` reports the client's one. The Stripe columns are never touched, and a second call finds the order paid and writes nothing. Answers `{ userServiceId, paid, emailed }`; 404 an unknown client or service; 403 an administrator account. Audit lines `user.order.create` and, when asked for, `user.order.paid_outside`, which says "recorded" or "already paid" |
 
 Client routes added:
 
@@ -326,6 +382,7 @@ Client routes added:
 |---|---|---|
 | `POST /api/orders` | `{ serviceSlug }` | one unit of that service for the signed-in user, `answers_snapshot = {}`, `applicants = 2` and `joint` only for `couple`, `total_cents = price_cents`, events row; a `quantity` key is ignored; returns `{ userServiceId }` |
 | `GET /api/deliverables/[id]` | | presigned download of a `ready` deliverable on an own order |
+| `POST /api/documents/upload?documentId=`, `DELETE /api/documents/[id]` | the file's bytes, raw / none | 2026-09-22: the client's same origin upload fallback and the Remove button; both hold to the documents stage rule (`docs/platform-contract.md` section 10, "Sending a file") |
 | `GET`/`PUT /api/orders/[id]/applicants/[index]`, `GET /api/orders/[id]/poa/[docId]?applicant=` | | the applicant details and the generated deed (2026-09-14); admins may `GET` both; payloads in `docs/platform-contract.md` section 8 |
 | `POST`/`GET /api/orders/[id]/contract` | | the service agreement (2026-09-21); the `POST` is the client's alone (an admin gets 403 "Use the order's admin page to prepare the agreement."), the `GET` is the download an admin may open too (the PDF streamed through the route, `?download=1` for `attachment`, one `contract.download` line in the server log); payloads in `docs/platform-contract.md` section 8 |
 
@@ -354,15 +411,72 @@ Row click sets `?user=<id>`, which opens the same centered modal with the
 profile and the person's orders; each order links to
 `/admin/orders?order=<id>`.
 
+Since 2026-09-22 the firm also works on an account from here
+(`src/components/admin/users/*`, every word in `users/copy.ts`):
+
+- **New user** beside the heading opens a dialog with email, full name and
+  phone, and says what it does: "The account is ready at once. The client
+  signs in with a code sent to this address, and no email goes out now."
+- A last column, **Actions**, with four icons that open their word on hover
+  or focus (lucide `Eye`, `Pencil`, `PackagePlus`, `Trash2`): View details
+  (the same link the row carries), Edit, Assign a purchase, Delete. They sit
+  above the row's link and swallow the click that opened them, and nothing
+  floats outside the row, because the table scrolls sideways in its card. An
+  administrator row shows View details alone.
+- **Assign a purchase** lists the active services with their price, with
+  "Already paid outside the platform" as a checkbox, and posts to
+  `POST /api/admin/users/[id]/orders`. The user modal carries the same
+  button over its orders, so an admin who opened a client to look does not
+  have to go back.
+- **Delete** reads `GET /api/admin/users/[id]` first and says what is stored
+  under the account, then asks for the email to be typed before it calls
+  `DELETE`. "The account goes, with everything stored under it. This cannot
+  be undone."
+- The active services are read once for the page (`getActiveServices`) and
+  passed down, so the page stays a server component and the browser fetches
+  nothing to draw the table.
+
 ### `/admin/orders`
-Filters (status, service, range, search by email) in the URL, paginated
-table, CSV export link is out of scope. Row click opens the same modal.
+Filters (status, service, range, search by email) in the URL; CSV export is
+out of scope. Row and card click open the same modal (`?order=<id>`).
+
+Since 2026-09-22 the page opens on a **kanban board**, which is what the firm
+asked for, and the paginated table is `?view=table`
+(`src/components/admin/orders/*`, `src/lib/db/kanban-queries.ts`):
+
+- Nothing about the view is stored: the parameter missing means the board,
+  so entering `/admin/orders` always lands on it. The switch keeps every
+  other parameter, and the filter form carries the view as a hidden field, so
+  a search from the table answers on the table.
+- The filters are the same on both; only the reading changes. The table pages
+  25 at a time, the board draws the newest `KANBAN_LIMIT` (300) matches at
+  once and says "Showing the newest 300. Use the filters to narrow the list."
+  when it leaves any out.
+- One column per stage key, in the catalogue's canonical order (services by
+  position, stages by position inside each, the first label winning); empty
+  columns stay, so the whole lifecycle is visible, and a row on a key no
+  service lists any more gets its own column at the end. A card carries the
+  client, the service, the amount, its date, the documents count and the
+  paid or completed state.
+- **Drag and drop** posts `{ stageKey }` to
+  `POST /api/admin/orders/[id]/stage` and refreshes. Two rules the route
+  holds are held here too, so the board does not ask for what would be
+  refused: an unpaid order is not draggable, and a drop on a terminal column
+  asks first, with the neutral question "This marks the order complete.
+  Continue?" (the board cannot tell cheaply whether the order was completed
+  once before, so the modal keeps the longer pair). A refusal, the documents
+  one included, is one line under the board and the card stays where it was.
+  A move that works shows at once, remembered with the stage the card came
+  from, so it expires by itself as soon as the server row says anything
+  else.
 
 ### Order modal (`src/components/admin/order-modal.tsx`)
 Header: client email, service, amount, paid on, current stage. Sections:
 stage timeline with **Back / Forward** buttons and a jump select; documents
-list with Approve / Reject (reason textarea) and a download link per file,
-plus history of previous versions per slot; deliverables (list with
+list with Approve / Reject (reason textarea) and, since 2026-09-22, **View**
+(inline, a new tab, for what a browser renders: a PDF or an image) and
+**Download** (`?download=1`) on every file, plus the other uploads of that
+slot behind a disclosure, "N other uploads"; deliverables (list with
 download, upload slot, label); report textarea with Save; events log. Every
 action is a small client component posting to the routes above and calling
 `router.refresh()`; the modal stays open because the URL still carries
@@ -372,6 +486,19 @@ action is a small client component posting to the routes above and calling
 below it, a read-only block with the applicant's nine fields from
 `AdminOrderDetail.applicants`, or the line "The client has not entered their
 details yet." when there is no row.
+
+Since 2026-09-22 the documents stage **holds** the order
+(`order/required-docs.ts`, `order/stage-controls.tsx`): while a required
+slot has no approved file, Forward is disabled, every later stage in the
+jump select is disabled with it, and the line "Approve every required
+document to move on." sits under the controls. Back and a jump to an earlier
+stage keep working. The route refuses the same move with a 409, so a stale
+page cannot get past it either, and the rule is the one pure module both
+sides read, so the list in the modal and the refusal cannot drift apart. A
+slot stands for its latest upload, an unfinished one skipped while the slot
+holds anything else: a `pending` row can no longer hide the file the client
+did send, which would leave the order held with nothing in `/admin` able to
+clear it.
 
 Since 2026-09-21 (`order/stage-controls.tsx`, `order/completion.ts`,
 `order/deliverable-remove.tsx`):
@@ -585,7 +712,15 @@ build against them even if the other side is not there yet.
   notices only to `EMAIL_TEAM_INBOX` and feedback notes only to
   `FEEDBACK_TO` (2026-09-21). No address comes from a request body.
 - A deliverable is deleted only under its own order's `deliverables/{orderId}/`
-  prefix, so a damaged row can never take a client's document with it.
+  prefix, so a damaged row can never take a client's document with it. The
+  same holds for a client's own file (`isOrderFile`, under
+  `orders/{orderId}/`) and for the account delete, which walks only the three
+  prefixes of one order id (`src/lib/r2/prefix.ts`, 2026-09-22): a prefix
+  outside them, without a trailing slash, or with a path step of its own is
+  refused before the bucket is asked anything.
+- Deleting an account is refused for an administrator and for the caller's
+  own account, and needs the account's email typed back. The files go before
+  the rows, so a bucket that cannot be reached leaves the account whole.
 - The password change checks the current password server side; neither
   password is ever logged or echoed.
 - No role change endpoint exists. Roles change through SQL or the script.

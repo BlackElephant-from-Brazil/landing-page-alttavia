@@ -204,6 +204,19 @@ list (pdf, jpeg, png), default size:
 | nif-only, bundle, couple | `poa_nif` | Power of attorney for the NIF | We prepare it with your passport details. Download it, sign by hand, then upload a scan or a photo of the signed pages. | `poa_nif` |
 | bank-only, bundle, couple | `poa_bank` | Power of attorney for the bank account | Same wording. | `poa_bank` |
 
+The note was rewritten on 2026-09-22, after Patrícia said a deed signed with
+another hand comes back: "We prepare it with your passport details. Download
+it and sign by hand, with the same signature as in your passport. Then upload
+a scan or a photo of the signed pages." Finanças and the bank compare the
+signature with the passport, so the slot has to say it before the client
+signs. The client reads the note from `service_docs`, so the change is a
+migration, `supabase/migrations/0012_deed_signature_note.sql`: one idempotent
+update of every row with `template in ('poa_nif', 'poa_bank')`, whatever the
+service. `DEED_SIGNATURE_NOTE` in `src/lib/apply/documents.ts` is the seed
+source and `documents.test.ts` pins the two to each other by reading the
+migration. The live project has not run 0012 yet, so its six deed rows still
+carry the wording in the table above.
+
 ### Row types (`src/lib/db/types.ts`)
 
 `ServiceDocRow.template: PoaTemplate | null` with
@@ -271,7 +284,9 @@ view receives the same list.
   Europe/Lisbon.
 - The upload of the signed copy uses the existing slot flow
   (`/api/documents/upload-url` then `confirm`), unchanged: a deed slot is a
-  document slot with a template.
+  document slot with a template. It followed that flow through its rewrite of
+  2026-09-22 as well, the same origin fallback and the Remove button
+  included (`docs/platform-contract.md` section 10).
 
 ### Client UI (documents stage)
 
@@ -280,15 +295,22 @@ view receives the same list.
 
 1. label and note, status pill as today;
 2. a primary button **Download to sign** and, once details exist, a quiet
-   link **Edit your details**;
-3. the upload control labelled **Upload the signed copy** (Replace file when
-   a file is there), the file name and View link as today.
+   link **Edit your details**, with the line "Sign exactly as you signed your
+   passport." under that row (2026-09-22, the short form of the slot's note);
+3. the upload control labelled **Upload the signed copy**, the file name and
+   View link as today.
 
 "Download to sign" fetches the deed first: a `details_missing` answer opens
 the form, any other error is shown in the slot's message line, and a PDF is
 saved through a temporary download link, so the dashboard never navigates
-to a JSON error page. Once the signed copy is uploaded or approved the deed
-row (download, edit) is hidden. With no applicant row the button opens
+to a JSON error page. The deed row is hidden once the signed copy is
+approved, or as soon as the order leaves the documents stage; since
+2026-09-22 a copy that is only waiting for review no longer hides it, since
+the client may still replace that file (`docs/platform-contract.md` section
+10, "Sending a file"). A deed slot keeps its own wording, "Upload the signed
+copy", where an ordinary slot would say "Replace file".
+
+With no applicant row the button opens
 **the details form** in a centred `<dialog>` (same pattern as `modal.tsx`: `showModal`, Esc, backdrop,
 focus return). Fields in this order, one column: Full name (as in the
 passport), The deed refers to you as (radio: *She* / *He*, stored `f`/`m`),
@@ -309,6 +331,11 @@ missing slots are deeds, otherwise the existing wording.
   route, admin allowed) next to the review controls, and, when details
   exist, a small read-only block with the nine fields; when they do not, the
   line *The client has not entered their details yet*.
+- Since 2026-09-22 every client file on that list carries **Download**, and
+  **View** as well when a browser can render it (a PDF or an image, which is
+  what clients send). The slot list is built by the same pure module the
+  stage refusal reads, so the order cannot leave the documents stage while a
+  required slot has no approved file (`docs/admin-contract.md` section 7).
 - Services editor: each document row gets a select **Generated deed**: *None*,
   *Power of attorney (NIF)*, *Power of attorney (bank account)*.
   `validateServiceInput` accepts `template` as one of the two keys or null.
