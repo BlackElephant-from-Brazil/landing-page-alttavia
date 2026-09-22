@@ -21,6 +21,7 @@
     "db:restore": "node scripts/db-restore.mjs",
     "db:purge": "node scripts/purge-test-data.mjs",
     "demo:seed": "tsx scripts/seed-demo.mjs",
+    "demo:history": "tsx scripts/seed-history.mjs",
     "authz:matrix": "node scripts/authz-matrix.mjs"
   },
   "dependencies": {
