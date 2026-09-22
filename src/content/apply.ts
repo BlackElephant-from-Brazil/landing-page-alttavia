@@ -109,7 +109,7 @@ export const applyCopy = {
     passport: {
       heading: "Which passport will you apply with?",
       headingCouple: "Which passports will you apply with?",
-      help: "The bank's rules depend on nationality. We tell you now if yours is one we cannot serve.",
+      help: "The bank assesses each case by tax residence, not by nationality. We tell you now if yours is one we cannot serve.",
       person: ["Your passport", "Your partner's passport"],
       placeholder: "Choose a country",
     },

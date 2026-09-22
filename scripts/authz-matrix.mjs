@@ -265,8 +265,19 @@ function applicantBody(row) {
 // Probes
 // ---------------------------------------------------------------------------
 
-/** Client routes that take the order or document they act on in the body rather than the path. */
-const BODY_NAMES_AN_ORDER = new Set(["POST /api/checkout", "POST /api/documents/confirm", "POST /api/documents/upload-url"]);
+/**
+ * Client routes that name the order or document they act on somewhere other
+ * than the path: in the body, or in the query string. The generic probe only
+ * builds an `other` case for a path with a dynamic segment, so these have to
+ * be known probes, and this set is what tells the run that the admin's code
+ * session is reaching for Ana's rows here too.
+ */
+const BODY_NAMES_AN_ORDER = new Set([
+  "POST /api/checkout",
+  "POST /api/documents/confirm",
+  "POST /api/documents/upload-url",
+  "POST /api/documents/upload",
+]);
 
 /** A body that is not JSON: every route that reads one refuses it before acting. */
 const RAW = { body: "authz-matrix probe, not JSON", type: "application/json" };
@@ -331,6 +342,20 @@ function knownProbes(fx) {
       anon: () => ({ path: "/api/documents/confirm", ...json({ documentId: id(A.document) }), expect: [401] }),
       other: () => ({ path: "/api/documents/confirm", ...json({ documentId: id(B.document) }), expect: [403] }),
       admin: () => ({ path: "/api/documents/confirm", ...json({ documentId: id(A.document) }), expect: [403] }),
+    },
+    "POST /api/documents/upload": {
+      // The same origin fallback. Its id rides in the query string, so the
+      // generic probe would never call it as another client. An `uploaded`
+      // row answers 200 and writes nothing; the caller who does not own it is
+      // refused before the body is read at all.
+      own: () => ({
+        path: `/api/documents/upload?documentId=${id(A.document)}`,
+        ...NONE,
+        expect: A.document?.status === "uploaded" ? [200] : [409],
+      }),
+      anon: () => ({ path: `/api/documents/upload?documentId=${id(A.document)}`, ...NONE, expect: [401] }),
+      other: () => ({ path: `/api/documents/upload?documentId=${id(B.document)}`, ...NONE, expect: [403] }),
+      admin: () => ({ path: `/api/documents/upload?documentId=${id(A.document)}`, ...NONE, expect: [403] }),
     },
     "POST /api/documents/upload-url": {
       // A slot of another service: the owner passes every check up to that one, and nothing is written.
@@ -406,6 +431,14 @@ function knownProbes(fx) {
       other: () => ({ path: "/api/admin/deliverables/confirm", ...RAW }),
       admin: () => ({ path: "/api/admin/deliverables/confirm", ...RAW, expect: [400] }),
     }),
+    "POST /api/admin/deliverables/upload": adminRoute({
+      // The admin's own fallback: its id is in the query string too, so the
+      // generic probe would have skipped the admin column as an unknown
+      // write. An id nothing holds stops at the check before any body.
+      own: () => ({ path: `/api/admin/deliverables/upload?deliverableId=${id(A.deliverable)}`, ...NONE }),
+      other: () => ({ path: `/api/admin/deliverables/upload?deliverableId=${id(B.deliverable)}`, ...NONE }),
+      admin: () => ({ path: "/api/admin/deliverables/upload?deliverableId=not-an-id", ...NONE, expect: [400] }),
+    }),
     "POST /api/admin/deliverables/upload-url": adminRoute({
       own: () => ({ path: "/api/admin/deliverables/upload-url", ...RAW }),
       other: () => ({ path: "/api/admin/deliverables/upload-url", ...RAW }),
@@ -471,6 +504,34 @@ function knownProbes(fx) {
       own: () => ({ path: "/api/admin/services", ...RAW }),
       other: null,
       admin: () => ({ path: "/api/admin/services", ...RAW, expect: [400] }),
+    }),
+    "POST /api/admin/users": adminRoute({
+      own: () => ({ path: "/api/admin/users", ...RAW }),
+      other: null,
+      admin: () => ({ path: "/api/admin/users", ...RAW, expect: [400] }),
+    }),
+    "GET /api/admin/users/[id]": adminRoute({
+      own: () => ({ path: `/api/admin/users/${A.userId ?? fx.missing}` }),
+      other: () => ({ path: `/api/admin/users/${B.userId ?? fx.missing}` }),
+      admin: () => ({ path: `/api/admin/users/${A.userId ?? fx.missing}`, expect: [200] }),
+    }),
+    "PATCH /api/admin/users/[id]": adminRoute({
+      own: () => ({ path: `/api/admin/users/${A.userId ?? fx.missing}`, ...RAW }),
+      other: () => ({ path: `/api/admin/users/${B.userId ?? fx.missing}`, ...RAW }),
+      admin: () => ({ path: `/api/admin/users/${A.userId ?? fx.missing}`, ...RAW, expect: [400] }),
+    }),
+    "DELETE /api/admin/users/[id]": adminRoute({
+      own: () => ({ path: `/api/admin/users/${A.userId ?? fx.missing}`, ...RAW }),
+      other: () => ({ path: `/api/admin/users/${B.userId ?? fx.missing}`, ...RAW }),
+      // An id nothing holds: the route checks the account before the body,
+      // so the admin gets 404 and no demo client is ever deleted here.
+      admin: () => ({ path: `/api/admin/users/${fx.missing}`, ...RAW, expect: [404] }),
+    }),
+    "POST /api/admin/users/[id]/orders": adminRoute({
+      own: () => ({ path: `/api/admin/users/${A.userId ?? fx.missing}/orders`, ...RAW }),
+      other: () => ({ path: `/api/admin/users/${B.userId ?? fx.missing}/orders`, ...RAW }),
+      // A body that is not JSON: refused before an order is created.
+      admin: () => ({ path: `/api/admin/users/${A.userId ?? fx.missing}/orders`, ...RAW, expect: [400] }),
     }),
   };
 

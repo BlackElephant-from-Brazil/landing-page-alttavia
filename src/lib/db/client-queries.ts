@@ -17,16 +17,8 @@
 
 import { documentCounts, progressFraction, type DocumentCounts, type Progress } from "@/components/dashboard/order-status";
 
-import {
-  getActiveQuestions,
-  getOrderContract,
-  getServiceDocs,
-  getServiceStages,
-  getUserDocuments,
-  type Db,
-} from "./queries";
+import { getOrderContract, getServiceDocs, getServiceStages, getUserDocuments, type Db } from "./queries";
 import type {
-  QuestionRow,
   ServiceDocRow,
   ServiceRow,
   ServiceStageRow,
@@ -100,8 +92,6 @@ export type OrderViewData = {
   /** The service agreement prepared for the order, or null while there is none. */
   contract: UserServiceContractRow | null;
   deliverables: UserServiceDeliverableRow[];
-  /** Undefined when the questions could not be read; the answers summary then uses the copy's labels. */
-  questions: QuestionRow[] | undefined;
 };
 
 /**
@@ -109,13 +99,15 @@ export type OrderViewData = {
  * in one round of parallel queries. Shared by /en/dashboard and
  * /en/dashboard/orders/[id], so the two pages cannot drift.
  *
- * Two reads are allowed to fail softly: the questions (labels only) and the
- * service row when RLS hides it because the service was deactivated after
- * the order was placed. The order still renders with its own total and a
- * neutral name rather than failing the page.
+ * The wizard's questions are not read any more: the client order view
+ * dropped the "Your answers" section on 2026-09-22 and the admin side reads
+ * the answers through its own query. One read is still allowed to fail
+ * softly, the service row when RLS hides it because the service was
+ * deactivated after the order was placed: the order then renders with its
+ * own total and a neutral name rather than failing the page.
  */
 export async function getOrderViewData(db: Db, order: UserServiceRow): Promise<OrderViewData> {
-  const [serviceResult, stages, docs, documents, applicants, contract, deliverables, questions] = await Promise.all([
+  const [serviceResult, stages, docs, documents, applicants, contract, deliverables] = await Promise.all([
     db.from("services").select("*").eq("id", order.service_id).maybeSingle(),
     getServiceStages(db, order.service_id),
     getServiceDocs(db, order.service_id),
@@ -123,15 +115,11 @@ export async function getOrderViewData(db: Db, order: UserServiceRow): Promise<O
     listOrderApplicants(db, order.id),
     getOrderContract(db, order.id),
     getReadyDeliverables(db, order.id),
-    getActiveQuestions(db).catch((err: unknown): QuestionRow[] | undefined => {
-      console.error("getOrderViewData: questions unavailable, using the copy's labels:", err);
-      return undefined;
-    }),
   ]);
   if (serviceResult.error) fail("getOrderViewData service", serviceResult.error);
   const service = (serviceResult.data as ServiceRow | null) ?? fallbackService(order);
 
-  return { service, stages, docs, documents, applicants, contract, deliverables, questions };
+  return { service, stages, docs, documents, applicants, contract, deliverables };
 }
 
 const FALLBACK_SERVICE_NAME = "Your order";

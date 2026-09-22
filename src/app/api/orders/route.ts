@@ -1,4 +1,4 @@
-import { getServiceBySlug } from "@/lib/db/queries";
+import { CLIENT_ORDER_NOTE, CreateOrderError, createOrder } from "@/lib/orders/create";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/user";
 
@@ -11,19 +11,20 @@ import { getUser } from "@/lib/supabase/user";
  *
  * An order placed from the purchase drawer on /en/dashboard/services or the
  * dashboard home, without the questions. The browser names a service; the
- * price, the total, the applicants and the stage are computed here from the
- * service row, never taken from the request. `answers_snapshot` is `{}`,
- * which is how the order view knows to hide the answers section.
+ * price, the total, the applicants and the stage are computed from the
+ * service row by src/lib/orders/create.ts, never taken from the request.
+ * `answers_snapshot` is `{}`, which is how the order view knows to hide the
+ * answers section.
+ *
+ * The same module serves POST /api/admin/users/[id]/orders, where an admin
+ * places the order for a client; only the event note and the actor differ.
  *
  * Writes with the admin client after the session check, like
- * /api/apply/submit: the user_services row at awaiting_payment and its first
- * user_service_events row. Answers `{ userServiceId }`; the Buy button then
- * posts it to /api/checkout.
+ * /api/apply/submit. Answers `{ userServiceId }`; the Buy button then posts
+ * it to /api/checkout.
  */
 
 const SAVE_ERROR = "Could not place the order. Please try again.";
-const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const MAX_SLUG_LENGTH = 64;
 
 function fail(status: number, message: string) {
   return Response.json({ error: message }, { status });
@@ -40,60 +41,18 @@ export async function POST(request: Request) {
     return fail(400, "Invalid request.");
   }
   const input = body && typeof body === "object" ? (body as { serviceSlug?: unknown }) : {};
-
-  const slug = typeof input.serviceSlug === "string" ? input.serviceSlug.trim().toLowerCase() : "";
-  if (!slug || slug.length > MAX_SLUG_LENGTH || !SLUG.test(slug)) {
-    return fail(400, "Choose a service.");
-  }
+  const slug = typeof input.serviceSlug === "string" ? input.serviceSlug : "";
 
   try {
-    const admin = createAdminClient();
-
-    const service = await getServiceBySlug(admin, slug);
-    if (!service || !service.active) return fail(404, "That service is not available.");
-
-    // The couple package is one unit for two people on a joint account;
-    // everything else is one unit for one person. Same rule as
-    // applicantsFor() in src/lib/apply/recommend.ts.
-    const joint = service.slug === "couple";
-    const applicants = joint ? 2 : 1;
-    const totalCents = service.price_cents;
-    const currency = service.currency || "eur";
-
-    const { data: created, error: orderError } = await admin
-      .from("user_services")
-      .insert({
-        user_id: user.id,
-        service_id: service.id,
-        submission_id: null,
-        answers_snapshot: {},
-        joint,
-        applicants,
-        total_cents: totalCents,
-        currency,
-        stage_key: "awaiting_payment",
-      })
-      .select("id")
-      .single();
-    if (orderError || !created) {
-      throw new Error(`user_services: ${orderError?.message ?? "no row returned"}`);
-    }
-    const userServiceId = (created as { id: string }).id;
-
-    const { error: eventError } = await admin.from("user_service_events").insert({
-      user_service_id: userServiceId,
-      from_stage: null,
-      to_stage: "awaiting_payment",
-      note: "Ordered from the client area",
-      actor_id: user.id,
+    const { order } = await createOrder(createAdminClient(), {
+      userId: user.id,
+      serviceSlug: slug,
+      actorId: user.id,
+      note: CLIENT_ORDER_NOTE,
     });
-    if (eventError) {
-      // The order exists and can be paid; the audit row is worth a log line.
-      console.error(`POST /api/orders: event insert failed for ${userServiceId}: ${eventError.message}`);
-    }
-
-    return Response.json({ userServiceId });
+    return Response.json({ userServiceId: order.id });
   } catch (err) {
+    if (err instanceof CreateOrderError) return fail(err.status, err.message);
     console.error(`POST /api/orders failed for user ${user.id} (${slug}):`, err);
     return fail(500, SAVE_ERROR);
   }

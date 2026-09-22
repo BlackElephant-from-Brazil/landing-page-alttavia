@@ -1,3 +1,5 @@
+import { DOCUMENTS_STAGE, unapprovedRequiredFor } from "@/components/admin/order/required-docs";
+import { getOrderDocumentState } from "@/lib/db/order-documents";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServiceStageRow, UserServiceRow } from "@/lib/db/types";
 
@@ -25,10 +27,21 @@ import type { ServiceStageRow, UserServiceRow } from "@/lib/db/types";
  *
  * The update carries the stage the order was read at, so two admins moving
  * the same order at once cannot both win: the second sees no row and gets a
- * StageError to refresh. Stage transitions are the admin's call, documents
- * approved or not; the route shows the warning, this function does not
- * block. The one hard rule: an unpaid order (`paid_at` null) cannot leave
- * the first stage, so a move past it answers 409 "unpaid".
+ * StageError to refresh.
+ *
+ * Two hard rules, both answered as a 409:
+ *
+ *   unpaid              an unpaid order (`paid_at` null) cannot leave its
+ *                       first stage; payment moves it, nothing else does.
+ *   documents_pending   an order on the documents stage cannot move to a
+ *                       later stage while a required slot has no approved
+ *                       file. Changed 2026-09-22 on Patrícia's request: it
+ *                       used to be a warning in the modal. Back still works,
+ *                       so an order can always be walked to an earlier
+ *                       stage. The rule is
+ *                       src/components/admin/order/required-docs.ts, the
+ *                       same module the modal's list is built from, so the
+ *                       refusal and what the firm sees cannot drift apart.
  *
  * Errors are StageError with an http status and a one line message under
  * the house rules, so the route can answer with them as they are.
@@ -56,6 +69,7 @@ export type StageErrorCode =
   | "no_next_stage"
   | "no_previous_stage"
   | "unpaid"
+  | "documents_pending"
   | "stale";
 
 export class StageError extends Error {
@@ -70,7 +84,10 @@ export class StageError extends Error {
   }
 }
 
-type OrderState = Pick<UserServiceRow, "id" | "service_id" | "stage_key" | "completed_at" | "paid_at">;
+type OrderState = Pick<
+  UserServiceRow,
+  "id" | "service_id" | "stage_key" | "completed_at" | "paid_at" | "applicants"
+>;
 
 function pickTarget(stages: ServiceStageRow[], current: ServiceStageRow | undefined, move: StageMove): ServiceStageRow {
   if ("stageKey" in move) {
@@ -97,7 +114,7 @@ export async function advanceStage(orderId: string, actorId: string, move: Stage
 
   const { data: orderData, error: orderError } = await admin
     .from("user_services")
-    .select("id, service_id, stage_key, completed_at, paid_at")
+    .select("id, service_id, stage_key, completed_at, paid_at, applicants")
     .eq("id", orderId)
     .maybeSingle();
   if (orderError) throw new Error(`advanceStage: ${orderError.message}`);
@@ -123,6 +140,19 @@ export async function advanceStage(orderId: string, actorId: string, move: Stage
 
   if (target.key === order.stage_key) {
     return { stageKey: target.key, completed: target.is_terminal && order.completed_at !== null, firstCompletion: false };
+  }
+
+  // The documents stage holds the order until every required slot is
+  // approved. Only forward: Back and a jump to an earlier stage are how a
+  // mistake is walked away from.
+  if (current && current.key === DOCUMENTS_STAGE && target.position > current.position) {
+    const { docs, documents } = await getOrderDocumentState(admin, {
+      orderId,
+      serviceId: order.service_id,
+    });
+    if (unapprovedRequiredFor(docs, documents, order.applicants) > 0) {
+      throw new StageError("documents_pending", 409, "Approve every required document before moving on.");
+    }
   }
 
   // Read before the update and the insert below, so this move's own event

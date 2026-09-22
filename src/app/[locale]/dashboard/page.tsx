@@ -6,9 +6,8 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { InProgressSlider } from "@/components/dashboard/in-progress-slider";
 import { Notice } from "@/components/dashboard/notice";
 import { OrderModal } from "@/components/dashboard/order-modal";
-import { isInProgress } from "@/components/dashboard/order-status";
+import { showGetAService, showsInProgress, welcomeHeading } from "@/components/dashboard/order-status";
 import { DASHBOARD_PATH, LOGIN_PATH, PURCHASES_PATH, SERVICES_PATH } from "@/components/dashboard/paths";
-import { PurchasesTable } from "@/components/dashboard/purchases-table";
 import { ServiceCards } from "@/components/dashboard/service-cards";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import { FALLBACK_SERVICES } from "@/content/apply";
@@ -19,7 +18,6 @@ import { confirmCheckoutSession } from "@/lib/stripe/confirm";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/supabase/user";
 
-const RECENT_ROWS = 3;
 const FEATURED_SERVICES = 3;
 
 type Query = {
@@ -35,15 +33,12 @@ type Props = {
 
 const copy = {
   eyebrow: "Client area",
-  heading: "Welcome back.",
-  lead: "Your orders, what we need from you, and what you can add.",
+  lead: "Where your orders stand and what we need from you.",
   cancelled: "Payment not completed. Open the order below to try again whenever you are ready.",
   unconfirmed:
     "We could not confirm the payment yet. If you paid, it shows here within a few minutes. Refresh the page to check.",
-  purchases: "Your purchases",
-  seeAll: "See all",
-  addService: "Add a service",
-  addServiceLead: "Straight to payment, no questions. The documents we need appear on the order once it is paid.",
+  getService: "Get a service",
+  getServiceLead: "Straight to payment, no questions. The documents we need appear on the order once it is paid.",
   allServices: "See all services",
 } as const;
 
@@ -53,10 +48,16 @@ function first(value: string | string[] | undefined): string | undefined {
 
 /**
  * The client's front page. Platform contract section 9 for the Stripe
- * return, then three sections: the "In progress" slider (paid orders not
- * yet complete, plus those completed in the last seven days), the three
- * most recent purchases, and three services to add. An account with no
- * order at all gets the empty state and the service cards.
+ * return, then two sections: the "In progress" slider (orders awaiting
+ * payment, orders paid and not yet complete, and those completed in the last
+ * seven days) and three services to get. An account with no order at all
+ * gets the empty state and the service cards. The full list of orders lives
+ * on /en/dashboard/purchases, which the slider links to.
+ *
+ * The services are held back while the account's only orders are awaiting
+ * payment (`showGetAService`): the first order is chosen before the account
+ * exists, and until it is paid this page asks for that payment and nothing
+ * else.
  *
  * Dynamic by nature: it reads cookies and search params. The Stripe return
  * is handled first and answered with a redirect, so a refresh of the success
@@ -87,7 +88,10 @@ export default async function DashboardPage({ params, searchParams }: Props) {
       return [...FALLBACK_SERVICES];
     }),
   ]);
-  const featured = catalogue.slice(0, FEATURED_SERVICES);
+  // Nothing is offered while the first order waits for its payment, so the
+  // document labels behind the cards are not read either.
+  const getService = showGetAService(orders.map((item) => item.order));
+  const featured = getService ? catalogue.slice(0, FEATURED_SERVICES) : [];
   const docs = await getServiceDocsForServices(
     supabase,
     featured.map((s) => s.id),
@@ -98,8 +102,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   const docLabels = Object.fromEntries(featured.map((s) => [s.id, (docs.get(s.id) ?? []).map((d) => d.label)]));
 
   const now = new Date();
-  const inProgress = orders.filter((item) => isInProgress(item.order, now));
-  const recent = orders.slice(0, RECENT_ROWS);
+  const inProgress = orders.filter((item) => showsInProgress(item.order, now));
 
   return (
     <div className="space-y-14">
@@ -112,7 +115,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
         <header>
           <EyebrowSolo>{copy.eyebrow}</EyebrowSolo>
           <h1 className="mt-4 font-serif text-[clamp(1.8rem,4vw,2.5rem)] leading-tight text-balance text-navy">
-            {copy.heading}
+            {welcomeHeading(orders.map((item) => item.order))}
           </h1>
           <p className="mt-4 max-w-xl text-[0.98rem] leading-relaxed text-navy-soft">{copy.lead}</p>
         </header>
@@ -120,34 +123,22 @@ export default async function DashboardPage({ params, searchParams }: Props) {
 
       <InProgressSlider items={inProgress} basePath={DASHBOARD_PATH} purchasesHref={PURCHASES_PATH} now={now} />
 
-      {recent.length > 0 && (
-        <section aria-labelledby="purchases-heading">
+      {getService && (
+        <section aria-labelledby="get-service-heading">
           <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-            <h2 id="purchases-heading" className="font-serif text-[clamp(1.4rem,2.6vw,1.85rem)] leading-tight text-navy">
-              {copy.purchases}
-            </h2>
-            <SectionLink href={PURCHASES_PATH}>{copy.seeAll}</SectionLink>
+            <div>
+              <h2 id="get-service-heading" className="font-serif text-[clamp(1.4rem,2.6vw,1.85rem)] leading-tight text-navy">
+                {copy.getService}
+              </h2>
+              <p className="mt-2 max-w-prose text-[0.95rem] leading-relaxed text-navy-soft">{copy.getServiceLead}</p>
+            </div>
+            <SectionLink href={SERVICES_PATH}>{copy.allServices}</SectionLink>
           </div>
-          <div className="mt-5">
-            <PurchasesTable items={recent} basePath={DASHBOARD_PATH} caption={copy.purchases} />
+          <div className="mt-6">
+            <ServiceCards services={featured} docLabels={docLabels} columns={3} />
           </div>
         </section>
       )}
-
-      <section aria-labelledby="add-service-heading">
-        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-          <div>
-            <h2 id="add-service-heading" className="font-serif text-[clamp(1.4rem,2.6vw,1.85rem)] leading-tight text-navy">
-              {copy.addService}
-            </h2>
-            <p className="mt-2 max-w-prose text-[0.95rem] leading-relaxed text-navy-soft">{copy.addServiceLead}</p>
-          </div>
-          <SectionLink href={SERVICES_PATH}>{copy.allServices}</SectionLink>
-        </div>
-        <div className="mt-6">
-          <ServiceCards services={featured} docLabels={docLabels} columns={3} />
-        </div>
-      </section>
 
       <OrderModal orderId={orderId} userId={user.id} email={user.email} />
     </div>

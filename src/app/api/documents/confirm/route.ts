@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getUserService } from "@/lib/db/queries";
-import type { UserDocumentRow } from "@/lib/db/types";
-import { notifyDocumentsReady } from "@/lib/orders/notify";
-import { headObjectSize } from "@/lib/r2/client";
+import { DocumentError, confirmDocumentUpload, loadOwnDocument } from "@/lib/documents/confirm";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/user";
 
@@ -17,11 +14,14 @@ import { getUser } from "@/lib/supabase/user";
  * `uploaded`. A second call on an already uploaded row is a no-op that
  * returns the row, so a retried request never fails.
  *
- * When the upload fills the last required slot of the order, the team inbox
- * gets "Documents ready to review" (src/lib/orders/notify.ts). A replaced
- * file after a rejection can complete the set again and send again, on
- * purpose. The no-op path sends nothing, and a failed email never fails the
- * upload.
+ * Everything the upload sets off lives in src/lib/documents/confirm.ts,
+ * shared with POST /api/documents/upload, the fallback that writes the bytes
+ * itself: the file this one replaces is dropped, and when the upload filled
+ * the last required slot the team gets "Documents ready to review"
+ * (src/lib/orders/notify.ts). A replacement for a file that was rejected
+ * completes the set again and sends again; swapping a file that was only
+ * waiting for review changes nothing about the set and sends nothing. The
+ * no-op path sends nothing either, and a failed email never fails the upload.
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -56,43 +56,17 @@ export async function POST(request: Request) {
 
   try {
     const admin = createAdminClient();
-
-    const { data: docData, error: docError } = await admin
-      .from("user_documents")
-      .select("*")
-      .eq("id", documentId)
-      .maybeSingle();
-    if (docError) throw new Error(`user_documents: ${docError.message}`);
-    const doc = docData as UserDocumentRow | null;
-    if (!doc) return refuse(404, "This file is not on record.");
-
-    const order = await getUserService(admin, doc.user_service_id, user.id);
-    if (!order) return refuse(403, "This order is not yours.");
-
-    if (doc.status === "uploaded") return NextResponse.json({ document: doc });
-    if (doc.status !== "pending") return refuse(409, "This file has already been reviewed.");
-
-    const size = await headObjectSize(doc.storage_key);
-    if (size === null || size !== doc.size_bytes) return refuse(422, "Upload incomplete.");
-
-    const { data: updated, error: updateError } = await admin
-      .from("user_documents")
-      .update({ status: "uploaded", uploaded_at: new Date().toISOString() })
-      .eq("id", doc.id)
-      .eq("status", "pending")
-      .select("*")
-      .single();
-    if (updateError || !updated) {
-      throw new Error(`user_documents update: ${updateError?.message ?? "no row"}`);
-    }
-    const confirmed = updated as UserDocumentRow;
-
-    // The upload is recorded. When it filled the last required slot, the team
-    // hears about it. Best effort: notifyDocumentsReady never throws.
-    await notifyDocumentsReady({ order, document: confirmed }, { db: admin, origin: requestOrigin(request) });
+    const { document, order } = await loadOwnDocument(admin, documentId, user.id);
+    const confirmed = await confirmDocumentUpload({
+      db: admin,
+      document,
+      order,
+      origin: requestOrigin(request),
+    });
 
     return NextResponse.json({ document: confirmed });
   } catch (error) {
+    if (error instanceof DocumentError) return refuse(error.status, error.message);
     console.error("[documents/confirm]", error);
     return refuse(500, "Something did not work. Try again.");
   }

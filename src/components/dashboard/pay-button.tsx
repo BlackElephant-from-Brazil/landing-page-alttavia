@@ -13,6 +13,11 @@ import { cn } from "@/lib/cn";
  *
  * Stays disabled after a successful request: the page is about to leave, and
  * a second click would open a second session.
+ *
+ * Two shapes, one behaviour: the order view's payment section (large, full
+ * width on a phone, aligned left) and the "In progress" card, which sits it
+ * next to See more in a row aligned right (`size="md"`, `align="end"`,
+ * `wide={false}`). Any refusal is shown under the button either way.
  */
 
 const PENDING_LABEL = "Opening secure checkout";
@@ -21,10 +26,18 @@ const FALLBACK_ERROR = "Checkout could not be opened. Please try again.";
 export function PayButton({
   userServiceId,
   label,
+  size = "lg",
+  align = "start",
+  wide = true,
   className,
 }: {
   userServiceId: string;
   label: string;
+  size?: "md" | "lg";
+  /** Which edge the button and its message sit on. */
+  align?: "start" | "end";
+  /** Full width below `sm`, as the order page's payment section wants it. */
+  wide?: boolean;
   className?: string;
 }) {
   const [pending, setPending] = useState(false);
@@ -63,22 +76,26 @@ export function PayButton({
   }
 
   return (
-    <div className={cn("flex flex-col items-start", className)}>
+    <div className={cn("flex flex-col", align === "end" ? "items-end" : "items-start", className)}>
       <Button
         type="button"
-        size="lg"
+        size={size}
         variant="primary"
         onClick={pay}
         disabled={pending}
         aria-busy={pending}
         aria-describedby={error ? errorId : undefined}
-        className="w-full sm:w-auto"
+        className={wide ? "w-full sm:w-auto" : undefined}
       >
         <Lock className="size-4" aria-hidden />
         {pending ? PENDING_LABEL : label}
       </Button>
       {error && (
-        <p id={errorId} role="alert" className="mt-3 text-[0.85rem] leading-relaxed text-clay">
+        <p
+          id={errorId}
+          role="alert"
+          className={cn("mt-3 text-[0.85rem] leading-relaxed text-clay", align === "end" && "text-right")}
+        >
           {error}
         </p>
       )}

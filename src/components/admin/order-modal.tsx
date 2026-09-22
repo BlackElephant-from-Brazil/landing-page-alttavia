@@ -1,4 +1,4 @@
-import { Download, FileText } from "lucide-react";
+import { Download, Eye, FileText } from "lucide-react";
 
 import { contractDrift } from "@/content/contracts/variables";
 import { formatDeedDate } from "@/content/power-of-attorney";
@@ -23,7 +23,9 @@ import { ContractActions } from "./order/contract-actions";
 import { DeliverableRemove } from "./order/deliverable-remove";
 import { DeliverableUpload } from "./order/deliverable-upload";
 import { DocumentReview } from "./order/document-review";
+import { adminDocumentHref, canShowInline } from "./order/file-links";
 import { ReportForm } from "./order/report-form";
+import { buildDocumentSlots, unapprovedRequired, type DocumentSlot } from "./order/required-docs";
 import { StageControls } from "./order/stage-controls";
 import { CONTRACT_TEMPLATE_LABELS } from "./services/editor-model";
 
@@ -176,9 +178,7 @@ function StageSection({ detail }: { detail: AdminOrderDetail }) {
   const { order, stages } = detail;
   const ordered = [...stages].sort((a, b) => a.position - b.position);
   const currentIndex = ordered.findIndex((s) => s.key === order.stage_key);
-  const unapprovedRequired = buildSlots(detail).filter(
-    (slot) => slot.doc.required && slot.latest?.status !== "approved",
-  ).length;
+  const pendingRequired = unapprovedRequired(buildSlots(detail));
   const gaps = completionGaps(
     missingDeliverables(detail).map((t) => t.label),
     !!order.report?.trim(),
@@ -222,7 +222,7 @@ function StageSection({ detail }: { detail: AdminOrderDetail }) {
           stages={ordered}
           currentKey={order.stage_key}
           paid={!!order.paid_at}
-          unapprovedRequired={unapprovedRequired}
+          unapprovedRequired={pendingRequired}
           completedBefore={completedBefore(order, ordered, detail.events)}
           completionGaps={gaps}
         />
@@ -235,30 +235,18 @@ function StageSection({ detail }: { detail: AdminOrderDetail }) {
 // Documents
 // ---------------------------------------------------------------------------
 
-type Slot = {
-  doc: ServiceDocRow;
-  applicantIndex: 0 | 1;
-  latest: UserDocumentRow | null;
-  history: UserDocumentRow[];
-};
+/**
+ * The slots and the "not approved yet" count come from
+ * ./order/required-docs.ts, the same pure module the stage route enforces
+ * its refusal with, so the list the firm reads and what the server allows
+ * are one rule.
+ */
+type Slot = DocumentSlot<ServiceDocRow, UserDocumentRow>;
 
 const APPLICANT = ["Applicant 1", "Applicant 2"] as const;
 
 function buildSlots(detail: AdminOrderDetail): Slot[] {
-  const applicants = detail.order.applicants === 2 ? 2 : 1;
-  const slots: Slot[] = [];
-  for (const doc of [...detail.docs].sort((a, b) => a.position - b.position)) {
-    const count = doc.per_applicant ? applicants : 1;
-    for (let index = 0; index < count; index++) {
-      const applicantIndex = index as 0 | 1;
-      const rows = detail.documents
-        .filter((d) => d.service_doc_id === doc.id && d.applicant_index === applicantIndex)
-        .sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0));
-      const latest = rows.length > 0 ? rows[rows.length - 1] : null;
-      slots.push({ doc, applicantIndex, latest, history: rows.slice(0, -1).reverse() });
-    }
-  }
-  return slots;
+  return buildDocumentSlots(detail.docs, detail.documents, detail.order.applicants);
 }
 
 /**
@@ -335,7 +323,7 @@ function DocumentsSection({ detail }: { detail: AdminOrderDetail }) {
                 {slot.history.length > 0 && (
                   <details className="mt-3 text-[0.85rem]">
                     <summary className="cursor-pointer text-navy-muted underline-offset-4 hover:text-navy hover:underline">
-                      {slot.history.length === 1 ? "1 earlier upload" : `${slot.history.length} earlier uploads`}
+                      {slot.history.length === 1 ? "1 other upload" : `${slot.history.length} other uploads`}
                     </summary>
                     <ul className="mt-2 space-y-2 border-l border-navy/10 pl-3">
                       {slot.history.map((doc) => (
@@ -419,6 +407,15 @@ function ApplicantFacts({ row, className }: { row: UserServiceApplicantRow; clas
   );
 }
 
+const fileLinkClass =
+  "inline-flex items-center gap-1 rounded-sm font-medium text-navy underline-offset-4 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
+
+/**
+ * One uploaded file: what it is, and the two ways to open it. **View**
+ * shows the file in a new tab, for the types a browser renders (a
+ * photograph or a PDF, which is what clients send); **Download** saves it,
+ * and is there for every file, a Word document included.
+ */
 function DocumentLine({ doc, compact }: { doc: UserDocumentRow; compact?: boolean }) {
   const when = doc.reviewed_at ? `reviewed ${formatDate(doc.reviewed_at)}` : doc.uploaded_at ? `uploaded ${formatDate(doc.uploaded_at)}` : "";
   return (
@@ -430,16 +427,30 @@ function DocumentLine({ doc, compact }: { doc: UserDocumentRow; compact?: boolea
       <span className="text-navy-muted">{formatBytesShort(doc.size_bytes)}</span>
       {when && <span className="text-navy-muted">{when}</span>}
       {doc.status !== "pending" && (
-        <a
-          href={`/api/admin/documents/${doc.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`Download ${doc.file_name}`}
-          className="inline-flex items-center gap-1 rounded-sm font-medium text-navy underline-offset-4 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-        >
-          <Download className="size-3.5" aria-hidden />
-          Download
-        </a>
+        <>
+          {canShowInline(doc.mime_type) && (
+            <a
+              href={adminDocumentHref(doc.id, "view")}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`View ${doc.file_name}`}
+              className={fileLinkClass}
+            >
+              <Eye className="size-3.5" aria-hidden />
+              View
+            </a>
+          )}
+          <a
+            href={adminDocumentHref(doc.id, "download")}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Download ${doc.file_name}`}
+            className={fileLinkClass}
+          >
+            <Download className="size-3.5" aria-hidden />
+            Download
+          </a>
+        </>
       )}
     </span>
   );

@@ -10,15 +10,16 @@ import type { ServiceDocRow, UserDocumentRow, UserServiceRow } from "@/lib/db/ty
 
 type Row = Record<string, unknown>;
 
-const { tables, session, headObjectSize, sendEmail } = vi.hoisted(() => ({
+const { tables, session, headObjectSize, deleteObject, sendEmail } = vi.hoisted(() => ({
   tables: {} as Record<string, Record<string, unknown>[]>,
   session: { user: null as { id: string; email: string } | null },
   headObjectSize: vi.fn(),
+  deleteObject: vi.fn(),
   sendEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/user", () => ({ getUser: async () => session.user }));
-vi.mock("@/lib/r2/client", () => ({ headObjectSize }));
+vi.mock("@/lib/r2/client", () => ({ headObjectSize, deleteObject }));
 vi.mock("@/lib/email/send", () => ({ sendEmail }));
 vi.mock("next/headers", () => ({
   headers: async () => {
@@ -30,13 +31,32 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from(table: string) {
       const filters: [string, unknown][] = [];
-      let op: "select" | "update" = "select";
+      let op: "select" | "update" | "delete" = "select";
       let payload: Row = {};
       const rows = () => (tables[table] ??= []);
       const matching = () => rows().filter((row) => filters.every(([c, v]) => row[c] === v));
+      const live = new Set(["uploaded", "approved"]);
       const run = () => {
         const hit = matching();
-        if (op === "update") for (const row of hit) Object.assign(row, payload);
+        if (op === "delete") {
+          tables[table] = rows().filter((row) => !hit.includes(row));
+          // The rows the delete took, as `.select("id")` answers them: the
+          // drop of a superseded file reads that to know it really went.
+          return { data: hit.map((r) => ({ ...r })), error: null };
+        }
+        if (op === "update") {
+          for (const row of hit) Object.assign(row, payload);
+          // The live slot index of 0004_hardening.sql: one uploaded or
+          // approved row per order, document and applicant. Without it a
+          // replacement would pass here and fail against the real database.
+          const slots = new Set<string>();
+          for (const row of rows()) {
+            if (!live.has(String(row.status))) continue;
+            const key = `${row.user_service_id}|${row.service_doc_id}|${row.applicant_index}`;
+            if (slots.has(key)) return { data: null, error: { code: "23505", message: "duplicate key value" } };
+            slots.add(key);
+          }
+        }
         return { data: hit.map((r) => ({ ...r })), error: null };
       };
       const query = {
@@ -55,12 +75,18 @@ vi.mock("@/lib/supabase/admin", () => ({
           payload = values;
           return query;
         },
+        delete() {
+          op = "delete";
+          return query;
+        },
         maybeSingle() {
-          return Promise.resolve({ data: run().data[0] ?? null, error: null });
+          const answer = run();
+          return Promise.resolve({ data: answer.data?.[0] ?? null, error: answer.error });
         },
         single() {
-          const data = run().data[0] ?? null;
-          return Promise.resolve({ data, error: data ? null : { message: "no row" } });
+          const answer = run();
+          const data = answer.data?.[0] ?? null;
+          return Promise.resolve({ data, error: answer.error ?? (data ? null : { message: "no row" }) });
         },
         then(resolve: (value: unknown) => void, reject: (reason: unknown) => void) {
           return Promise.resolve(run()).then(resolve, reject);
@@ -171,6 +197,8 @@ beforeEach(() => {
   session.user = OWNER;
   headObjectSize.mockReset();
   headObjectSize.mockResolvedValue(1234);
+  deleteObject.mockReset();
+  deleteObject.mockResolvedValue(undefined);
   sendEmail.mockReset();
   sendEmail.mockResolvedValue({ ok: true, id: "email_1" });
   vi.stubEnv("EMAIL_TEAM_INBOX", TEAM);
@@ -206,6 +234,51 @@ describe("POST /api/documents/confirm", () => {
     expect(email.to).toBe(TEAM);
     expect(email.subject).toBe("Documents ready to review: NIF only, client@example.com");
     expect(email.text).toContain(`${BASE}/admin/orders?order=${ORDER_ID}`);
+  });
+
+  it("replaces a file that is still waiting for review and says nothing to the team", async () => {
+    const waiting = upload(ADDRESS_DOC, ADDRESS, "uploaded", 2);
+    const replacement = upload("cccccccc-cccc-4ccc-8ccc-cccccccccccc", ADDRESS, "pending", 3);
+    seed([upload(PASSPORT_DOC, PASSPORT, "approved", 1), waiting, replacement]);
+
+    const res = await confirm(replacement.id);
+
+    expect(res.status).toBe(200);
+    expect(stored(replacement.id).status).toBe("uploaded");
+    expect(stored(waiting.id)).toBeUndefined();
+    expect(deleteObject).toHaveBeenCalledWith(waiting.storage_key);
+    // The slot was filled before and is filled now: the set never moved from
+    // incomplete to complete, and a client swapping a file over and over
+    // cannot post the firm an email each time.
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("tells the team when a rejected file is replaced and the set is complete again", async () => {
+    const rejected = upload(ADDRESS_DOC, ADDRESS, "rejected", 2);
+    const replacement = upload("cccccccc-cccc-4ccc-8ccc-cccccccccccc", ADDRESS, "pending", 3);
+    seed([upload(PASSPORT_DOC, PASSPORT, "approved", 1), rejected, replacement]);
+
+    const res = await confirm(replacement.id);
+
+    expect(res.status).toBe(200);
+    expect(stored(rejected.id).status).toBe("rejected");
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail.mock.calls[0][0].to).toBe(TEAM);
+  });
+
+  it("refuses a replacement of a file the firm has already approved", async () => {
+    const approved = upload(ADDRESS_DOC, ADDRESS, "approved", 2);
+    const replacement = upload("cccccccc-cccc-4ccc-8ccc-cccccccccccc", ADDRESS, "pending", 3);
+    seed([upload(PASSPORT_DOC, PASSPORT, "approved", 1), approved, replacement]);
+
+    const res = await confirm(replacement.id);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "This file was approved and cannot be changed." });
+    expect(stored(approved.id).status).toBe("approved");
+    expect(stored(replacement.id).status).toBe("pending");
+    expect(deleteObject).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it("sends nothing on a retried confirm of an upload already recorded", async () => {

@@ -120,11 +120,6 @@ export function reportParagraphs(report: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
-/** True when the wizard's answers were stored with the order; a gallery order has none. */
-export function hasAnswers(snapshot: unknown): boolean {
-  return !!snapshot && typeof snapshot === "object" && Object.keys(snapshot as object).length > 0;
-}
-
 // ---------------------------------------------------------------------------
 // The dashboard home: which orders sit in the "In progress" slider, how far
 // along each one is, and what the client should do next.
@@ -153,6 +148,45 @@ export function isInProgress(order: Pick<UserServiceRow, "paid_at" | "completed_
   if (!order.paid_at) return false;
   if (!order.completed_at) return true;
   return isRecentlyCompleted(order, now);
+}
+
+/**
+ * Whether an order takes a card in the dashboard's "In progress" slider.
+ * Wider than `isInProgress`: an order still awaiting payment belongs there
+ * too, with its Pay button, because paying is the next thing the client does
+ * and the home page no longer carries the purchases table. `isInProgress`
+ * stays as it was, meaning paid and running, because the rest of the client
+ * area and its tests read it that way.
+ */
+export function showsInProgress(
+  order: Pick<UserServiceRow, "paid_at" | "completed_at">,
+  now: Date = new Date(),
+): boolean {
+  if (!order.paid_at) return true;
+  return isInProgress(order, now);
+}
+
+/**
+ * Whether the dashboard home offers more services under the slider. The
+ * first order is chosen before the account exists and lands here awaiting
+ * payment: until it is paid the page asks for that one payment and nothing
+ * else. An account with no order at all gets the empty state, which invites
+ * the wizard, so the catalogue shows there as before.
+ */
+export function showGetAService(orders: readonly Pick<UserServiceRow, "paid_at">[]): boolean {
+  if (orders.some((order) => !!order.paid_at)) return true;
+  return !orders.some((order) => !order.paid_at);
+}
+
+/** The two greetings the dashboard heading picks from. */
+export const WELCOME = {
+  first: "Welcome.",
+  returning: "Welcome back.",
+} as const;
+
+/** "Welcome back." once the account has paid for something, "Welcome." for an account minutes old. */
+export function welcomeHeading(orders: readonly Pick<UserServiceRow, "paid_at">[]): string {
+  return orders.some((order) => !!order.paid_at) ? WELCOME.returning : WELCOME.first;
 }
 
 export type Progress = {

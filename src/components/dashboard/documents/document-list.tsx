@@ -18,6 +18,12 @@ import { DocumentSlot, type SlotDocument } from "./document-slot";
  * A deed slot (`template` set on the document) also gets the principal's
  * details entered for its applicant, from `applicants`, so it knows whether
  * "Download to sign" can go straight to the PDF or has to ask first.
+ *
+ * Every slot also gets the order's stage, because files are sent while the
+ * order sits on the documents stage and only then: a file waiting for review
+ * may be replaced or removed there, and once the order moves on the slot
+ * takes nothing at all, empty or rejected included. The routes answer to the
+ * same rule.
  */
 
 type Props = {
@@ -111,6 +117,10 @@ function SlotList({ order, slots, className }: { order: UserServiceRow; slots: S
           acceptedMime={doc.accepted_mime}
           maxBytes={doc.max_bytes}
           current={current}
+          // A file that waits for review may still be replaced or removed
+          // while the order sits on the documents stage; the slot asks the
+          // stage for that, and the routes check it again.
+          orderStage={order.stage_key}
           template={doc.template}
           applicant={applicant}
           applicantLabel={twoApplicants && doc.per_applicant ? APPLICANT_LABELS[applicantIndex] : undefined}

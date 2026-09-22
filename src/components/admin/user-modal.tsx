@@ -10,12 +10,19 @@ import { PaidOn, Pill } from "./data-table";
 import { formatCount, formatDate, formatEuro, humanizeKey } from "./lib/format";
 import { isUuid } from "./lib/params";
 import { Modal } from "./modal";
+import { AssignPurchaseButton } from "./users/page-actions";
+import type { ServiceChoice } from "./users/types";
 
 /**
  * The user detail, opened by `?user=<id>` on the users page: the profile
  * (email, name, phone, joined on, role) and the list of that person's
  * orders, each linking to the orders page with its own modal open
  * (`/admin/orders?order=<id>`).
+ *
+ * The orders section also carries "Assign a purchase", the same dialog the
+ * row offers, so an admin who opened a client to look at their orders can
+ * add one without going back. The services come from the page, already
+ * priced.
  *
  * Server component, read with the user client (RLS `is_admin()` decides).
  * An id that is not a UUID or is unknown still opens the modal, with one
@@ -25,7 +32,7 @@ import { Modal } from "./modal";
 
 const TITLE_ID = "user-modal-title";
 
-export async function UserModal({ userId }: { userId: string | undefined }) {
+export async function UserModal({ userId, services = [] }: { userId: string | undefined; services?: ServiceChoice[] }) {
   await requireAdminPage();
   if (!userId) return null;
 
@@ -39,7 +46,7 @@ export async function UserModal({ userId }: { userId: string | undefined }) {
 
   return (
     <Modal key={detail.user.id} titleId={TITLE_ID} param="user" title={<Header detail={detail} />}>
-      <OrdersSection detail={detail} />
+      <OrdersSection detail={detail} services={services} />
     </Modal>
   );
 }
@@ -93,8 +100,8 @@ function stageLabel(detail: AdminUserDetail, order: AdminOrderRow): string {
   return detail.stages.find((s) => s.service_id === order.service_id && s.key === order.stage_key)?.label ?? humanizeKey(order.stage_key);
 }
 
-function OrdersSection({ detail }: { detail: AdminUserDetail }) {
-  const { orders } = detail;
+function OrdersSection({ detail, services }: { detail: AdminUserDetail; services: ServiceChoice[] }) {
+  const { orders, user } = detail;
   const paid = orders.filter((o) => o.paid_at).length;
 
   return (
@@ -109,6 +116,15 @@ function OrdersSection({ detail }: { detail: AdminUserDetail }) {
           </p>
         )}
       </div>
+
+      {user.role !== "admin" && (
+        <div className="mt-3">
+          <AssignPurchaseButton
+            user={{ id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, role: user.role }}
+            services={services}
+          />
+        </div>
+      )}
 
       {orders.length === 0 ? (
         <p className="mt-3 text-[0.9rem] text-navy-muted">No orders yet.</p>

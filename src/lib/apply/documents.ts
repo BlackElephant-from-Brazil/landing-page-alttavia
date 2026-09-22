@@ -31,6 +31,24 @@ export type RequiredDocument = {
 /** Employment situation decides which proof of profession the bank accepts. */
 export type EmploymentStatus = "employed" | "self-employed";
 
+/**
+ * The note on the two deed slots, the powers of attorney we prepare and the
+ * client signs by hand. The signature is compared with the passport by
+ * Finanças and by the bank, so a deed signed with another hand comes back.
+ *
+ * The rows live in `service_docs` (seeded by 0007, this text set by
+ * supabase/migrations/0012_deed_signature_note.sql). Keep the three in step:
+ * this constant, that migration, and the shorter line under "Download to
+ * sign" in src/components/dashboard/documents/document-slot.tsx. The first
+ * two are pinned to each other in documents.test.ts, so the copy here cannot
+ * drift from the text a client actually reads.
+ *
+ * The client reads it from the database, so 0012 has to be applied for any of
+ * this to show: until then every deed slot still carries 0007's older line.
+ */
+export const DEED_SIGNATURE_NOTE =
+  "We prepare it with your passport details. Download it and sign by hand, with the same signature as in your passport. Then upload a scan or a photo of the signed pages.";
+
 /** Documents Finanças requires to issue a NIF. */
 export const NIF_DOCUMENTS: readonly RequiredDocument[] = [
   {

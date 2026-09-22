@@ -4,7 +4,6 @@ import type { ServiceDocRow, UserDocumentRow } from "@/lib/db/types";
 
 import {
   documentCounts,
-  hasAnswers,
   isInProgress,
   isRecentlyCompleted,
   latestDocument,
@@ -13,7 +12,10 @@ import {
   progressFraction,
   rejectedSlots,
   reportParagraphs,
+  showGetAService,
+  showsInProgress,
   slotName,
+  welcomeHeading,
 } from "./order-status";
 
 function doc(id: string, position: number, perApplicant = true, template: ServiceDocRow["template"] = null): ServiceDocRow {
@@ -141,14 +143,6 @@ describe("reportParagraphs", () => {
   });
 });
 
-describe("hasAnswers", () => {
-  it("is false for a gallery order's empty snapshot", () => {
-    expect(hasAnswers({})).toBe(false);
-    expect(hasAnswers(null)).toBe(false);
-    expect(hasAnswers({ residence: "US" })).toBe(true);
-  });
-});
-
 describe("isInProgress", () => {
   const now = new Date("2026-09-12T12:00:00Z");
   const paid = "2026-09-01T00:00:00Z";
@@ -178,6 +172,60 @@ describe("isInProgress", () => {
   it("ignores a completed_at in the future or unreadable", () => {
     expect(isRecentlyCompleted({ completed_at: "2026-09-13T00:00:00Z" }, now)).toBe(false);
     expect(isRecentlyCompleted({ completed_at: "not a date" }, now)).toBe(false);
+  });
+});
+
+describe("showsInProgress", () => {
+  const now = new Date("2026-09-12T12:00:00Z");
+  const paid = "2026-09-01T00:00:00Z";
+
+  it("shows an order still awaiting payment, which isInProgress leaves out", () => {
+    const order = { paid_at: null, completed_at: null };
+    expect(isInProgress(order, now)).toBe(false);
+    expect(showsInProgress(order, now)).toBe(true);
+  });
+
+  it("agrees with isInProgress on every paid order", () => {
+    const orders = [
+      { paid_at: paid, completed_at: null },
+      { paid_at: paid, completed_at: "2026-09-11T10:00:00Z" },
+      { paid_at: paid, completed_at: "2026-08-01T00:00:00Z" },
+    ];
+    for (const order of orders) {
+      expect(showsInProgress(order, now)).toBe(isInProgress(order, now));
+    }
+  });
+});
+
+describe("showGetAService", () => {
+  const paid = { paid_at: "2026-09-01T00:00:00Z" };
+  const unpaid = { paid_at: null };
+
+  it("offers the catalogue to an account with no order", () => {
+    expect(showGetAService([])).toBe(true);
+  });
+
+  it("hides it while the only orders are awaiting payment", () => {
+    expect(showGetAService([unpaid])).toBe(false);
+    expect(showGetAService([unpaid, unpaid])).toBe(false);
+  });
+
+  it("brings it back as soon as one order is paid", () => {
+    expect(showGetAService([paid])).toBe(true);
+    expect(showGetAService([unpaid, paid])).toBe(true);
+    expect(showGetAService([paid, unpaid])).toBe(true);
+  });
+});
+
+describe("welcomeHeading", () => {
+  it("greets a new account without the 'back'", () => {
+    expect(welcomeHeading([])).toBe("Welcome.");
+    expect(welcomeHeading([{ paid_at: null }])).toBe("Welcome.");
+  });
+
+  it("greets a paying account as a returning one", () => {
+    expect(welcomeHeading([{ paid_at: "2026-09-01T00:00:00Z" }])).toBe("Welcome back.");
+    expect(welcomeHeading([{ paid_at: null }, { paid_at: "2026-09-01T00:00:00Z" }])).toBe("Welcome back.");
   });
 });
 

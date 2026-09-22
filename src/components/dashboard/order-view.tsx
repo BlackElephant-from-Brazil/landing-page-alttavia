@@ -3,18 +3,16 @@ import { ArrowLeft } from "lucide-react";
 
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import { formatEuro } from "@/content/bank-nif";
-import { summarizeAnswers } from "@/lib/apply/summary";
 import { contractState } from "@/lib/contracts/state";
 import type { OrderViewData } from "@/lib/db/client-queries";
 import type { UserServiceRow } from "@/lib/db/types";
 
-import { AnswersSummary } from "./answers-summary";
 import { ContractGate } from "./contract/contract-gate";
 import { Deliverables } from "./deliverables";
 import { DocumentList } from "./documents/document-list";
 import { HelpBox } from "./help-box";
 import { Notice } from "./notice";
-import { hasAnswers, orderStatus, rejectedSlots } from "./order-status";
+import { orderStatus, rejectedSlots } from "./order-status";
 import { PayButton } from "./pay-button";
 import { RejectedCallout } from "./rejected-callout";
 import { ServiceCard } from "./service-card";
@@ -31,10 +29,11 @@ import { StageTimeline } from "./stage-timeline";
  * stage timeline (with its completed state), then what needs the client
  * (payment; once paid, the service agreement card right under the "Payment
  * received" notice, then rejected files above the upload slots), then what
- * the firm returned (files and the closing report), the wizard answers when
- * the order has any, and the help box. Compact mode drops the heading and
- * the package card: the modal's own header carries the name, the amount and
- * the status.
+ * the firm returned (files and the closing report), and the help box. The
+ * wizard answers are no longer repeated here: the client typed them and the
+ * firm reads them on the admin side. Compact mode drops the heading and the
+ * package card: the modal's own header carries the name, the amount and the
+ * status.
  *
  * The service agreement card (contract/contract-gate.tsx, agreement contract
  * section 6) follows `contractState`: nothing for a service with no contract,
@@ -85,7 +84,6 @@ export function OrderView({
   applicants,
   contract,
   deliverables,
-  questions,
   accountEmail,
   notice,
   eyebrow = copy.eyebrow,
@@ -96,7 +94,6 @@ export function OrderView({
   const paid = status !== "awaiting_payment";
   const completed = status === "completed";
   const price = formatEuro(order.total_cents);
-  const answers = hasAnswers(order.answers_snapshot) ? summarizeAnswers(order.answers_snapshot, questions) : [];
   const rejected = paid ? rejectedSlots(docs, documents, order.applicants) : [];
   const returned = deliverables.length > 0 || !!order.report;
   const agreement = contractState(order, service, applicants, contract);
@@ -171,8 +168,6 @@ export function OrderView({
       )}
 
       {paid && <Deliverables files={deliverables} report={order.report} completed={completed} />}
-
-      <AnswersSummary items={answers} />
 
       <HelpBox />
     </div>

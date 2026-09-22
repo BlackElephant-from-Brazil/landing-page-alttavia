@@ -44,7 +44,7 @@ const FALLBACK_ERROR = "Checkout could not be opened. Please try again.";
 const SLIDE_MS = 300;
 
 const copy = {
-  eyebrow: "Add a service",
+  eyebrow: "Get a service",
   included: "Everything included",
   timeline: "Timeline",
   documents: "Have ready after payment",

@@ -130,8 +130,7 @@ function seed(stageKey: string, overrides: Row = {}) {
       stage_key: stageKey,
       completed_at: null,
       paid_at: "2026-09-10T09:00:00.000Z",
-      docs_required: 2,
-      docs_approved: 2,
+      applicants: 1,
       services: { name: "NIF only" },
       ...overrides,
     },
@@ -144,6 +143,33 @@ function seed(stageKey: string, overrides: Row = {}) {
   ];
   tables.users = [{ id: OWNER_ID, email: CLIENT.email }];
   tables.user_service_events = [];
+  tables.service_docs = [];
+  tables.user_documents = [];
+}
+
+/** One required slot on the service, and what the client has sent for it, if anything. */
+function requireDocument(key: string, status: "uploaded" | "approved" | "rejected" | null, required = true) {
+  tables.service_docs ??= [];
+  tables.user_documents ??= [];
+  const id = `doc-${key}`;
+  tables.service_docs.push({
+    id,
+    service_id: SERVICE_ID,
+    key,
+    required,
+    per_applicant: false,
+    position: tables.service_docs.length + 1,
+  });
+  if (status) {
+    tables.user_documents.push({
+      id: `file-${key}`,
+      user_service_id: ORDER_ID,
+      service_doc_id: id,
+      applicant_index: 0,
+      status,
+      created_at: "2026-09-12T09:00:00.000Z",
+    });
+  }
 }
 
 function ctx(id: string = ORDER_ID) {
@@ -247,17 +273,82 @@ describe("POST /api/admin/orders/[id]/stage, the completion email", () => {
   });
 
   it("has no emailed key and sends nothing on a move that does not complete the order", async () => {
-    seed("documents", { docs_approved: 1 });
+    seed("documents");
+    requireDocument("passport", "approved");
 
     const { status, json } = await move({ direction: "forward" });
 
     expect(status).toBe(200);
-    expect(json).toEqual({
-      stageKey: "awaiting_financas",
-      completed: false,
-      warning: "Moved on with 1 of 2 required documents approved.",
-    });
+    expect(json).toEqual({ stageKey: "awaiting_financas", completed: false });
     expect(sendEmail).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/admin/orders/[id]/stage, required documents", () => {
+  it("refuses to move forward off the documents stage while a required document is not approved", async () => {
+    seed("documents");
+    requireDocument("passport", "approved");
+    requireDocument("proof_of_address", "uploaded");
+
+    const { status, json } = await move({ direction: "forward" });
+
+    expect(status).toBe(409);
+    expect(json).toEqual({ error: "Approve every required document before moving on." });
+    expect(tables.user_services[0].stage_key).toBe("documents");
+    expect(tables.user_service_events).toHaveLength(0);
+  });
+
+  it("refuses a jump to any later stage with the same line", async () => {
+    seed("documents");
+    requireDocument("passport", null);
+
+    const { status, json } = await move({ stageKey: "nif_ready" });
+
+    expect(status).toBe(409);
+    expect(json).toEqual({ error: "Approve every required document before moving on." });
+    expect(tables.user_services[0].stage_key).toBe("documents");
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("refuses while a required document was rejected and lets the order go back", async () => {
+    seed("documents");
+    requireDocument("passport", "rejected");
+
+    expect((await move({ direction: "forward" })).status).toBe(409);
+
+    const back = await move({ direction: "back" });
+    expect(back.status).toBe(200);
+    expect(back.json).toEqual({ stageKey: "awaiting_payment", completed: false });
+  });
+
+  it("lets the order move on once every required document is approved, optional ones aside", async () => {
+    seed("documents");
+    requireDocument("passport", "approved");
+    requireDocument("extra", null, false);
+
+    const { status, json } = await move({ direction: "forward" });
+
+    expect(status).toBe(200);
+    expect(json).toEqual({ stageKey: "awaiting_financas", completed: false });
+    expect(tables.user_services[0].stage_key).toBe("awaiting_financas");
+  });
+
+  it("holds the documents stage of an order whose documents were never sent", async () => {
+    seed("documents");
+    requireDocument("passport", null);
+    requireDocument("proof_of_address", null);
+
+    expect((await move({ stageKey: "awaiting_financas" })).status).toBe(409);
+  });
+
+  it("leaves other stages alone, whatever the documents say", async () => {
+    seed("awaiting_financas");
+    requireDocument("passport", "uploaded");
+
+    const { status, json } = await move({ direction: "forward" });
+
+    expect(status).toBe(200);
+    expect(json).toEqual({ stageKey: "nif_ready", completed: true, emailed: true });
   });
 });
 

@@ -6,6 +6,8 @@ import { useId, useState, type ChangeEvent } from "react";
 
 import { cn } from "@/lib/cn";
 import type { DocumentStatus, PoaTemplate, UserServiceApplicantRow } from "@/lib/db/types";
+import { DOCUMENTS_STAGE } from "@/lib/documents/stage";
+import { UPLOAD_FAILED, readFileBytes, sendBytes } from "@/lib/documents/upload-client";
 import { acceptedTypesMessage, mimeForFileName, sizeLimitMessage } from "@/lib/r2/keys";
 
 import { ApplicantDetailsForm } from "./applicant-details-form";
@@ -14,24 +16,35 @@ import { ApplicantDetailsForm } from "./applicant-details-form";
  * One document slot on the dashboard: the label and note from `service_docs`,
  * a status pill, and a file input when the slot still accepts a file.
  *
- * The upload is three steps, all from here: POST /api/documents/upload-url
- * for a presigned URL, a PUT of the file straight to the bucket (XHR, so the
- * progress bar can move), then POST /api/documents/confirm. On success the
- * page refreshes and the server passes the new row back as `current`; the
- * parent keys this component on that row, so a fresh slot mounts clean.
+ * The upload is four steps, all from here: the file's bytes are read in the
+ * browser first, so a file it cannot read fails before any row exists; then
+ * POST /api/documents/upload-url for a presigned URL; then those bytes go to
+ * the bucket, or, when that request does not arrive, to
+ * POST /api/documents/upload on our own origin, which writes them and
+ * finishes the upload itself; then POST /api/documents/confirm, only when the
+ * bucket took the file. The mechanics live in src/lib/documents/upload-client.ts.
+ * On success the page refreshes and the server passes the new row back as
+ * `current`; the parent keys this component on that row, so a fresh slot
+ * mounts clean.
+ *
+ * The slot only takes a file while the order sits on the documents stage.
+ * There, a file that is still waiting for review can be changed: "Replace
+ * file" runs the same upload again and the older file is dropped once the new
+ * one is confirmed, and "Remove" asks once and then calls
+ * DELETE /api/documents/[id]. An approved file cannot be changed, and once
+ * the order has moved on nothing can: an empty or rejected slot closes with
+ * the rest, which is what the routes answer as well.
  *
  * A deed slot (`template` set) adds a row above the upload control: the
- * primary "Download to sign" and, once the principal's details exist, a
- * quiet "Edit your details". Download with no `applicant` row opens the
- * details dialog first and starts the download once they are saved; with a
- * row it fetches /api/orders/[id]/poa/[docId] and hands the PDF to the
- * browser through a temporary download link, so the page stays and a JSON
- * refusal never replaces it: 409 `details_missing` opens the dialog, any
- * other refusal shows its one line in the message line. The signed copy
- * then goes through the same upload as any other slot, labelled "Upload the
- * signed copy". The deed row shows only while the slot still accepts a
- * file: once the signed copy is uploaded or approved there is nothing left
- * to download or edit. Contract (docs/documents-contract.md) section 3,
+ * primary "Download to sign", a line about the signature, and, once the
+ * principal's details exist, a quiet "Edit your details". Download with no
+ * `applicant` row opens the details dialog first and starts the download once
+ * they are saved; with a row it fetches /api/orders/[id]/poa/[docId] and
+ * hands the PDF to the browser through a temporary download link, so the page
+ * stays and a JSON refusal never replaces it: 409 `details_missing` opens the
+ * dialog, any other refusal shows its one line in the message line. The
+ * signed copy then goes through the same upload as any other slot, labelled
+ * "Upload the signed copy". Contract (docs/documents-contract.md) section 3,
  * "Client UI".
  *
  * Nothing moves when state changes: the progress bar and the message line
@@ -55,6 +68,8 @@ type Props = {
   acceptedMime: readonly string[];
   maxBytes: number;
   current?: SlotDocument;
+  /** The order's stage: a file may only be replaced or removed on the documents stage. */
+  orderStage: string;
   /** Set on a deed slot: the power of attorney this slot generates for the client to sign. */
   template?: PoaTemplate | null;
   /** The principal's details entered for this slot's applicant, when they exist. */
@@ -71,21 +86,33 @@ type Phase =
   | { kind: "preparing" }
   | { kind: "requesting" }
   | { kind: "uploading"; percent: number }
+  | { kind: "sending"; percent: number }
   | { kind: "confirming" }
+  | { kind: "removing" }
   | { kind: "done"; fileName: string }
   | { kind: "error"; message: string };
 
 const FALLBACK_ERROR = "Something did not work. Try again.";
-const UPLOAD_FAILED = "The upload did not finish. Try again.";
 const DETAILS_MISSING = "details_missing";
 const DEED_FILE_NAME = "power-of-attorney.pdf";
 
 const deedCopy = {
   download: "Download to sign",
+  signature: "Sign exactly as you signed your passport.",
   edit: "Edit your details",
   saveAndDownload: "Save and download",
   uploadSigned: "Upload the signed copy",
   preparing: "Preparing your deed",
+} as const;
+
+const changeCopy = {
+  replace: "Replace file",
+  remove: "Remove",
+  confirm: "Remove this file?",
+  yes: "Yes, remove",
+  cancel: "Cancel",
+  removing: "Removing",
+  sending: "Sending through our server",
 } as const;
 
 type PillKind = "waiting" | "uploaded" | "approved" | "rejected";
@@ -96,6 +123,9 @@ const PILL: Record<PillKind, { label: string; className: string }> = {
   approved: { label: "Approved", className: "bg-navy text-white" },
   rejected: { label: "Rejected", className: "bg-clay/10 text-[#B52D25]" },
 };
+
+const quietActionClass =
+  "rounded-sm text-sm font-medium text-navy underline-offset-4 transition-colors duration-200 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-wait disabled:opacity-50";
 
 function pillFor(status: DocumentStatus | undefined): PillKind {
   if (status === "uploaded" || status === "approved" || status === "rejected") return status;
@@ -111,6 +141,7 @@ export function DocumentSlot({
   acceptedMime,
   maxBytes,
   current,
+  orderStage,
   template = null,
   applicant = null,
   applicantLabel,
@@ -120,13 +151,19 @@ export function DocumentSlot({
   const messageId = useId();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [details, setDetails] = useState<Details>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   const deed = template !== null;
   const deedUrl = `/api/orders/${userServiceId}/poa/${serviceDocId}?applicant=${applicantIndex}`;
   const forWhom = applicantLabel ? ` (${applicantLabel})` : "";
 
   const busy =
-    phase.kind === "preparing" || phase.kind === "requesting" || phase.kind === "uploading" || phase.kind === "confirming";
+    phase.kind === "preparing" ||
+    phase.kind === "requesting" ||
+    phase.kind === "uploading" ||
+    phase.kind === "sending" ||
+    phase.kind === "confirming" ||
+    phase.kind === "removing";
 
   /**
    * Fetches the deed and hands it to the browser as a download. A refusal
@@ -179,19 +216,30 @@ export function DocumentSlot({
     if (follow === "download") void downloadDeed();
   }
   const pill = phase.kind === "done" ? "uploaded" : pillFor(current?.status);
-  // A rejected file is replaced; a pending one is an upload that never
-  // finished, and the server decides whether its slot is open again.
-  const acceptsFile = !current || current.status === "rejected" || current.status === "pending";
+  // Files are sent while the order sits on the documents stage, and only
+  // then: an empty or rejected slot closes with the rest once the order moves
+  // on, which is the rule the routes answer to as well. A rejected file is
+  // replaced; a pending one is an upload that never finished, and the server
+  // takes its row over.
+  const open = orderStage === DOCUMENTS_STAGE;
+  const changeable = open && current?.status === "uploaded";
+  const acceptsFile = open && current?.status !== "approved";
   const showInput = acceptsFile && phase.kind !== "done";
   const viewable = current && current.status !== "pending";
   const fileName = phase.kind === "done" ? phase.fileName : current?.fileName;
-  const percent = phase.kind === "uploading" ? phase.percent : phase.kind === "confirming" || phase.kind === "done" ? 100 : 0;
+  const percent =
+    phase.kind === "uploading" || phase.kind === "sending"
+      ? phase.percent
+      : phase.kind === "confirming" || phase.kind === "done"
+        ? 100
+        : 0;
 
   async function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     // Let the same file be picked again after an error.
     event.target.value = "";
     if (!file) return;
+    setConfirmRemove(false);
 
     const mimeType = (file.type || mimeForFileName(file.name) || "").toLowerCase();
     if (!acceptedMime.includes(mimeType)) {
@@ -208,23 +256,52 @@ export function DocumentSlot({
     }
 
     try {
+      // Read the file before anything else: a file the browser cannot read
+      // (moved, renamed or synced away since the picker listed it) fails here,
+      // with no row left behind waiting for bytes that will never come.
       setPhase({ kind: "requesting" });
+      const bytes = await readFileBytes(file);
+
       const ticket = await postJson<{ documentId: string; url: string }>("/api/documents/upload-url", {
         userServiceId,
         serviceDocId,
         applicantIndex,
         fileName: file.name,
         mimeType,
-        sizeBytes: file.size,
+        sizeBytes: bytes.byteLength,
       });
 
       setPhase({ kind: "uploading", percent: 0 });
-      await putFile(ticket.url, file, mimeType, (p) => setPhase({ kind: "uploading", percent: p }));
+      const sent = await sendBytes({
+        url: ticket.url,
+        fallbackUrl: `/api/documents/upload?documentId=${encodeURIComponent(ticket.documentId)}`,
+        bytes,
+        mimeType,
+        maxBytes,
+        onProgress: (p) =>
+          setPhase((now) => (now.kind === "sending" ? { kind: "sending", percent: p } : { kind: "uploading", percent: p })),
+        onFallback: () => setPhase({ kind: "sending", percent: 0 }),
+      });
 
-      setPhase({ kind: "confirming" });
-      await postJson<{ document: unknown }>("/api/documents/confirm", { documentId: ticket.documentId });
+      if (sent.via === "bucket") {
+        setPhase({ kind: "confirming" });
+        await postJson<{ document: unknown }>("/api/documents/confirm", { documentId: ticket.documentId });
+      }
 
       setPhase({ kind: "done", fileName: file.name });
+      router.refresh();
+    } catch (error) {
+      setPhase({ kind: "error", message: error instanceof Error && error.message ? error.message : UPLOAD_FAILED });
+    }
+  }
+
+  async function handleRemove() {
+    if (!current) return;
+    setConfirmRemove(false);
+    setPhase({ kind: "removing" });
+    try {
+      await sendDelete(`/api/documents/${current.id}`);
+      setPhase({ kind: "idle" });
       router.refresh();
     } catch (error) {
       setPhase({ kind: "error", message: error instanceof Error ? error.message : FALLBACK_ERROR });
@@ -240,11 +317,15 @@ export function DocumentSlot({
           ? "Preparing"
           : phase.kind === "uploading"
             ? `Uploading ${phase.percent}%`
-            : phase.kind === "confirming"
-              ? "Checking"
-              : phase.kind === "done"
-                ? "Received"
-                : "";
+            : phase.kind === "sending"
+              ? changeCopy.sending
+              : phase.kind === "confirming"
+                ? "Checking"
+                : phase.kind === "removing"
+                  ? changeCopy.removing
+                  : phase.kind === "done"
+                    ? "Received"
+                    : "";
 
   return (
     <li
@@ -273,32 +354,35 @@ export function DocumentSlot({
       )}
 
       {deed && showInput && (
-        <div className="mt-4 flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2">
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={busy}
-            aria-label={`${deedCopy.download}: ${label}${forWhom}`}
-            className={cn(
-              "inline-flex h-11 items-center gap-2 rounded-full bg-navy px-5 text-sm font-medium text-white transition-colors duration-200",
-              "hover:bg-gold hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white",
-              "disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-navy disabled:hover:text-white",
-            )}
-          >
-            <Download className="size-4" aria-hidden />
-            {deedCopy.download}
-          </button>
-          {applicant && (
+        <div className="mt-4">
+          <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2">
             <button
               type="button"
-              onClick={() => setDetails("edit")}
+              onClick={handleDownload}
               disabled={busy}
-              aria-label={`${deedCopy.edit}: ${label}${forWhom}`}
-              className="rounded-sm text-sm font-medium text-navy underline-offset-4 transition-colors duration-200 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-wait disabled:opacity-50"
+              aria-label={`${deedCopy.download}: ${label}${forWhom}`}
+              className={cn(
+                "inline-flex h-11 items-center gap-2 rounded-full bg-navy px-5 text-sm font-medium text-white transition-colors duration-200",
+                "hover:bg-gold hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white",
+                "disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-navy disabled:hover:text-white",
+              )}
             >
-              {deedCopy.edit}
+              <Download className="size-4" aria-hidden />
+              {deedCopy.download}
             </button>
-          )}
+            {applicant && (
+              <button
+                type="button"
+                onClick={() => setDetails("edit")}
+                disabled={busy}
+                aria-label={`${deedCopy.edit}: ${label}${forWhom}`}
+                className={quietActionClass}
+              >
+                {deedCopy.edit}
+              </button>
+            )}
+          </div>
+          <p className="mt-2 text-[0.85rem] leading-relaxed text-navy-soft">{deedCopy.signature}</p>
         </div>
       )}
 
@@ -323,7 +407,11 @@ export function DocumentSlot({
               className="sr-only"
             />
             <Upload className="size-4" aria-hidden />
-            {current ? "Replace file" : deed ? deedCopy.uploadSigned : "Choose file"}
+            {/* "Replace file" belongs to a file waiting for review. A deed
+                slot keeps its own wording while it waits for the signed copy,
+                rejected or not, and an upload that never finished is not a
+                file to replace. */}
+            {changeable ? changeCopy.replace : deed ? deedCopy.uploadSigned : "Choose file"}
           </label>
         )}
 
@@ -345,6 +433,35 @@ export function DocumentSlot({
             View
           </a>
         )}
+
+        {changeable &&
+          phase.kind !== "done" &&
+          (confirmRemove ? (
+            <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-navy">
+              {changeCopy.confirm}
+              <button type="button" onClick={handleRemove} disabled={busy} className={quietActionClass}>
+                {changeCopy.yes}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmRemove(false)}
+                disabled={busy}
+                className="rounded-sm text-sm text-navy-muted underline-offset-4 transition-colors duration-200 hover:text-navy hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-wait disabled:opacity-50"
+              >
+                {changeCopy.cancel}
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmRemove(true)}
+              disabled={busy}
+              aria-label={`${changeCopy.remove}: ${label}${forWhom}`}
+              className={quietActionClass}
+            >
+              {changeCopy.remove}
+            </button>
+          ))}
       </div>
 
       <div
@@ -435,26 +552,15 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
-/**
- * PUT the file to the presigned URL. XMLHttpRequest rather than fetch because
- * only XHR reports upload progress. Content-Type has to be exactly the type
- * the URL was signed for; the browser adds Content-Length itself.
- */
-function putFile(url: string, file: File, mimeType: string, onProgress: (percent: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", mimeType);
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(UPLOAD_FAILED));
-    };
-    xhr.onerror = () => reject(new Error(UPLOAD_FAILED));
-    xhr.onabort = () => reject(new Error(UPLOAD_FAILED));
-    xhr.ontimeout = () => reject(new Error(UPLOAD_FAILED));
-    xhr.send(file);
-  });
+/** DELETE one path, or throw with the server's one line message. */
+async function sendDelete(path: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(path, { method: "DELETE" });
+  } catch {
+    throw new Error(FALLBACK_ERROR);
+  }
+  if (response.ok) return;
+  const data = (await response.json().catch(() => null)) as { error?: unknown } | null;
+  throw new Error(data && typeof data.error === "string" ? data.error : FALLBACK_ERROR);
 }

@@ -11,11 +11,16 @@ import { INVALID_BODY, audit, errorResponse, isUuid, readJson, refuse, requestOr
  * POST /api/admin/orders/[id]/stage, body `{ direction: "forward" | "back" }`
  * or `{ stageKey }`. Contract sections 2 and 6.
  *
- * Answers `{ stageKey, completed, emailed?, warning? }`. The move itself is
- * advanceStage's; this handler adds the two things around it: the warning
- * when the order leaves `documents` with required documents still not
- * approved (the move still happens, by decision), and the "all done" email
- * to the order's owner.
+ * Answers `{ stageKey, completed, emailed? }`. The move itself is
+ * advanceStage's; this handler adds the "all done" email to the order's
+ * owner around it.
+ *
+ * Since 2026-09-22 an order on the `documents` stage cannot move to a later
+ * stage while a required document has no approved file: advanceStage throws
+ * a StageError and this answers 409 "Approve every required document before
+ * moving on." The line is the one the modal and the board show as it is, so
+ * both say the same thing. It replaced the warning the answer used to carry
+ * when the move went through anyway.
  *
  * That email goes out only when advanceStage says `firstCompletion`: the
  * move reached the terminal stage and no earlier `user_service_events` row
@@ -27,9 +32,8 @@ import { INVALID_BODY, audit, errorResponse, isUuid, readJson, refuse, requestOr
  */
 
 const STAGE_KEY = /^[a-z][a-z0-9_]{0,39}$/;
-const DOCUMENTS_STAGE = "documents";
 
-type Summary = Pick<AdminOrderRow, "id" | "user_id" | "stage_key" | "docs_required" | "docs_approved">;
+type Summary = Pick<AdminOrderRow, "id" | "user_id" | "stage_key">;
 
 function parseMove(body: Record<string, unknown>): StageMove | null {
   if (body.direction === "forward" || body.direction === "back") return { direction: body.direction };
@@ -51,7 +55,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     const db = createAdminClient();
     const { data: beforeData, error: beforeError } = await db
       .from("admin_order_summary")
-      .select("id, user_id, stage_key, docs_required, docs_approved")
+      .select("id, user_id, stage_key")
       .eq("id", id)
       .maybeSingle();
     if (beforeError) throw new Error(`admin_order_summary: ${beforeError.message}`);
@@ -65,13 +69,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       if (error instanceof StageError) return refuse(error.status, error.message);
       throw error;
     }
-    const moved = result.stageKey !== before.stage_key;
     audit(admin, "order.stage", id, `${before.stage_key} -> ${result.stageKey}`);
-
-    let warning: string | undefined;
-    if (moved && before.stage_key === DOCUMENTS_STAGE && before.docs_approved < before.docs_required) {
-      warning = `Moved on with ${before.docs_approved} of ${before.docs_required} required documents approved.`;
-    }
 
     let emailed: boolean | undefined;
     if (result.firstCompletion) {
@@ -86,7 +84,6 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       stageKey: result.stageKey,
       completed: result.completed,
       ...(emailed === undefined ? {} : { emailed }),
-      ...(warning ? { warning } : {}),
     });
   } catch (error) {
     return errorResponse(error);

@@ -670,12 +670,13 @@ export function ApplicantDetailsForm(props: Props) {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 border-t border-navy/10 bg-white px-6 py-4 sm:px-8">
-            <Button type="submit" disabled={disabled} aria-describedby={error ? errorId : undefined}>
-              {submitText}
-            </Button>
+          {/* Cancel first in the markup so the primary button ends up on the right, both aligned to that edge. */}
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-navy/10 bg-white px-6 py-4 sm:px-8">
             <Button type="button" variant="ghost" onClick={handleClose} disabled={pending}>
               {copy.cancel}
+            </Button>
+            <Button type="submit" disabled={disabled} aria-describedby={error ? errorId : undefined}>
+              {submitText}
             </Button>
           </div>
         </form>

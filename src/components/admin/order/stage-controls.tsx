@@ -7,13 +7,21 @@ import { cn } from "@/lib/cn";
 import type { ServiceStageRow } from "@/lib/db/types";
 
 import { requestJson } from "../lib/request";
+import { DOCUMENTS_STAGE } from "./required-docs";
 import { fieldClass, outlineActionClass, primaryActionClass, smallLabelClass, useAction } from "./use-action";
 
 /**
  * Back, Forward and a jump select for the order's stage. Every move posts
- * to /api/admin/orders/[id]/stage and refreshes the modal. The warning
- * line about unapproved required documents is shown while the order sits
- * on the documents stage; moving on still works, as the contract says.
+ * to /api/admin/orders/[id]/stage and refreshes the modal.
+ *
+ * While the order sits on the documents stage with a required slot not
+ * approved, it stays there: Forward and every later stage in the jump
+ * select are disabled, and a line says what to do (2026-09-22, Patrícia's
+ * request; it used to be a warning that let the move through). Back and a
+ * jump to an earlier stage keep working, so a mistake is always walked
+ * away from. The route refuses the same move with a 409, so a stale page
+ * cannot get past it either.
+ *
  * An unpaid order stays on its first stage: Forward and the jump form are
  * disabled, matching the 409 the route would answer.
  *
@@ -39,6 +47,7 @@ type StageAnswer = { stageKey: string; completed: boolean; emailed?: boolean } |
 type Outcome = "completed" | "completed_not_emailed";
 
 const copy = {
+  documentsPending: "Approve every required document to move on.",
   confirmCompletion: "This marks the order complete and emails the client. Continue?",
   confirmCompletionAgain:
     "This marks the order complete. The client was emailed the first time, so no email goes out. Continue?",
@@ -103,10 +112,14 @@ export function StageControls({
 
   const ordered = [...stages].sort((a, b) => a.position - b.position);
   const index = ordered.findIndex((s) => s.key === currentKey);
+  const onDocuments = currentKey === DOCUMENTS_STAGE;
+  // The order stays on the documents stage until every required slot is approved.
+  const held = onDocuments && unapprovedRequired > 0;
   const canBack = index > 0;
-  const canForward = paid && index >= 0 && index < ordered.length - 1;
+  const canForward = paid && !held && index >= 0 && index < ordered.length - 1;
   const canJump = paid;
-  const onDocuments = currentKey === "documents";
+  const targetIndex = ordered.findIndex((s) => s.key === target);
+  const targetHeld = held && targetIndex > index;
   const busy = pending || confirming !== null;
 
   /** Whether the move lands on the terminal stage, the one that asks first. */
@@ -145,7 +158,7 @@ export function StageControls({
 
   function jump(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canJump || !target || target === currentKey) return;
+    if (!canJump || targetHeld || !target || target === currentKey) return;
     request({ stageKey: target });
   }
 
@@ -181,15 +194,19 @@ export function StageControls({
               disabled={busy || !canJump}
               className={`${fieldClass} mt-1 h-9 w-auto min-w-[12rem] py-0 normal-case tracking-normal`}
             >
-              {ordered.map((stage) => (
-                <option key={stage.key} value={stage.key}>
+              {ordered.map((stage, position) => (
+                <option key={stage.key} value={stage.key} disabled={held && position > index}>
                   {stage.label}
                   {stage.key === currentKey ? " (current)" : ""}
                 </option>
               ))}
             </select>
           </label>
-          <button type="submit" disabled={busy || !canJump || target === currentKey} className={outlineActionClass}>
+          <button
+            type="submit"
+            disabled={busy || !canJump || targetHeld || target === currentKey}
+            className={outlineActionClass}
+          >
             Go
           </button>
         </form>
@@ -224,11 +241,9 @@ export function StageControls({
 
       {!paid && <p className="mt-3 text-[0.85rem] leading-relaxed text-navy-soft">Stages open once the order is paid.</p>}
 
-      {onDocuments && unapprovedRequired > 0 && (
+      {held && (
         <p className="mt-3 rounded-sm border border-gold/40 bg-gold/10 px-3.5 py-2.5 text-[0.85rem] leading-relaxed text-navy">
-          {unapprovedRequired === 1
-            ? "One required document is not approved yet. Moving on still works."
-            : `${unapprovedRequired} required documents are not approved yet. Moving on still works.`}
+          {copy.documentsPending}
         </p>
       )}
 

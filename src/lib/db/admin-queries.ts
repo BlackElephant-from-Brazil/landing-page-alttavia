@@ -21,6 +21,7 @@ import type {
   AdminDocumentRow,
   AdminOrderDetail,
   AdminOrderRow,
+  AdminUserCounts,
   AdminUserDetail,
   AdminUserRow,
   OrderFilters,
@@ -449,6 +450,71 @@ export async function getUserDetail(db: Db, id: string): Promise<AdminUserDetail
   }
 
   return { user, orders, stages };
+}
+
+/**
+ * What a client account holds, counted before an admin deletes it, or null
+ * when the id is unknown. The delete dialog reads it so the admin sees what
+ * goes ("3 orders, 14 files and 1 agreement") before typing the email, and
+ * the route logs it in the audit line.
+ *
+ * Counts only, no rows: one head request per table. Returned files are
+ * counted where they reached the bucket (`storage_key` set), so a slot the
+ * firm opened and never filled is not called a file.
+ */
+export async function getUserDeletionCounts(db: Db, id: string): Promise<AdminUserCounts | null> {
+  const { data: userData, error: userError } = await db.from("users").select("id").eq("id", id).maybeSingle();
+  if (userError) fail("getUserDeletionCounts", userError);
+  if (!userData) return null;
+
+  const { data: orderData, error: orderError } = await db
+    .from("user_services")
+    .select("id, paid_at")
+    .eq("user_id", id);
+  if (orderError) fail("getUserDeletionCounts orders", orderError);
+  const orders = (orderData ?? []) as Pick<UserServiceRow, "id" | "paid_at">[];
+  const orderIds = orders.map((order) => order.id);
+
+  type Counted = { count: number | null; error: { message: string } | null };
+
+  /** A head request's count, or 0 when there is nothing to ask about. */
+  async function counted(where: string, run: () => PromiseLike<Counted> | null): Promise<number> {
+    const query = run();
+    if (!query) return 0;
+    const { count, error } = await query;
+    if (error) fail(`getUserDeletionCounts ${where}`, error);
+    return count ?? 0;
+  }
+
+  const byOrder = (table: string) =>
+    orderIds.length === 0
+      ? null
+      : db.from(table).select("id", { count: "exact", head: true }).in("user_service_id", orderIds);
+
+  const [documentCount, deliverableCount, agreementCount, answerCount] = await Promise.all([
+    counted("documents", () => byOrder("user_documents")),
+    counted("deliverables", () =>
+      orderIds.length === 0
+        ? null
+        : db
+            .from("user_service_deliverables")
+            .select("id", { count: "exact", head: true })
+            .in("user_service_id", orderIds)
+            .not("storage_key", "is", null),
+    ),
+    counted("agreements", () => byOrder("user_service_contracts")),
+    counted("answers", () => db.from("user_answers").select("id", { count: "exact", head: true }).eq("user_id", id)),
+  ]);
+
+  return {
+    orders: orders.length,
+    paidOrders: orders.filter((order) => order.paid_at).length,
+    documents: documentCount,
+    deliverables: deliverableCount,
+    agreements: agreementCount,
+    answers: answerCount,
+    files: documentCount + deliverableCount + agreementCount,
+  };
 }
 
 // ---------------------------------------------------------------------------

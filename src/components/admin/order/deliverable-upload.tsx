@@ -4,16 +4,22 @@ import { Upload } from "lucide-react";
 import { useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import type { ServiceDeliverableRow } from "@/lib/db/types";
+import { readFileBytes, sendBytes } from "@/lib/documents/upload-client";
 import { extensionFor, formatBytes, mimeForFileName } from "@/lib/r2/keys";
 
 import { requestJson } from "../lib/request";
 import { fieldClass, primaryActionClass, smallLabelClass, useAction } from "./use-action";
 
 /**
- * Uploads one deliverable to the order, the same three steps as the
- * client's document slot: POST /api/admin/deliverables/upload-url for a
- * pending row and a presigned URL, a PUT of the file straight to the
- * bucket (XHR, so the bar can move), then POST /api/admin/deliverables/confirm.
+ * Uploads one deliverable to the order, the same steps as the client's
+ * document slot and through the same module
+ * (src/lib/documents/upload-client.ts): the file's bytes are read in the
+ * browser first, so a file it cannot read fails before any row exists; then
+ * POST /api/admin/deliverables/upload-url for a pending row and a presigned
+ * URL; then those bytes go to the bucket, or, when that request does not
+ * arrive, to POST /api/admin/deliverables/upload on our own origin, which
+ * writes them and finishes the row itself; then
+ * POST /api/admin/deliverables/confirm, only when the bucket took the file.
  * On success the modal refreshes and the file shows in the list above with
  * its download link.
  *
@@ -28,8 +34,13 @@ import { fieldClass, primaryActionClass, smallLabelClass, useAction } from "./us
 
 const MAX_BYTES = 20 * 1024 * 1024;
 const UPLOAD_FAILED = "The upload did not finish. Try again.";
+const SENDING = "Sending through our server";
 
-type Phase = { kind: "idle" } | { kind: "uploading"; percent: number } | { kind: "done"; fileName: string };
+type Phase =
+  | { kind: "idle" }
+  | { kind: "uploading"; percent: number }
+  | { kind: "sending"; percent: number }
+  | { kind: "done"; fileName: string };
 
 export function DeliverableUpload({
   orderId,
@@ -95,6 +106,10 @@ export function DeliverableUpload({
     const chosen = file;
 
     const ok = await run(async () => {
+      // Read the file before anything else: a file the browser cannot read
+      // fails here, with no pending row left waiting for bytes.
+      const bytes = await readFileBytes(chosen);
+
       const ticket = await requestJson<{ deliverableId?: string; id?: string; url: string }>(
         "/api/admin/deliverables/upload-url",
         {
@@ -105,7 +120,7 @@ export function DeliverableUpload({
             serviceDeliverableId: template || undefined,
             fileName: chosen.name,
             mimeType,
-            sizeBytes: chosen.size,
+            sizeBytes: bytes.byteLength,
           },
         },
       );
@@ -113,9 +128,22 @@ export function DeliverableUpload({
       if (!deliverableId || !ticket.url) throw new Error(UPLOAD_FAILED);
 
       setPhase({ kind: "uploading", percent: 0 });
-      await putFile(ticket.url, chosen, mimeType, (p) => setPhase({ kind: "uploading", percent: p }));
+      const sent = await sendBytes({
+        url: ticket.url,
+        fallbackUrl: `/api/admin/deliverables/upload?deliverableId=${encodeURIComponent(deliverableId)}`,
+        bytes,
+        mimeType,
+        maxBytes: MAX_BYTES,
+        onProgress: (p) =>
+          setPhase((now) =>
+            now.kind === "sending" ? { kind: "sending", percent: p } : { kind: "uploading", percent: p },
+          ),
+        onFallback: () => setPhase({ kind: "sending", percent: 0 }),
+      });
 
-      await requestJson("/api/admin/deliverables/confirm", { method: "POST", body: { deliverableId } });
+      if (sent.via === "bucket") {
+        await requestJson("/api/admin/deliverables/confirm", { method: "POST", body: { deliverableId } });
+      }
       setPhase({ kind: "done", fileName: chosen.name });
     });
 
@@ -133,15 +161,18 @@ export function DeliverableUpload({
     }
   }
 
-  const percent = phase.kind === "uploading" ? phase.percent : phase.kind === "done" ? 100 : 0;
+  const percent =
+    phase.kind === "uploading" || phase.kind === "sending" ? phase.percent : phase.kind === "done" ? 100 : 0;
   const message =
     localError ??
     error ??
     (phase.kind === "uploading"
       ? `Uploading ${phase.percent}%`
-      : phase.kind === "done"
-        ? `${phase.fileName} received.`
-        : "");
+      : phase.kind === "sending"
+        ? SENDING
+        : phase.kind === "done"
+          ? `${phase.fileName} received.`
+          : "");
 
   return (
     <form onSubmit={submit} className="mt-4 rounded-lg border border-navy/10 bg-paper p-4" aria-busy={pending || undefined}>
@@ -228,22 +259,3 @@ export function DeliverableUpload({
   );
 }
 
-/** PUT the file to the presigned URL with progress; XHR because fetch reports none. */
-function putFile(url: string, file: File, mimeType: string, onProgress: (percent: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", mimeType);
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(UPLOAD_FAILED));
-    };
-    xhr.onerror = () => reject(new Error(UPLOAD_FAILED));
-    xhr.onabort = () => reject(new Error(UPLOAD_FAILED));
-    xhr.ontimeout = () => reject(new Error(UPLOAD_FAILED));
-    xhr.send(file);
-  });
-}

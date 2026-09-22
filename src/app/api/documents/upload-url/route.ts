@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getUserService } from "@/lib/db/queries";
 import type { ServiceDocRow, UserDocumentRow } from "@/lib/db/types";
-import { presignUpload } from "@/lib/r2/client";
+import { APPROVED_LOCKED, DOCUMENTS_STAGE, REVIEW_LOCKED, STAGE_CLOSED, isOrderFile } from "@/lib/documents/confirm";
+import { deleteObject, presignUpload } from "@/lib/r2/client";
 import {
   acceptedTypesMessage,
   buildStorageKey,
@@ -19,22 +20,45 @@ import { getUser } from "@/lib/supabase/user";
  * Step one of an upload. The browser says which slot it wants to fill and
  * what file it holds; this handler checks every claim against the database,
  * writes a `pending` row and hands back a URL the browser can PUT the file
- * to for five minutes. Step two is /api/documents/confirm.
+ * to for five minutes. Step two is /api/documents/confirm, or
+ * /api/documents/upload when that PUT does not arrive.
  *
  * Nothing from the body is trusted: the order has to be the caller's and
  * paid, the document has to belong to the order's service, the applicant has
  * to exist, and type and size have to fit what `service_docs` allows. Every
  * refusal is one short line the slot shows as it is.
+ *
+ * What a slot accepts (changed 2026-09-22):
+ *
+ *   - Nothing at all unless the order sits on the documents stage. That is
+ *     the one stage on which a client sends files, and the same rule the
+ *     Remove button answers to, so a slot is opened and closed at the same
+ *     moment. Before this an empty or rejected slot stayed open on every
+ *     stage, a completed order included.
+ *   - `pending`: an upload that never finished. The new attempt takes the
+ *     row over, whatever its age. Before this, a pending row held its slot
+ *     for fifteen minutes and a client whose upload failed was told "This
+ *     slot already has a file." and could do nothing.
+ *   - `rejected`: the slot is open, as it always was.
+ *   - `uploaded`: open, so a client may replace a file that is still waiting
+ *     for review. The file it replaces is dropped after the new one is
+ *     confirmed, never before.
+ *   - `approved`: closed.
+ *
+ * Why a repeat attempt reuses the pending row rather than starting a new one
+ * (2026-09-22). `buildStorageKey` ends in a fresh uuid, so a new row means a
+ * new object. Deleting the old row and inserting a new one on every call let
+ * one client hold any number of presigned URLs, PUT a full sized file to each
+ * of them and leave every object but the last with no row pointing at it:
+ * storage nobody can see and nobody can remove. The row is now updated in
+ * place, conditionally, so a slot holds at most one unfinished upload. Only a
+ * change of file type moves the key, and the object it leaves goes with it.
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * A `pending` row older than this is an upload that never finished (the
- * presigned URL lasted five minutes) and no longer blocks its slot, so a
- * closed tab does not lock a document forever.
- */
-const PENDING_GRACE_MS = 15 * 60 * 1000;
+/** The unfinished upload this attempt meant to take over was finished or removed meanwhile. */
+const SLOT_CHANGED = "This slot changed a moment ago. Refresh the page and try again.";
 
 type Body = {
   userServiceId: string;
@@ -116,7 +140,41 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (latestError) throw new Error(`user_documents: ${latestError.message}`);
     const latest = latestData as UserDocumentRow | null;
-    if (latest && slotIsTaken(latest)) return refuse(409, "This slot already has a file.");
+
+    const closed = slotClosed(latest, order.stage_key);
+    if (closed) return refuse(409, closed);
+
+    const file = {
+      file_name: sanitizeFileName(body.fileName),
+      mime_type: body.mimeType,
+      size_bytes: body.sizeBytes,
+    };
+
+    // An upload that never finished keeps its row and, when the file type has
+    // not changed, its key: one slot, one object.
+    if (latest && latest.status === "pending") {
+      const sameType = latest.storage_key.endsWith(`.${ext}`);
+      const key = sameType ? latest.storage_key : buildStorageKey(order.id, doc.key, body.applicantIndex, ext);
+
+      const { data: taken, error: takeError } = await admin
+        .from("user_documents")
+        .update({ ...file, storage_key: key })
+        .eq("id", latest.id)
+        .eq("status", "pending")
+        .eq("storage_key", latest.storage_key)
+        .select("id");
+      if (takeError) throw new Error(`user_documents update: ${takeError.message}`);
+      if (((taken ?? []) as unknown[]).length === 0) return refuse(409, SLOT_CHANGED);
+
+      if (!sameType) await dropObject(latest);
+
+      const { url, expiresIn } = await presignUpload({
+        key,
+        contentType: body.mimeType,
+        contentLength: body.sizeBytes,
+      });
+      return NextResponse.json({ documentId: latest.id, url, key, expiresIn });
+    }
 
     const key = buildStorageKey(order.id, doc.key, body.applicantIndex, ext);
     const { url, expiresIn } = await presignUpload({
@@ -132,9 +190,7 @@ export async function POST(request: Request) {
         service_doc_id: doc.id,
         applicant_index: body.applicantIndex,
         storage_key: key,
-        file_name: sanitizeFileName(body.fileName),
-        mime_type: body.mimeType,
-        size_bytes: body.sizeBytes,
+        ...file,
         status: "pending",
       })
       .select("id")
@@ -150,12 +206,23 @@ export async function POST(request: Request) {
   }
 }
 
-/** Uploaded and approved files hold their slot; rejected ones give it up; a pending one holds it while its URL could still be used. */
-function slotIsTaken(latest: UserDocumentRow): boolean {
-  if (latest.status === "rejected") return false;
-  if (latest.status === "pending") {
-    const age = Date.now() - new Date(latest.created_at).getTime();
-    return age < PENDING_GRACE_MS;
+/** The line to refuse a new file with, or null when the slot takes one. */
+function slotClosed(latest: UserDocumentRow | null, stageKey: string): string | null {
+  if (latest?.status === "approved") return APPROVED_LOCKED;
+  if (stageKey !== DOCUMENTS_STAGE) return latest ? REVIEW_LOCKED : STAGE_CLOSED;
+  return null;
+}
+
+/**
+ * Removes the object of an attempt whose key has just been replaced, in case
+ * a late PUT did land on it. Best effort: the row now points elsewhere, so
+ * what is left behind is an object nothing references, worth a log line and
+ * no more.
+ */
+async function dropObject(latest: UserDocumentRow): Promise<void> {
+  try {
+    if (isOrderFile(latest)) await deleteObject(latest.storage_key);
+  } catch (error) {
+    console.error("[documents/upload-url] stale object not removed", error);
   }
-  return true;
 }

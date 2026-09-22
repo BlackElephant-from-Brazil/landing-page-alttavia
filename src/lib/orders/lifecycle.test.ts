@@ -331,3 +331,138 @@ describe("advanceStage firstCompletion", () => {
     expect(stay).toEqual({ stageKey: "nif_ready", completed: true, firstCompletion: false });
   });
 });
+
+/**
+ * The documents stage holds the order until every required slot has an
+ * approved file (docs/admin-contract.md section 4, 2026-09-22). The rule
+ * itself is tested in src/components/admin/order/required-docs.test.ts;
+ * these cover what advanceStage does with its answer.
+ */
+describe("advanceStage on the documents stage", () => {
+  function requireDocument(key: string, status: string | null, required = true) {
+    const id = `doc-${key}`;
+    (tables.service_docs ??= []).push({
+      id,
+      service_id: SERVICE_ID,
+      key,
+      required,
+      per_applicant: false,
+      position: (tables.service_docs?.length ?? 0) + 1,
+    });
+    if (status) {
+      (tables.user_documents ??= []).push({
+        id: `file-${key}`,
+        user_service_id: ORDER_ID,
+        service_doc_id: id,
+        applicant_index: 0,
+        status,
+        created_at: "2026-09-12T09:00:00.000Z",
+      });
+    }
+  }
+
+  it("refuses to move forward while a required document is not approved, and writes nothing", async () => {
+    seed("documents");
+    requireDocument("passport", "uploaded");
+
+    await expect(advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" })).rejects.toMatchObject({
+      name: "StageError",
+      code: "documents_pending",
+      status: 409,
+      message: "Approve every required document before moving on.",
+    });
+    expect(writes).toHaveLength(0);
+    expect(order().stage_key).toBe("documents");
+  });
+
+  it("refuses a jump to any later stage the same way", async () => {
+    seed("documents");
+    requireDocument("passport", null);
+
+    await expect(advanceStage(ORDER_ID, ACTOR_ID, { stageKey: "nif_ready" })).rejects.toMatchObject({
+      code: "documents_pending",
+    });
+    expect(writes).toHaveLength(0);
+  });
+
+  it("lets the order go back to an earlier stage", async () => {
+    seed("documents");
+    requireDocument("passport", "rejected");
+
+    const result = await advanceStage(ORDER_ID, ACTOR_ID, { direction: "back" });
+
+    expect(result).toEqual({ stageKey: "awaiting_payment", completed: false, firstCompletion: false });
+  });
+
+  it("moves on once every required document is approved and ignores optional slots", async () => {
+    seed("documents");
+    requireDocument("passport", "approved");
+    requireDocument("extra", "uploaded", false);
+
+    const result = await advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" });
+
+    expect(result).toEqual({ stageKey: "awaiting_financas", completed: false, firstCompletion: false });
+  });
+
+  it("counts a per applicant slot once per person on a couple order", async () => {
+    seed("documents");
+    tables.user_services[0].applicants = 2;
+    (tables.service_docs ??= []).push({
+      id: "doc-passport",
+      service_id: SERVICE_ID,
+      key: "passport",
+      required: true,
+      per_applicant: true,
+      position: 1,
+    });
+    (tables.user_documents ??= []).push({
+      id: "file-passport-0",
+      user_service_id: ORDER_ID,
+      service_doc_id: "doc-passport",
+      applicant_index: 0,
+      status: "approved",
+      created_at: "2026-09-12T09:00:00.000Z",
+    });
+
+    await expect(advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" })).rejects.toMatchObject({
+      code: "documents_pending",
+    });
+
+    (tables.user_documents ??= []).push({
+      id: "file-passport-1",
+      user_service_id: ORDER_ID,
+      service_doc_id: "doc-passport",
+      applicant_index: 1,
+      status: "approved",
+      created_at: "2026-09-12T10:00:00.000Z",
+    });
+
+    expect((await advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" })).stageKey).toBe("awaiting_financas");
+  });
+
+  it("leaves another stage alone, whatever the documents say", async () => {
+    seed("awaiting_financas");
+    requireDocument("passport", "uploaded");
+
+    const result = await advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" });
+
+    expect(result).toEqual({ stageKey: "nif_ready", completed: true, firstCompletion: true });
+  });
+
+  it("ignores documents of another order", async () => {
+    seed("documents");
+    requireDocument("passport", null);
+    (tables.user_documents ??= []).push({
+      id: "file-other",
+      user_service_id: "66666666-6666-4666-8666-666666666666",
+      service_doc_id: "doc-passport",
+      applicant_index: 0,
+      status: "approved",
+      created_at: "2026-09-12T09:00:00.000Z",
+    });
+
+    await expect(advanceStage(ORDER_ID, ACTOR_ID, { direction: "forward" })).rejects.toMatchObject({
+      code: "documents_pending",
+    });
+  });
+});

@@ -1,7 +1,12 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import {
   BANK_DOCUMENTS,
+  DEED_SIGNATURE_NOTE,
   EMPLOYMENT_DOCUMENTS,
   NIF_DOCUMENTS,
   needsBankQuestions,
@@ -66,5 +71,28 @@ describe("requirements set by the authorities", () => {
     for (const doc of [...NIF_DOCUMENTS, ...BANK_DOCUMENTS]) {
       expect(doc.perApplicant, doc.id).toBe(true);
     }
+  });
+});
+
+/**
+ * The deed note is copy the client reads from `service_docs`, not from this
+ * module: the row is written by supabase/migrations/0012_deed_signature_note.sql.
+ * The constant is here as the seed source, so it is worth nothing unless the
+ * two say the same thing. This pins them to each other.
+ */
+describe("deed signature note", () => {
+  const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
+  const MIGRATION = join(ROOT, "supabase", "migrations", "0012_deed_signature_note.sql");
+
+  it("is the text the migration writes on every deed slot", () => {
+    const sql = readFileSync(MIGRATION, "utf8");
+    const written = /set note = '([^']*)'/.exec(sql)?.[1];
+
+    expect(written).toBe(DEED_SIGNATURE_NOTE);
+    expect(sql).toContain("template in ('poa_nif', 'poa_bank')");
+  });
+
+  it("asks for the passport signature, which is the whole point of it", () => {
+    expect(DEED_SIGNATURE_NOTE).toContain("same signature as in your passport");
   });
 });

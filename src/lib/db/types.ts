@@ -435,6 +435,27 @@ export type AdminUserRow = UserRow & {
   last_activity_at: Timestamp;
 };
 
+/**
+ * What goes with a client account when an admin deletes it, counted before
+ * anything is removed (`getUserDeletionCounts`). `files` is what is expected
+ * in the bucket: the client's uploads, the files the firm returned that
+ * reached storage, and the versions of the service agreement.
+ */
+export type AdminUserCounts = {
+  orders: number;
+  paidOrders: number;
+  /** Uploads by the client, any status. */
+  documents: number;
+  /** Files the firm returned that reached the bucket. */
+  deliverables: number;
+  /** Versions of the service agreement. */
+  agreements: number;
+  /** Answers of the application form, one row per question per submission. */
+  answers: number;
+  /** documents + deliverables + agreements. */
+  files: number;
+};
+
 /** Everything the user modal shows. */
 export type AdminUserDetail = {
   user: UserRow;

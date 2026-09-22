@@ -2,13 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DataTable, Pill, type Column } from "@/components/admin/data-table";
-import { formatCount, formatDate } from "@/components/admin/lib/format";
+import { formatCount, formatDate, formatEuro } from "@/components/admin/lib/format";
 import { firstParam, hrefWith, intParam, type SearchParams } from "@/components/admin/lib/params";
 import { applyButtonClass } from "@/components/admin/range-controls";
 import { UserModal } from "@/components/admin/user-modal";
+import { usersCopy } from "@/components/admin/users/copy";
+import { NewUserButton } from "@/components/admin/users/page-actions";
+import { UserRowActions } from "@/components/admin/users/row-actions";
+import type { ServiceChoice } from "@/components/admin/users/types";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import { cn } from "@/lib/cn";
 import { listUsers } from "@/lib/db/admin-queries";
+import { getActiveServices } from "@/lib/db/queries";
 import type { AdminUserRow } from "@/lib/db/types";
 import { requireAdminPage } from "@/lib/supabase/admin-user";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +26,15 @@ export const metadata: Metadata = { title: "Users" };
  * Each row opens the user modal with `?user=<id>`, which lists that
  * person's orders and links each one to the orders page with its modal
  * open. Read with the user client; RLS `is_admin()` decides.
+ *
+ * The last column holds the four things an admin does to one person: view
+ * details, edit, assign a purchase, delete. They are client components over
+ * the row's own link (see row-actions.tsx); everything they need is passed
+ * down from here, so the page itself stays a server component and the
+ * browser fetches nothing to draw the table.
+ *
+ * The active services are read once for the whole page, because the assign
+ * dialog of every row offers the same list, priced on the server.
  */
 
 const PATH = "/admin/users";
@@ -38,7 +52,16 @@ export default async function UsersPage({ searchParams }: Props) {
   const userId = firstParam(params, "user");
 
   const supabase = await createClient();
-  const result = await listUsers(supabase, { q, page, pageSize: PAGE_SIZE });
+  const [result, services] = await Promise.all([
+    listUsers(supabase, { q, page, pageSize: PAGE_SIZE }),
+    getActiveServices(supabase),
+  ]);
+
+  const serviceChoices: ServiceChoice[] = services.map((service) => ({
+    slug: service.slug,
+    name: service.name,
+    price: formatEuro(service.price_cents),
+  }));
 
   const pages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
   const current = Math.min(page, pages);
@@ -65,14 +88,32 @@ export default async function UsersPage({ searchParams }: Props) {
       header: "Last order",
       cell: (row) => (row.last_order_at ? formatDate(row.last_order_at) : <span className="text-navy-muted">None</span>),
     },
+    {
+      key: "actions",
+      header: usersCopy.page.actionsHeader,
+      align: "right",
+      className: "w-[15rem]",
+      cell: (row) => (
+        <UserRowActions
+          user={{ id: row.id, email: row.email, fullName: row.full_name, phone: row.phone, role: row.role }}
+          services={serviceChoices}
+          detailHref={hrefWith(PATH, params, { user: row.id })}
+        />
+      ),
+    },
   ];
 
   return (
     <div className="space-y-8">
-      <header>
-        <EyebrowSolo>Alttavia · Admin</EyebrowSolo>
-        <h1 className="mt-4 font-serif text-[clamp(1.8rem,4vw,2.5rem)] leading-tight text-navy">Users</h1>
-        <p className="mt-2 text-[0.9rem] text-navy-muted">Everyone with an account, most recent activity first.</p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <EyebrowSolo>Alttavia · Admin</EyebrowSolo>
+          <h1 className="mt-4 font-serif text-[clamp(1.8rem,4vw,2.5rem)] leading-tight text-navy">Users</h1>
+          <p className="mt-2 text-[0.9rem] text-navy-muted">Everyone with an account, most recent activity first.</p>
+        </div>
+        <div className="mt-2 shrink-0">
+          <NewUserButton />
+        </div>
       </header>
 
       <form method="get" action={PATH} aria-label="Search" className="rounded-lg border border-navy/10 bg-white p-4 shadow-[var(--shadow-soft)] sm:p-5">
@@ -129,7 +170,7 @@ export default async function UsersPage({ searchParams }: Props) {
         </nav>
       )}
 
-      <UserModal userId={userId} />
+      <UserModal userId={userId} services={serviceChoices} />
     </div>
   );
 }

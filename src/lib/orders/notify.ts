@@ -28,8 +28,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
  *   repeat sends nothing. The lazy load keeps the dashboard page's own import
  *   graph free of the email code.
  * - POST /api/documents/confirm calls notifyDocumentsReady after the row is
- *   `uploaded`. A resubmission after a rejection completes the set again and
- *   sends again, on purpose: the set waits for a review again.
+ *   `uploaded`, and only when the upload moved the set from incomplete to
+ *   complete. A resubmission after a rejection completes the set again and
+ *   sends again, on purpose: the set waits for a review again. Swapping a
+ *   file that was still waiting for review sends nothing, since the slot was
+ *   already filled and the firm already has the set in its queue;
+ *   confirmDocumentUpload decides that from the row it superseded.
  * - POST /api/stripe/webhook calls notifyPaymentMismatch when a paid session
  *   names a known order but its amount or currency differs: the money was
  *   taken and the order stays unpaid, so a person has to look. Only the
