@@ -2,6 +2,8 @@ import { PDFDocument, StandardFonts, type PDFFont } from "pdf-lib";
 
 import {
   buildPowerOfAttorney,
+  isJointPrincipals,
+  type JointPrincipals,
   type PoaBlock,
   type PrincipalDetails,
   type SigningDate,
@@ -39,7 +41,9 @@ const MARGIN = { top: 56, bottom: 52, left: 62, right: 62 };
  * Tuned so the NIF deed lands on a single A4 sheet, filled or blank, and the
  * bank deed on two. A power of attorney that spills a lone signature onto an
  * extra page reads as a mistake to whoever receives it, and tests pin both
- * page counts so a future copy edit cannot quietly reintroduce that.
+ * page counts so a future copy edit cannot quietly reintroduce that. The
+ * couple's joint bank deed, with a second identification clause and a second
+ * signature, is pinned at three at most.
  */
 const SIZE = { title: 16, body: 9.6, signature: 10 };
 const LEADING = { body: 12.6, paragraphGap: 8, itemGap: 6 };
@@ -56,6 +60,13 @@ const ITEM_INDENT = 20;
  */
 const CLOSING_RESERVE = 150;
 
+/**
+ * What each signature after the first adds to that block: the gap for the
+ * handwriting, the rule and a printed name of up to two lines. The joint
+ * bank deed ends with two signatures, and both stay with the closing line.
+ */
+const EXTRA_SIGNATURE_RESERVE = 80;
+
 /** The PDF subject line per deed, for the reader's document properties. */
 const SUBJECT: Record<PoaTemplate, string> = {
   poa_nif: "Atribuição de Número de Identificação Fiscal (NIF)",
@@ -68,9 +79,11 @@ function render(layout: Layout, blocks: PoaBlock[], fonts: Fonts) {
   // The last paragraph before the signature is the closing line; it and the
   // signature are kept on the same page.
   const closing = blocks.findIndex((block, i) => block.kind === "paragraph" && blocks[i + 1]?.kind === "signature");
+  const signatures = blocks.filter((block) => block.kind === "signature").length;
+  const reserve = CLOSING_RESERVE + EXTRA_SIGNATURE_RESERVE * Math.max(0, signatures - 1);
 
   blocks.forEach((block, i) => {
-    if (i === closing) layout.reserve(CLOSING_RESERVE);
+    if (i === closing) layout.reserve(reserve);
     switch (block.kind) {
       case "title":
         layout.text(block.pt, fonts.bold, SIZE.title, { align: "center" });
@@ -126,13 +139,20 @@ export function printable(principal: PrincipalDetails): PrincipalDetails {
 
 /**
  * Builds one deed. Called with only the kind it produces the blank template,
- * every field showing the model's own bracketed placeholder.
+ * every field showing the model's own bracketed placeholder. For the
+ * couple's joint bank deed pass both principals, `[first, second]`, in
+ * applicant order (buildPowerOfAttorney says what changes); a pair on the
+ * NIF deed throws.
  */
 export async function generatePowerOfAttorney(
   kind: PoaTemplate,
-  principal: PrincipalDetails = {},
+  principals: PrincipalDetails | JointPrincipals = {},
   signedOn: SigningDate = {},
 ): Promise<Uint8Array> {
+  const prepared: PrincipalDetails | JointPrincipals = isJointPrincipals(principals)
+    ? [printable(principals[0]), printable(principals[1])]
+    : printable(principals);
+
   const doc = await PDFDocument.create();
   doc.setTitle("Procuração / Power of Attorney");
   doc.setSubject(SUBJECT[kind]);
@@ -151,6 +171,6 @@ export async function generatePowerOfAttorney(
     itemIndent: ITEM_INDENT,
     fold: foldToPlain,
   });
-  render(layout, buildPowerOfAttorney(kind, printable(principal), signedOn), fonts);
+  render(layout, buildPowerOfAttorney(kind, prepared, signedOn), fonts);
   return doc.save();
 }

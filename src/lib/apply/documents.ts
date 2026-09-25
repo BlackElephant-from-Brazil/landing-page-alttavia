@@ -1,3 +1,5 @@
+import { AGREEMENT_TEMPLATE, type AgreementTemplate } from "@/lib/documents/templates";
+
 import { includesBank, includesNif } from "./recommend";
 import type { Answers, ProductId } from "./types";
 
@@ -48,6 +50,47 @@ export type EmploymentStatus = "employed" | "self-employed";
  */
 export const DEED_SIGNATURE_NOTE =
   "We prepare it with your passport details. Download it and sign by hand, with the same signature as in your passport. Then upload a scan or a photo of the signed pages.";
+
+/**
+ * The slot the signed service agreement comes back through (Patrícia's
+ * answer of 2026-09-24: the client downloads the agreement, signs it by hand
+ * and sends it back, like the powers of attorney). One per order, not per
+ * applicant: the couple package signs one paper with both names on it.
+ *
+ * The rows live in `service_docs`, written by
+ * supabase/migrations/0013_signed_agreement_slot.sql for every service that
+ * has a contract. This object is the seed source; signed-agreement-slot.test.ts
+ * pins it to that migration, so the two cannot drift. `template` is what
+ * tells the client slot to open the order's agreement
+ * (GET /api/orders/[id]/contract) instead of a deed, see
+ * src/lib/documents/templates.ts. File types and size limit are the column
+ * defaults, the same as every other slot.
+ *
+ * Like the deed note, the client reads this from the database: until 0013 is
+ * applied, no order has the slot.
+ */
+export const SIGNED_AGREEMENT_SLOT = {
+  key: "signed_agreement",
+  label: "Signed service agreement",
+  note: "Download your service agreement, sign it by hand with the same signature as in your passport, then upload a scan or a photo of the signed pages.",
+  template: AGREEMENT_TEMPLATE,
+  acceptedMime: ["application/pdf", "image/jpeg", "image/png"],
+  maxBytes: 10_485_760,
+  perApplicant: false,
+  required: true,
+  /** The services that carry a contract, by slug. */
+  services: ["nif-only", "bank-only", "bundle", "couple"],
+} as const satisfies {
+  key: string;
+  label: string;
+  note: string;
+  template: AgreementTemplate;
+  acceptedMime: readonly string[];
+  maxBytes: number;
+  perApplicant: boolean;
+  required: boolean;
+  services: readonly ProductId[];
+};
 
 /** Documents Finanças requires to issue a NIF. */
 export const NIF_DOCUMENTS: readonly RequiredDocument[] = [

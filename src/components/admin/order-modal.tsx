@@ -2,7 +2,11 @@ import { Download, Eye, FileText } from "lucide-react";
 
 import { contractDrift } from "@/content/contracts/variables";
 import { formatDeedDate } from "@/content/power-of-attorney";
+import { missingContractApplicant } from "@/lib/contracts/state";
+import { contractPersons } from "@/lib/contracts/templates";
 import { getOrderDetail } from "@/lib/db/admin-queries";
+import { isAgreementTemplate, isDeedTemplate } from "@/lib/documents/templates";
+import { isJointDeed } from "@/lib/poa/joint";
 import type {
   AdminOrderDetail,
   ServiceDocRow,
@@ -52,6 +56,7 @@ const copy = {
   stage: "Stage",
   documents: "Documents",
   downloadDeed: "Download deed",
+  downloadAgreement: "Download agreement",
   deedDetails: "Details for the deeds",
   noDetails: "The client has not entered their details yet.",
   agreement: {
@@ -64,6 +69,10 @@ const copy = {
     waitingBody: "The client confirms their details on the order and the agreement is prepared and emailed at once.",
     waitingWithDetails:
       "The client entered their details for a deed but has not confirmed them for the agreement yet. It can be prepared from those details.",
+    waitingPartner:
+      "The agreement names the client and their partner. It can be prepared once the partner's details are entered too.",
+    termsAccepted: (when: string, version: string) =>
+      `The client accepted the service terms and the service agreement before paying, on ${when} (terms of ${version}).`,
     prepared: "Prepared",
     version: (n: number) => `version ${n}`,
     preparedOn: (when: string) => `Prepared ${when}`,
@@ -240,6 +249,17 @@ function StageSection({ detail }: { detail: AdminOrderDetail }) {
  * ./order/required-docs.ts, the same pure module the stage route enforces
  * its refusal with, so the list the firm reads and what the server allows
  * are one rule.
+ *
+ * A deed slot carries "Download deed" (the blank deed, filled from the
+ * client's details). The signed agreement slot (`template` 'agreement',
+ * 0013) carries "Download agreement" instead, the order's prepared
+ * agreement from GET /api/orders/[id]/contract?download=1, once it exists;
+ * the client's signed copy is the slot's file, reviewed like any other.
+ *
+ * The couple's joint bank deed (isJointDeed, src/lib/poa/joint.ts, 0016) is
+ * one slot naming both people: its "Download deed" asks the route without
+ * `?applicant` and shows once both sets of details are there, since the
+ * route answers 409 until then.
  */
 type Slot = DocumentSlot<ServiceDocRow, UserDocumentRow>;
 
@@ -256,6 +276,16 @@ function buildSlots(detail: AdminOrderDetail): Slot[] {
  */
 function hasDetails(detail: AdminOrderDetail, applicantIndex: 0 | 1): boolean {
   return detail.applicants.some((a) => a.applicant_index === applicantIndex);
+}
+
+/** The deed link of a slot: the joint deed names both people and takes no `?applicant`. */
+function deedLink(detail: AdminOrderDetail, slot: Slot): string | null {
+  if (!isDeedTemplate(slot.doc.template) || !detail.order.paid_at) return null;
+  const base = `/api/orders/${detail.order.id}/poa/${slot.doc.id}`;
+  if (isJointDeed(slot.doc, detail.order.applicants)) {
+    return hasDetails(detail, 0) && hasDetails(detail, 1) ? base : null;
+  }
+  return hasDetails(detail, slot.applicantIndex) ? `${base}?applicant=${slot.applicantIndex}` : null;
 }
 
 const DOC_PILL: Record<UserDocumentRow["status"], { label: string; tone: "muted" | "gold" | "navy" | "clay" }> = {
@@ -286,6 +316,7 @@ function DocumentsSection({ detail }: { detail: AdminOrderDetail }) {
           {slots.map((slot) => {
             const label = twoApplicants && slot.doc.per_applicant ? `${slot.doc.label} · ${APPLICANT[slot.applicantIndex]}` : slot.doc.label;
             const pill = slot.latest ? DOC_PILL[slot.latest.status] : { label: "Waiting", tone: "muted" as const };
+            const deedHref = deedLink(detail, slot);
             return (
               <li key={`${slot.doc.id}:${slot.applicantIndex}`} className="px-4 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -304,9 +335,19 @@ function DocumentsSection({ detail }: { detail: AdminOrderDetail }) {
                     )}
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1">
-                    {slot.doc.template && detail.order.paid_at && hasDetails(detail, slot.applicantIndex) && (
+                    {isAgreementTemplate(slot.doc.template) && detail.order.paid_at && detail.contract && (
                       <a
-                        href={`/api/orders/${detail.order.id}/poa/${slot.doc.id}?applicant=${slot.applicantIndex}`}
+                        href={`/api/orders/${detail.order.id}/contract?download=1`}
+                        aria-label={`${copy.downloadAgreement}: ${label}`}
+                        className="inline-flex items-center gap-1 rounded-sm text-[0.85rem] font-medium text-navy underline-offset-4 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                      >
+                        <Download className="size-3.5" aria-hidden />
+                        {copy.downloadAgreement}
+                      </a>
+                    )}
+                    {deedHref && (
+                      <a
+                        href={deedHref}
                         aria-label={`${copy.downloadDeed}: ${label}`}
                         className="inline-flex items-center gap-1 rounded-sm text-[0.85rem] font-medium text-navy underline-offset-4 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
                       >
@@ -351,10 +392,25 @@ function DocumentsSection({ detail }: { detail: AdminOrderDetail }) {
  * The principal's details the deeds are filled with, once per applicant who
  * has a deed slot on the order (the bundle and the couple package have two
  * deeds per person, so the block sits under the list rather than under each
- * slot). No row yet reads as one line.
+ * slot). No row yet reads as one line. The joint bank deed and the Couple
+ * package's signed agreement are one slot each but name both people, so
+ * they count for applicant 1 as well.
  */
 function DeedDetails({ detail, slots }: { detail: AdminOrderDetail; slots: Slot[] }) {
-  const indexes = Array.from(new Set(slots.filter((s) => s.doc.template).map((s) => s.applicantIndex))).sort();
+  const both = contractPersons(detail.service.contract_template) === 2;
+  const indexes = Array.from(
+    new Set(
+      slots
+        .filter((s) => s.doc.template)
+        .flatMap((s) =>
+          isJointDeed(s.doc, detail.order.applicants) || (both && isAgreementTemplate(s.doc.template))
+            ? [0, 1]
+            : [s.applicantIndex],
+        ),
+    ),
+  )
+    .filter((index) => index < Math.max(1, detail.order.applicants))
+    .sort();
   if (indexes.length === 0) return null;
   const twoApplicants = detail.order.applicants === 2;
 
@@ -366,7 +422,7 @@ function DeedDetails({ detail, slots }: { detail: AdminOrderDetail; slots: Slot[
           const row = detail.applicants.find((a) => a.applicant_index === index) ?? null;
           return (
             <li key={index} className="px-4 py-4">
-              {twoApplicants && <p className="font-medium text-navy">{APPLICANT[index]}</p>}
+              {twoApplicants && <p className="font-medium text-navy">{APPLICANT[index as 0 | 1]}</p>}
               {row ? (
                 <ApplicantFacts row={row} className={twoApplicants ? "mt-3" : undefined} />
               ) : (
@@ -484,20 +540,34 @@ function DocumentLine({ doc, compact }: { doc: UserDocumentRow; compact?: boolea
  * whenever what the stored version printed differs from what the details
  * would print today (contractDrift). It is a hint only: the client's save is
  * never blocked and nothing is regenerated without the firm's click.
+ *
+ * The Couple package's one agreement (`couple`, 0017) names applicant 0 and
+ * applicant 1: the action waits for both sets of details, as the route does,
+ * the drift check compares both people, and the confirmation speaks of both.
+ *
+ * When the client accepted the terms at checkout (0014), one line says when
+ * and which version: the record Patrícia asked for, read only.
  */
 function AgreementSection({ detail }: { detail: AdminOrderDetail }) {
   const { order, service, contract } = detail;
   const text = copy.agreement;
   const paid = !!order.paid_at;
   const expected = service.contract_template !== null;
+  // The model this agreement is, or will be, made with: the row's once it exists.
+  const template = contract?.template ?? service.contract_template;
+  const couple = contractPersons(template) === 2;
   const detailsEntered = hasDetails(detail, 0);
+  const everyoneEntered = missingContractApplicant(template, detail.applicants) === null;
   const state = contract ? text.prepared : !expected ? text.notRequired : !paid ? text.unpaid : text.waiting;
-  const canPrepare = paid && detailsEntered && (contract !== null || expected);
+  const canPrepare = paid && everyoneEntered && (contract !== null || expected);
   // Values against values, never timestamps: the row's updated_at moves on every save, changed or not.
+  const first = detail.applicants.find((a) => a.applicant_index === 0) ?? null;
+  const second = detail.applicants.find((a) => a.applicant_index === 1) ?? null;
   const drifted =
     contract !== null &&
-    contractDrift(contract.variables, contract.template, detail.applicants.find((a) => a.applicant_index === 0) ?? null)
+    contractDrift(contract.variables, contract.template, first ? (couple && second ? [first, second] : first) : null)
       .length > 0;
+  const acceptedAt = order.terms_accepted_at ?? null;
 
   return (
     <section aria-labelledby="order-agreement-heading">
@@ -545,9 +615,17 @@ function AgreementSection({ detail }: { detail: AdminOrderDetail }) {
             ? text.notRequiredBody
             : !paid
               ? text.unpaidBody
-              : detailsEntered
+              : everyoneEntered
                 ? text.waitingWithDetails
-                : text.waitingBody}
+                : couple && detailsEntered
+                  ? text.waitingPartner
+                  : text.waitingBody}
+        </p>
+      )}
+
+      {acceptedAt && (
+        <p className="mt-3 max-w-prose text-[0.82rem] leading-relaxed text-navy-muted">
+          {text.termsAccepted(formatDateTime(acceptedAt), order.terms_version ?? "an earlier version")}
         </p>
       )}
 
@@ -561,7 +639,7 @@ function AgreementSection({ detail }: { detail: AdminOrderDetail }) {
         </p>
       )}
 
-      {canPrepare && <ContractActions orderId={order.id} exists={contract !== null} />}
+      {canPrepare && <ContractActions orderId={order.id} exists={contract !== null} couple={couple} />}
     </section>
   );
 }

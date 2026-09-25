@@ -16,7 +16,23 @@ import type { ServiceStageRow, UserServiceRow } from "@/lib/db/types";
  *     moment ago by the webhook is not overwritten and the caller hears
  *     `changed: false` (which is also what keeps the emails to one per
  *     order, exactly as the Stripe funnel does);
- *   - the move writes a `user_service_events` row saying who recorded it.
+ *   - the move writes a `user_service_events` row saying who recorded it,
+ *     and where: its note is MANUAL_PAYMENT_LIVE_NOTE when the deploy that
+ *     records it holds a live Stripe key (production), and
+ *     MANUAL_PAYMENT_TEST_NOTE anywhere else (staging, development). The
+ *     caller says which with `live`.
+ *
+ * Why the note says where (2026-09-25). Production and staging share one
+ * database, and staging stays up as the test environment. A payment recorded
+ * there, during training say, must never count as money the firm received:
+ * ./live-payment.ts reads this note, and only this note, to
+ * decide whether an order paid outside the platform gets the firm's
+ * signature on its agreement and has its signed copy mailed to the team.
+ * Rows written before this date carry the older note, MANUAL_PAYMENT_NOTE of
+ * 2026-09-22 ("Paid outside the platform, recorded by the admin"), and read
+ * as not live. When the event cannot be written the payment still stands,
+ * but the order reads as not live until the row is added: a failure that
+ * keeps the signature off, never one that puts it on.
  *
  * What it does not do is touch `stripe_checkout_session_id`: that column is
  * unique and belongs to Stripe. An order paid here and later paid again
@@ -26,7 +42,15 @@ import type { ServiceStageRow, UserServiceRow } from "@/lib/db/types";
  * The caller sends the emails (notifyOrderPaid) when this answers `changed`.
  */
 
-export const MANUAL_PAYMENT_NOTE = "Paid outside the platform, recorded by the admin";
+/** The note of a payment recorded on a deploy with a live Stripe key: production. */
+export const MANUAL_PAYMENT_LIVE_NOTE = "Paid outside the platform, recorded by the admin on the live site";
+/** The note of a payment recorded anywhere else: staging, development. */
+export const MANUAL_PAYMENT_TEST_NOTE = "Paid outside the platform, recorded by the admin on the test site";
+
+/** The event note for a payment recorded where the Stripe key is live, or not. Pure. */
+export function manualPaymentNote(live: boolean): string {
+  return live ? MANUAL_PAYMENT_LIVE_NOTE : MANUAL_PAYMENT_TEST_NOTE;
+}
 
 /**
  * The stage payment moves an order to: the stage at position 2, which every
@@ -49,7 +73,17 @@ export type ManualPaymentResult = {
 
 type OrderState = Pick<UserServiceRow, "id" | "service_id" | "stage_key" | "paid_at">;
 
-export async function recordManualPayment(admin: Db, orderId: string, actorId: string): Promise<ManualPaymentResult> {
+/**
+ * `live`: whether the deploy recording the payment holds a live Stripe key
+ * (the route passes holdsLiveKey() from src/lib/stripe/client.ts). It only
+ * picks the event note; see the header.
+ */
+export async function recordManualPayment(
+  admin: Db,
+  orderId: string,
+  actorId: string,
+  live: boolean,
+): Promise<ManualPaymentResult> {
   const { data: orderData, error: orderError } = await admin
     .from("user_services")
     .select("id, service_id, stage_key, paid_at")
@@ -91,13 +125,17 @@ export async function recordManualPayment(admin: Db, orderId: string, actorId: s
     user_service_id: orderId,
     from_stage: order.stage_key,
     to_stage: nextStage,
-    note: MANUAL_PAYMENT_NOTE,
+    note: manualPaymentNote(live),
     actor_id: actorId,
   });
   if (eventError) {
     // The payment is recorded; the audit row is worth a log line, not a
-    // retry that would find the order already paid.
-    console.error(`recordManualPayment: event insert failed for ${orderId}: ${eventError.message}`);
+    // retry that would find the order already paid. Without the row the
+    // order reads as not paid with real money (see the header).
+    console.error(
+      `recordManualPayment: event insert failed for ${orderId} (${live ? "live" : "test"}); ` +
+        `its agreement stays unsigned until the event is added: ${eventError.message}`,
+    );
   }
 
   return { changed: true, stageKey: nextStage };

@@ -11,7 +11,7 @@
  * punctuation, none of the banned words listed in src/content/bank-nif.ts.
  */
 
-import type { PoaTemplate } from "@/lib/db/types";
+import type { DocTemplate } from "@/lib/db/types";
 
 import { FIRST_STAGE_KEY, MAX_DOC_MB } from "./editor-model";
 
@@ -41,7 +41,8 @@ export const editorCopy = {
   timelineHint: "One line, for example NIF in 3 to 5 business days.",
   contract: "Service contract",
   contractNone: "None",
-  contractHint: "The agreement the client confirms their details for and receives right after paying. With None, nothing is prepared or asked.",
+  contractHint:
+    "The agreement the client confirms their details for and receives right after paying. The Couple package agreement names both people, so it waits for the partner's details too. With None, nothing is prepared or asked.",
   includes: "Includes",
   includesHint: "One item per line. Put two asterisks on each side of words to show them in bold, for example **included**.",
   stripe: {
@@ -114,13 +115,15 @@ export const listsCopy = {
   perApplicantHint: "A couple order asks for two.",
   required: "Required",
   requiredHint: "Counted in the Documents column of the orders list.",
-  template: "Generated deed",
-  templateHint: "The client downloads it filled with their passport details, signs it by hand and uploads the signed copy into this slot.",
+  template: "Document to sign",
+  templateHint:
+    "The client downloads it, signs it by hand and uploads the signed copy into this slot. A power of attorney is filled with their passport details. The service agreement is the order's own.",
   templateNone: "None",
   templates: {
     poa_nif: "Power of attorney (NIF)",
     poa_bank: "Power of attorney (bank account)",
-  } satisfies Record<PoaTemplate, string>,
+    agreement: "Signed service agreement",
+  } satisfies Record<DocTemplate, string>,
   kind: "Kind",
   kinds: { document: "Document", report: "Report" },
   remove: "Remove",

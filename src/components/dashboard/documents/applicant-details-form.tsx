@@ -57,6 +57,15 @@ import { validateApplicantInput } from "@/lib/orders/applicant-rules";
  * documents can print. A failure shows the same one line the route would
  * answer, under the form, and no tab is opened. The route validates again.
  *
+ * The save only variant also has `wording: "agreement"`, for the Couple
+ * package's agreement card (contract/contract-gate.tsx): it asks for the
+ * account holder's details and then the partner's, one dialog each, and
+ * once both are saved offers a button of its own that prepares and opens
+ * the agreement. The dialog then reads
+ * as the agreement's ("Your details for the service agreement", "Your
+ * partner's details for the service agreement") instead of the deed's,
+ * while it behaves as the deed's: it saves and hands the row back.
+ *
  * `body` scroll is locked through the shared counted lock
  * (src/components/ui/scroll-lock.ts), because this dialog opens inside the
  * order modal, which holds a lock of its own.
@@ -87,6 +96,8 @@ type DeedProps = BaseProps & {
   purpose?: "deed";
   /** The primary button. "Save" by default; the slot says "Save and download" when a download follows. */
   submitLabel?: string;
+  /** "agreement": the Couple package's agreement card saving one person at a time, titled for the agreement. */
+  wording?: "deed" | "agreement";
   onSaved: (row: UserServiceApplicantRow) => void;
 };
 
@@ -128,6 +139,14 @@ const copy = {
   close: "Close",
   errors: {
     generic: "Something did not work. Try again.",
+  },
+  agreementSteps: {
+    title: ["Your details for the service agreement", "Your partner's details for the service agreement"] as const,
+    lead: [
+      "They are printed in the agreement and in the powers of attorney as typed, so check them against the passport. Accents our documents cannot print are left out.",
+      "They are printed in the agreement and in the powers of attorney as typed, so check them against your partner's passport. Accents our documents cannot print are left out.",
+    ] as const,
+    gender: ["The documents refer to the person as", "The documents refer to your partner as"] as const,
   },
   contract: {
     title: "Your details for the service agreement",
@@ -428,9 +447,22 @@ export function ApplicantDetailsForm(props: Props) {
   }
 
   const disabled = loading || pending;
-  const title = forContract ? copy.contract.title : copy.title[applicantIndex];
-  const lead = forContract ? copy.contract.lead : copy.lead[applicantIndex];
-  const genderLegend = forContract ? copy.contract.gender : copy.gender[applicantIndex];
+  const agreementSteps = props.purpose !== "contract" && props.wording === "agreement";
+  const title = forContract
+    ? copy.contract.title
+    : agreementSteps
+      ? copy.agreementSteps.title[applicantIndex]
+      : copy.title[applicantIndex];
+  const lead = forContract
+    ? copy.contract.lead
+    : agreementSteps
+      ? copy.agreementSteps.lead[applicantIndex]
+      : copy.lead[applicantIndex];
+  const genderLegend = forContract
+    ? copy.contract.gender
+    : agreementSteps
+      ? copy.agreementSteps.gender[applicantIndex]
+      : copy.gender[applicantIndex];
   const submitText =
     props.purpose === "contract"
       ? pending

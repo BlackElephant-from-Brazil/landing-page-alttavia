@@ -17,7 +17,9 @@
  * auto suggestions the key and slug fields follow until they are touched.
  */
 
-import type { ContractTemplate, DeliverableKind, PoaTemplate, ServiceWithConfig } from "@/lib/db/types";
+import { CONTRACT_TEMPLATES as SHARED_CONTRACT_TEMPLATES, isContractTemplate } from "@/lib/contracts/templates";
+import type { ContractTemplate, DeliverableKind, DocTemplate, ServiceWithConfig } from "@/lib/db/types";
+import { DOC_TEMPLATES as SHARED_DOC_TEMPLATES } from "@/lib/documents/templates";
 
 // ---------------------------------------------------------------------------
 // Payload (section 6)
@@ -40,8 +42,12 @@ export type DocBody = {
   per_applicant: boolean;
   required: boolean;
   position: number;
-  /** The deed this slot generates for the client to sign; null for a plain upload. Always sent, so a save never leaves it to chance. */
-  template: PoaTemplate | null;
+  /**
+   * What the client signs before sending this slot: a deed it generates, or
+   * the order's service agreement ('agreement', 0013); null for a plain
+   * upload. Always sent, so a save never leaves it to chance.
+   */
+  template: DocTemplate | null;
 };
 
 export type DeliverableBody = {
@@ -105,7 +111,7 @@ export type DocDraft = RowBase & {
   max_mb: string;
   per_applicant: boolean;
   required: boolean;
-  template: PoaTemplate | null;
+  template: DocTemplate | null;
 };
 
 export type DeliverableDraft = RowBase & {
@@ -152,20 +158,31 @@ export const DEFAULT_MAX_MB = 10;
 export const MAX_DOC_MB = 20;
 export const FIRST_STAGE_KEY = "awaiting_payment";
 export const DELIVERABLE_KINDS: readonly DeliverableKind[] = ["document", "report"];
-/** The deeds a document slot can generate, in the order the select offers them. */
-export const POA_TEMPLATES: readonly PoaTemplate[] = ["poa_nif", "poa_bank"];
-/** The firm's contract models a service can use, in the order the select offers them. */
-export const CONTRACT_TEMPLATES: readonly ContractTemplate[] = ["nif", "bank", "package"];
+/**
+ * What a document slot can hand the client to sign, in the order the select
+ * offers them: the two deeds, then the signed service agreement (0013). One
+ * list with the server's (src/lib/documents/templates.ts), so a service that
+ * carries the agreement slot can be saved from the editor.
+ */
+export const DOC_TEMPLATES: readonly DocTemplate[] = SHARED_DOC_TEMPLATES;
+/**
+ * The firm's contract models a service can use, in the order the select
+ * offers them. One list with the server's (src/lib/contracts/templates.ts),
+ * so the editor never offers a model the route would refuse. `couple` is the
+ * Couple package's one agreement for both people (0017).
+ */
+export const CONTRACT_TEMPLATES: readonly ContractTemplate[] = SHARED_CONTRACT_TEMPLATES;
 /** How the admin screens name each model: the editor's select, the services table, the order modal. */
 export const CONTRACT_TEMPLATE_LABELS: Record<ContractTemplate, string> = {
   nif: "NIF",
   bank: "Bank account",
   package: "NIF + Bank account package",
+  couple: "Couple package",
 };
 
-/** A select's value back to the model: anything that is not one of the three is none. */
+/** A select's value back to the model: anything that is not one of the four is none. */
 export function contractTemplateFromOption(value: string): ContractTemplate | null {
-  return (CONTRACT_TEMPLATES as readonly string[]).includes(value) ? (value as ContractTemplate) : null;
+  return isContractTemplate(value) ? value : null;
 }
 
 /**
@@ -424,8 +441,10 @@ export const messages = {
   priceId: "Stripe price ids start with price_.",
   paymentLink: "Payment links start with https://.",
   kind: "Choose document or report.",
-  template: "Choose a deed or none.",
+  template: "Choose a document to sign or none.",
   contractTemplate: "Choose a contract or none.",
+  /** The same line as AGREEMENT_NEEDS_CONTRACT in src/lib/orders/services-admin.ts. */
+  agreementNeedsContract: "Choose a service contract, or remove the signed service agreement from the documents.",
 } as const;
 
 function checkRowBasics(errors: DraftErrors, prefix: string, rows: RowBase[], minPosition: 0 | 1): void {
@@ -504,7 +523,7 @@ function validateDocs(errors: DraftErrors, docs: DocDraft[]): DocBody[] {
     const mb = Number(doc.max_mb.trim());
     const validMb = doc.max_mb.trim() !== "" && Number.isFinite(mb) && mb >= 1 && mb <= MAX_DOC_MB;
     if (!validMb) errors[`docs.${doc.uid}.max_mb`] = messages.maxMb;
-    if (doc.template !== null && !POA_TEMPLATES.includes(doc.template)) errors[`docs.${doc.uid}.template`] = messages.template;
+    if (doc.template !== null && !DOC_TEMPLATES.includes(doc.template)) errors[`docs.${doc.uid}.template`] = messages.template;
     out.push({
       key: doc.key.trim(),
       label: doc.label.trim(),
@@ -564,6 +583,9 @@ export function validateDraft(draft: ServiceDraft): ValidationResult {
 
   if (draft.contract_template !== null && !CONTRACT_TEMPLATES.includes(draft.contract_template)) {
     errors.contract_template = messages.contractTemplate;
+  } else if (draft.contract_template === null && draft.docs.some((doc) => doc.template === "agreement")) {
+    // A signed agreement slot with no contract to prepare the agreement would hold every order on the documents stage.
+    errors.contract_template = messages.agreementNeedsContract;
   }
 
   const priceIdTest = nullable(draft.stripe_price_id_test);

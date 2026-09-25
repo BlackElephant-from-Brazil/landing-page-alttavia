@@ -5,12 +5,14 @@ import { Download, FileText, Upload } from "lucide-react";
 import { useId, useState, type ChangeEvent } from "react";
 
 import { cn } from "@/lib/cn";
-import type { DocumentStatus, PoaTemplate, UserServiceApplicantRow } from "@/lib/db/types";
-import { DOCUMENTS_STAGE } from "@/lib/documents/stage";
+import type { DocumentStatus, UserServiceApplicantRow } from "@/lib/db/types";
+import type { DocTemplate } from "@/lib/documents/templates";
 import { UPLOAD_FAILED, readFileBytes, sendBytes } from "@/lib/documents/upload-client";
+import { jointDeedMissing } from "@/lib/poa/joint";
 import { acceptedTypesMessage, mimeForFileName, sizeLimitMessage } from "@/lib/r2/keys";
 
 import { ApplicantDetailsForm } from "./applicant-details-form";
+import { slotControls } from "./slot-controls";
 
 /**
  * One document slot on the dashboard: the label and note from `service_docs`,
@@ -47,6 +49,27 @@ import { ApplicantDetailsForm } from "./applicant-details-form";
  * "Upload the signed copy". Contract (docs/documents-contract.md) section 3,
  * "Client UI".
  *
+ * The signed agreement slot (`template` 'agreement', 0013) works the same
+ * way with the order's service agreement instead of a deed (Patrícia's
+ * answer of 2026-09-24): "Download to sign" is a link that opens
+ * GET /api/orders/[id]/contract in a new tab, the PDF inline, so there is
+ * no details dialog and no "Edit your details" here; the details belong to
+ * the agreement card above the list. Until that card has prepared the
+ * agreement (`contractReady`, a boolean the order view derives from its
+ * contract row) the slot takes no file and says where to start instead.
+ * The signature line is the deeds' one; on a couple order, where the slot
+ * is one paper for both, it asks both of them to sign.
+ *
+ * The couple's joint bank deed (`joint`, isJointDeed in src/lib/poa/joint.ts,
+ * migration 0016) is one deed naming both people, in one slot under "For both
+ * of you". "Download to sign" fetches the deed without `?applicant` and needs
+ * both sets of details: the slot opens the details dialog for the first
+ * person missing (the account holder, then the partner, `partner` being
+ * applicant 1's row) and downloads once both are saved; a 409
+ * `details_missing` names the person in `applicant` and opens that one's
+ * dialog. Each saved set gets its own "Edit" button, and the line under the
+ * button asks both of them to sign.
+ *
  * Nothing moves when state changes: the progress bar and the message line
  * are always in the layout, at zero width and empty, so the card keeps its
  * height from the first render to the last.
@@ -70,16 +93,32 @@ type Props = {
   current?: SlotDocument;
   /** The order's stage: a file may only be replaced or removed on the documents stage. */
   orderStage: string;
-  /** Set on a deed slot: the power of attorney this slot generates for the client to sign. */
-  template?: PoaTemplate | null;
+  /**
+   * Set on a slot the client signs before sending: a deed this slot
+   * generates ('poa_nif', 'poa_bank'), or the order's service agreement
+   * ('agreement').
+   */
+  template?: DocTemplate | null;
   /** The principal's details entered for this slot's applicant, when they exist. */
   applicant?: UserServiceApplicantRow | null;
   /** "You" or "Your partner" on a couple order, for the buttons' accessible names. */
   applicantLabel?: string;
+  /** On the signed agreement slot: the order's agreement has been prepared and can be opened. */
+  contractReady?: boolean;
+  /** On the signed agreement slot of a couple order: one paper, both of them sign it. */
+  bothSign?: boolean;
+  /** The couple's joint bank deed: one deed naming both people, downloaded without `?applicant`. */
+  joint?: boolean;
+  /** Joint deed only: applicant 1's details on this order, when they exist. */
+  partner?: UserServiceApplicantRow | null;
 };
 
-/** Which dialog is open and what follows a save: a download, or only a refresh. */
-type Details = "download" | "edit" | null;
+/**
+ * Which dialog is open, for whom, and what follows a save: a download, or
+ * only a refresh. `person` is the slot's own applicant, except on the joint
+ * deed, which asks for both.
+ */
+type Details = { follow: "download" | "edit"; person: 0 | 1 } | null;
 
 type Phase =
   | { kind: "idle" }
@@ -100,13 +139,28 @@ const deedCopy = {
   download: "Download to sign",
   signature: "Sign exactly as you signed your passport.",
   edit: "Edit your details",
+  editPartner: "Edit your partner's details",
   saveAndDownload: "Save and download",
-  uploadSigned: "Upload the signed copy",
   preparing: "Preparing your deed",
 } as const;
 
+const agreementCopy = {
+  waiting: "Confirm your details first, above, and your agreement appears here.",
+  newTab: "opens in a new tab",
+} as const;
+
+/** One paper both people sign: the couple's signed agreement and its joint bank deed. */
+const SIGNATURE_BOTH = "Both of you sign it, each exactly as you signed your own passport.";
+
+const primaryActionClass = cn(
+  "inline-flex h-11 items-center gap-2 rounded-full bg-navy px-5 text-sm font-medium text-white transition-colors duration-200",
+  "hover:bg-gold hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white",
+  "disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-navy disabled:hover:text-white",
+);
+
+// The file input's own words ("Choose file", "Replace file", "Upload the
+// signed copy") live with the rule that picks them, in ./slot-controls.ts.
 const changeCopy = {
-  replace: "Replace file",
   remove: "Remove",
   confirm: "Remove this file?",
   yes: "Yes, remove",
@@ -145,6 +199,10 @@ export function DocumentSlot({
   template = null,
   applicant = null,
   applicantLabel,
+  contractReady = false,
+  bothSign = false,
+  joint = false,
+  partner = null,
 }: Props) {
   const router = useRouter();
   const inputId = useId();
@@ -152,9 +210,35 @@ export function DocumentSlot({
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [details, setDetails] = useState<Details>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  /** Joint deed: the rows the dialogs saved on this mount, newer than the props until the refresh lands. */
+  const [savedFirst, setSavedFirst] = useState<UserServiceApplicantRow | null>(null);
+  const [savedPartner, setSavedPartner] = useState<UserServiceApplicantRow | null>(null);
 
-  const deed = template !== null;
-  const deedUrl = `/api/orders/${userServiceId}/poa/${serviceDocId}?applicant=${applicantIndex}`;
+  // Files are sent while the order sits on the documents stage, and only
+  // then: an empty or rejected slot closes with the rest once the order moves
+  // on, which is the rule the routes answer to as well. A rejected file is
+  // replaced; a pending one is an upload that never finished, and the server
+  // takes its row over. The signed agreement slot also waits for the
+  // agreement itself. The whole rule is ./slot-controls.ts.
+  const { paper, changeable, showInput, awaitingAgreement, uploadLabel } = slotControls({
+    template,
+    contractReady,
+    orderStage,
+    status: current?.status,
+    finished: phase.kind === "done",
+  });
+  // Two kinds of paper the client signs by hand: a deed this slot generates,
+  // and the order's service agreement, which the agreement card prepares.
+  const agreement = paper === "agreement";
+  const deed = paper === "deed";
+  const jointDeed = deed && joint;
+  // The joint deed names both people whatever `?applicant` says, so it is asked for without one.
+  const deedUrl = jointDeed
+    ? `/api/orders/${userServiceId}/poa/${serviceDocId}`
+    : `/api/orders/${userServiceId}/poa/${serviceDocId}?applicant=${applicantIndex}`;
+  const first = savedFirst ?? applicant;
+  const second = savedPartner ?? partner;
+  const agreementUrl = `/api/orders/${userServiceId}/contract`;
   const forWhom = applicantLabel ? ` (${applicantLabel})` : "";
 
   const busy =
@@ -185,11 +269,13 @@ export function DocumentSlot({
       return;
     }
     if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: unknown } | null;
+      const data = (await response.json().catch(() => null)) as { error?: unknown; applicant?: unknown } | null;
       const error = data && typeof data.error === "string" ? data.error : FALLBACK_ERROR;
       if (response.status === 409 && error === DETAILS_MISSING) {
         setPhase({ kind: "idle" });
-        setDetails("download");
+        // The route names whose details it is missing; only the joint deed can name the partner.
+        const person = jointDeed ? (data?.applicant === 1 ? 1 : 0) : applicantIndex;
+        setDetails({ follow: "download", person });
       } else {
         setPhase({ kind: "error", message: error });
       }
@@ -205,26 +291,38 @@ export function DocumentSlot({
   }
 
   function handleDownload() {
+    if (jointDeed) {
+      const missing = jointDeedMissing(first, second);
+      if (missing === null) void downloadDeed();
+      else setDetails({ follow: "download", person: missing });
+      return;
+    }
     if (applicant) void downloadDeed();
-    else setDetails("download");
+    else setDetails({ follow: "download", person: applicantIndex });
   }
 
-  function handleSaved() {
-    const follow = details;
+  function handleSaved(row: UserServiceApplicantRow) {
+    const open = details;
     setDetails(null);
     router.refresh();
-    if (follow === "download") void downloadDeed();
+    if (!open) return;
+    if (jointDeed) {
+      if (open.person === 0) setSavedFirst(row);
+      else setSavedPartner(row);
+    }
+    if (open.follow !== "download") return;
+    if (jointDeed) {
+      // Both people sign the one deed: after the first set, the partner's, then the download.
+      const missing = jointDeedMissing(open.person === 0 ? row : first, open.person === 1 ? row : second);
+      if (missing !== null) {
+        setDetails({ follow: "download", person: missing });
+        return;
+      }
+    }
+    void downloadDeed();
   }
   const pill = phase.kind === "done" ? "uploaded" : pillFor(current?.status);
-  // Files are sent while the order sits on the documents stage, and only
-  // then: an empty or rejected slot closes with the rest once the order moves
-  // on, which is the rule the routes answer to as well. A rejected file is
-  // replaced; a pending one is an upload that never finished, and the server
-  // takes its row over.
-  const open = orderStage === DOCUMENTS_STAGE;
-  const changeable = open && current?.status === "uploaded";
-  const acceptsFile = open && current?.status !== "approved";
-  const showInput = acceptsFile && phase.kind !== "done";
+  const signatureLine = (agreement && bothSign) || jointDeed ? SIGNATURE_BOTH : deedCopy.signature;
   const viewable = current && current.status !== "pending";
   const fileName = phase.kind === "done" ? phase.fileName : current?.fileName;
   const percent =
@@ -353,6 +451,27 @@ export function DocumentSlot({
         </p>
       )}
 
+      {agreement && showInput && (
+        <div className="mt-4">
+          <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2">
+            {/* A link, not a fetch: the route streams the PDF inline, so the
+                new tab shows the agreement at our own URL and the browser's
+                viewer saves or prints it. */}
+            <a
+              href={agreementUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${deedCopy.download}: ${label}, ${agreementCopy.newTab}`}
+              className={primaryActionClass}
+            >
+              <Download className="size-4" aria-hidden />
+              {deedCopy.download}
+            </a>
+          </div>
+          <p className="mt-2 text-[0.85rem] leading-relaxed text-navy-soft">{signatureLine}</p>
+        </div>
+      )}
+
       {deed && showInput && (
         <div className="mt-4">
           <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2">
@@ -361,19 +480,15 @@ export function DocumentSlot({
               onClick={handleDownload}
               disabled={busy}
               aria-label={`${deedCopy.download}: ${label}${forWhom}`}
-              className={cn(
-                "inline-flex h-11 items-center gap-2 rounded-full bg-navy px-5 text-sm font-medium text-white transition-colors duration-200",
-                "hover:bg-gold hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white",
-                "disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-navy disabled:hover:text-white",
-              )}
+              className={primaryActionClass}
             >
               <Download className="size-4" aria-hidden />
               {deedCopy.download}
             </button>
-            {applicant && (
+            {(jointDeed ? first : applicant) && (
               <button
                 type="button"
-                onClick={() => setDetails("edit")}
+                onClick={() => setDetails({ follow: "edit", person: jointDeed ? 0 : applicantIndex })}
                 disabled={busy}
                 aria-label={`${deedCopy.edit}: ${label}${forWhom}`}
                 className={quietActionClass}
@@ -381,12 +496,27 @@ export function DocumentSlot({
                 {deedCopy.edit}
               </button>
             )}
+            {jointDeed && second && (
+              <button
+                type="button"
+                onClick={() => setDetails({ follow: "edit", person: 1 })}
+                disabled={busy}
+                aria-label={`${deedCopy.editPartner}: ${label}`}
+                className={quietActionClass}
+              >
+                {deedCopy.editPartner}
+              </button>
+            )}
           </div>
-          <p className="mt-2 text-[0.85rem] leading-relaxed text-navy-soft">{deedCopy.signature}</p>
+          <p className="mt-2 text-[0.85rem] leading-relaxed text-navy-soft">{signatureLine}</p>
         </div>
       )}
 
       <div className="mt-4 flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2">
+        {awaitingAgreement && (
+          <p className="text-[0.85rem] leading-relaxed text-navy-soft">{agreementCopy.waiting}</p>
+        )}
+
         {showInput && (
           <label
             htmlFor={inputId}
@@ -407,11 +537,7 @@ export function DocumentSlot({
               className="sr-only"
             />
             <Upload className="size-4" aria-hidden />
-            {/* "Replace file" belongs to a file waiting for review. A deed
-                slot keeps its own wording while it waits for the signed copy,
-                rejected or not, and an upload that never finished is not a
-                file to replace. */}
-            {changeable ? changeCopy.replace : deed ? deedCopy.uploadSigned : "Choose file"}
+            {uploadLabel}
           </label>
         )}
 
@@ -492,10 +618,13 @@ export function DocumentSlot({
 
       {deed && details !== null && (
         <ApplicantDetailsForm
+          // Keyed on the person: on the joint deed the partner's dialog follows
+          // the first one's and must mount fresh, with its own fields.
+          key={details.person}
           userServiceId={userServiceId}
-          applicantIndex={applicantIndex}
-          initial={applicant}
-          submitLabel={details === "download" ? deedCopy.saveAndDownload : undefined}
+          applicantIndex={details.person}
+          initial={jointDeed ? (details.person === 1 ? second : first) : applicant}
+          submitLabel={details.follow === "download" ? deedCopy.saveAndDownload : undefined}
           onClose={() => setDetails(null)}
           onSaved={handleSaved}
         />

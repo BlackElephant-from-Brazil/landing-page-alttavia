@@ -21,6 +21,13 @@ import { outlineActionClass, primaryActionClass, useAction } from "./use-action"
  * With `exists` false the order has no agreement yet although the client's
  * details are there (typed for a deed): the same route prepares the first
  * version, so the button reads "Prepare and send".
+ *
+ * With `couple` the agreement is the Couple package's one contract naming
+ * both people, so the confirmation speaks of both sets of details; the
+ * route refuses with its own line while the partner's are missing. Every
+ * version is prepared with the firm's signature when the bucket holds it
+ * (src/lib/contracts/ensure.ts), so regenerating an agreement prepared
+ * before the signature arrived is how it gets signed.
  */
 
 const copy = {
@@ -28,12 +35,15 @@ const copy = {
     action: "Regenerate and resend",
     title: "Regenerate and resend this agreement?",
     body: "A new version is prepared from the client's details as they are now and emailed to the client again. The version before it stays in storage.",
+    coupleBody:
+      "A new version is prepared from the details of the client and their partner as they are now and emailed to the client again. The version before it stays in storage.",
     confirm: "Yes, regenerate and resend",
   },
   first: {
     action: "Prepare and send",
     title: "Prepare and send the agreement?",
     body: "It is prepared from the details the client has entered and emailed to the client.",
+    coupleBody: "It is prepared from the details the client has entered for both people and emailed to the client.",
     confirm: "Yes, prepare and send",
   },
   cancel: "Cancel",
@@ -42,7 +52,15 @@ const copy = {
   notEmailed: "Prepared, but the email did not go out. Try again in a moment.",
 } as const;
 
-export function ContractActions({ orderId, exists }: { orderId: string; exists: boolean }) {
+type Props = {
+  orderId: string;
+  /** An agreement is on record: the action regenerates it. */
+  exists: boolean;
+  /** The service's model is `couple`: the agreement names the client and their partner. */
+  couple?: boolean;
+};
+
+export function ContractActions({ orderId, exists, couple = false }: Props) {
   const { pending, error, run, clear } = useAction();
   const id = useId();
   const titleId = `${id}-title`;
@@ -50,6 +68,7 @@ export function ContractActions({ orderId, exists }: { orderId: string; exists: 
   const [confirming, setConfirming] = useState(false);
   const [outcome, setOutcome] = useState<"emailed" | "not_emailed" | null>(null);
   const text = exists ? copy.regenerate : copy.first;
+  const body = couple ? text.coupleBody : text.body;
 
   async function send() {
     let emailed = false;
@@ -77,7 +96,7 @@ export function ContractActions({ orderId, exists }: { orderId: string; exists: 
             {text.title}
           </p>
           <p id={bodyId} className="mt-1 max-w-prose text-[0.85rem] leading-relaxed text-navy-soft">
-            {text.body}
+            {body}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={send} disabled={pending} className={primaryActionClass}>

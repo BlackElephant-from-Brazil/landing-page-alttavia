@@ -1,7 +1,9 @@
 import { isProductId } from "@/lib/apply/types";
 import { getServiceForAdmin } from "@/lib/db/admin-queries";
 import type { Db } from "@/lib/db/queries";
-import type { ContractTemplate, DeliverableKind, PoaTemplate, ServiceRow, ServiceWithConfig } from "@/lib/db/types";
+import { CONTRACT_TEMPLATES } from "@/lib/contracts/templates";
+import type { ContractTemplate, DeliverableKind, DocTemplate, ServiceRow, ServiceWithConfig } from "@/lib/db/types";
+import { DOC_TEMPLATES } from "@/lib/documents/templates";
 import { extensionFor } from "@/lib/r2/keys";
 
 /**
@@ -24,6 +26,15 @@ import { extensionFor } from "@/lib/r2/keys";
  * column (a caller that predates the field, or a script that only renames a
  * service, must not switch a service's agreement off by omission). The
  * editor always sends the key. A create without it stores null.
+ *
+ * A document slot whose template is 'agreement' (0013) takes back the signed
+ * service agreement, so it needs a contract on the service (review of
+ * 2026-09-25). Without one no agreement is ever prepared, the slot never
+ * opens (POST /api/documents/upload-url answers 409 until an agreement
+ * exists) and, the slot being required, the order can never leave the
+ * documents stage. validateServiceInput refuses the pair with 422 when the
+ * body names the contract; upsertService refuses it, also 422, when the
+ * body leaves the contract out and the stored one is null.
  *
  * upsertService writes the service row, then reconciles each child table by
  * (service_id, key): rows in the input are upserted, rows no longer present
@@ -61,8 +72,12 @@ export type DocInput = {
   per_applicant: boolean;
   required: boolean;
   position: number;
-  /** The deed the slot generates (documents contract section 3); null for a plain upload. */
-  template: PoaTemplate | null;
+  /**
+   * The deed the slot generates (documents contract section 3), or
+   * 'agreement' for the slot the signed service agreement comes back in
+   * (0013); null for a plain upload.
+   */
+  template: DocTemplate | null;
 };
 
 export type DeliverableInput = {
@@ -126,10 +141,10 @@ export const LIMITS = {
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const KEY = /^[a-z][a-z0-9_]*$/;
 const CURRENCY = /^[a-z]{3}$/;
-const POA_TEMPLATES: readonly PoaTemplate[] = ["poa_nif", "poa_bank"];
-const TEMPLATE_MESSAGE = "Choose a deed or none.";
-const CONTRACT_TEMPLATES: readonly ContractTemplate[] = ["nif", "bank", "package"];
+const TEMPLATE_MESSAGE = "Choose a document to sign or none.";
 const CONTRACT_TEMPLATE_MESSAGE = "Choose a contract or none.";
+/** An 'agreement' slot on a service with no contract; the same line as `messages.agreementNeedsContract` in the editor. */
+export const AGREEMENT_NEEDS_CONTRACT = "Choose a service contract, or remove the signed service agreement from the documents.";
 
 /** Thrown inside the validator and turned into `{ ok: false }` at its edge. */
 class Invalid extends Error {}
@@ -198,10 +213,15 @@ function stripeId(value: unknown, what: string, prefix: string): string | null {
   return v;
 }
 
-/** Missing or null is a plain upload; otherwise one of the two deed keys, and nothing else. */
-function template(value: unknown): PoaTemplate | null {
+/**
+ * Missing or null is a plain upload; otherwise one of the two deed keys or
+ * 'agreement' (DOC_TEMPLATES, src/lib/documents/templates.ts), and nothing
+ * else. Since 0013 every wizard service carries an 'agreement' slot, so a
+ * save of those services sends it back.
+ */
+function template(value: unknown): DocTemplate | null {
   if (value === undefined || value === null) return null;
-  if (typeof value === "string" && (POA_TEMPLATES as readonly string[]).includes(value)) return value as PoaTemplate;
+  if (typeof value === "string" && (DOC_TEMPLATES as readonly string[]).includes(value)) return value as DocTemplate;
   return fail(TEMPLATE_MESSAGE);
 }
 
@@ -209,8 +229,9 @@ function template(value: unknown): PoaTemplate | null {
  * The `contract_template` key of the input, or no key at all. Absent
  * (`undefined`, which is all a JSON body without the key can be) is "the
  * body did not say": nothing is returned, so an update does not touch the
- * column. Null is a service with no contract; otherwise one of the three
- * models, and nothing else.
+ * column. Null is a service with no contract; otherwise one of the four
+ * models (CONTRACT_TEMPLATES, src/lib/contracts/templates.ts, `couple`
+ * since 0017), and nothing else.
  */
 function contractTemplateField(value: unknown): Pick<ServiceInput, "contract_template"> {
   if (value === undefined) return {};
@@ -344,11 +365,20 @@ export function validateServiceInput(body: unknown): ValidationResult {
       docs: docs(b.docs),
       deliverables: deliverables(b.deliverables),
     };
+    // Only when the body names the contract; without the key, upsertService checks against the stored one.
+    if ("contract_template" in value && !agreementHasContract(value.docs, value.contract_template ?? null)) {
+      fail(AGREEMENT_NEEDS_CONTRACT);
+    }
     return { ok: true, value };
   } catch (error) {
     if (error instanceof Invalid) return { ok: false, error: error.message };
     throw error;
   }
+}
+
+/** False when a slot takes back the signed agreement while the service has no contract to prepare one. */
+function agreementHasContract(docs: readonly Pick<DocInput, "template">[], contract: ContractTemplate | null): boolean {
+  return contract !== null || !docs.some((doc) => doc.template === "agreement");
 }
 
 // ---------------------------------------------------------------------------
@@ -362,15 +392,16 @@ export type ServiceErrorCode =
   | "price_locked"
   | "stage_in_use"
   | "doc_in_use"
-  | "deliverable_in_use";
+  | "deliverable_in_use"
+  | "agreement_without_contract";
 
 export class ServiceError extends Error {
   readonly code: ServiceErrorCode;
-  readonly status: 404 | 409;
+  readonly status: 404 | 409 | 422;
   /** How many rows stand in the way, for the in-use errors. */
   readonly count: number;
 
-  constructor(code: ServiceErrorCode, status: 404 | 409, message: string, count = 0) {
+  constructor(code: ServiceErrorCode, status: 404 | 409 | 422, message: string, count = 0) {
     super(message);
     this.name = "ServiceError";
     this.code = code;
@@ -422,17 +453,26 @@ export async function upsertService(db: Db, input: ServiceInput, id?: string): P
   let removedStages: ChildRow[] = [];
   let removedDocs: ChildRow[] = [];
   let removedDeliverables: ChildRow[] = [];
+  if (!id && !agreementHasContract(docs, columns.contract_template ?? null)) {
+    throw new ServiceError("agreement_without_contract", 422, AGREEMENT_NEEDS_CONTRACT);
+  }
   if (id) {
     const { data: existing, error: existingError } = await db
       .from("services")
-      .select("id, slug, price_cents")
+      .select("id, slug, price_cents, contract_template")
       .eq("id", id)
       .maybeSingle();
     if (existingError) dbFail("upsertService services", existingError);
     if (!existing) throw new ServiceError("service_not_found", 404, "Service not found.");
 
     // The four application form services keep their slug and price in code.
-    const stored = existing as Pick<ServiceRow, "id" | "slug" | "price_cents">;
+    const stored = existing as Pick<ServiceRow, "id" | "slug" | "price_cents" | "contract_template">;
+
+    // The contract the service will have after this save: the body's, or the stored one when the body is silent.
+    const contract = "contract_template" in columns ? (columns.contract_template ?? null) : (stored.contract_template ?? null);
+    if (!agreementHasContract(docs, contract)) {
+      throw new ServiceError("agreement_without_contract", 422, AGREEMENT_NEEDS_CONTRACT);
+    }
     if (isProductId(stored.slug)) {
       if (input.slug !== stored.slug) {
         throw new ServiceError("slug_locked", 409, "This slug is used by the application form and cannot change.");

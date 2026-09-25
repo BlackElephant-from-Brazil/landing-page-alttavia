@@ -108,6 +108,13 @@ const APPLICANT: Partial<UserServiceApplicantRow> = {
   full_name: "Jane Alice Doe",
 };
 
+const PARTNER: Partial<UserServiceApplicantRow> = {
+  id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  user_service_id: ORDER_ID,
+  applicant_index: 1,
+  full_name: "John Robert Doe",
+};
+
 const CONTRACT: Partial<UserServiceContractRow> = {
   id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
   user_service_id: ORDER_ID,
@@ -143,7 +150,15 @@ let logged: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   for (const key of Object.keys(tables)) delete tables[key];
   tables.user_services = [
-    { id: ORDER_ID, user_id: OWNER_ID, service_id: SERVICE_ID, total_cents: 14900, paid_at: "2026-09-21T10:15:00.000Z" },
+    {
+      id: ORDER_ID,
+      user_id: OWNER_ID,
+      service_id: SERVICE_ID,
+      total_cents: 14900,
+      paid_at: "2026-09-21T10:15:00.000Z",
+      // Paid through live Stripe: the only kind of order whose agreement carries the firm's signature.
+      stripe_checkout_session_id: "cs_live_a1B2c3D4e5F6",
+    },
   ];
   tables.services = [{ id: SERVICE_ID, name: "NIF only", contract_template: "nif" }];
   tables.users = [{ id: OWNER_ID, email: OWNER.email }];
@@ -181,9 +196,10 @@ describe("POST /api/orders/[id]/contract", () => {
     expect(await response.json()).toEqual({ status: "ready" });
     expect(tables.user_service_contracts).toHaveLength(1);
     expect(putObject.mock.calls[0][0]).toMatchObject({
-      key: `contracts/${ORDER_ID}/v1.pdf`,
+      key: expect.stringMatching(new RegExp(`^contracts/${ORDER_ID}/v1-[a-z0-9]{8}\\.pdf$`)),
       contentType: "application/pdf",
     });
+    expect(tables.user_service_contracts[0].storage_key).toBe(putObject.mock.calls[0][0].key);
     expect(buildContractValues.mock.calls[0][0].signingPlace).toBeNull();
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail.mock.calls[0][0].to).toBe(OWNER.email);
@@ -245,7 +261,7 @@ describe("POST /api/orders/[id]/contract", () => {
     tables.user_service_applicants = [];
     const details = await POST(post(), ctx());
     expect(details.status).toBe(409);
-    expect(await errorOf(details)).toBe("details_missing");
+    expect(await details.json()).toEqual({ error: "details_missing", applicant: 0 });
 
     tables.user_services[0].paid_at = null;
     const unpaid = await POST(post(), ctx());
@@ -258,6 +274,72 @@ describe("POST /api/orders/[id]/contract", () => {
 
     expect(putObject).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("names the person whose details are missing on the Couple package: applicant 0 first, then the partner", async () => {
+    tables.services[0] = { id: SERVICE_ID, name: "Couple package", slug: "couple", contract_template: "couple" };
+
+    tables.user_service_applicants = [];
+    const nobody = await POST(post(), ctx());
+    expect(nobody.status).toBe(409);
+    expect(await nobody.json()).toEqual({ error: "details_missing", applicant: 0 });
+
+    tables.user_service_applicants = [{ ...PARTNER }];
+    const partnerOnly = await POST(post(), ctx());
+    expect(await partnerOnly.json()).toEqual({ error: "details_missing", applicant: 0 });
+
+    tables.user_service_applicants = [{ ...APPLICANT }];
+    const firstOnly = await POST(post(), ctx());
+    expect(firstOnly.status).toBe(409);
+    expect(await firstOnly.json()).toEqual({ error: "details_missing", applicant: 1 });
+    expect(putObject).not.toHaveBeenCalled();
+
+    tables.user_service_applicants.push({ ...PARTNER });
+    const both = await POST(post(JSON.stringify({ signingPlace: "Lisbon, Portugal" })), ctx());
+    expect(both.status).toBe(200);
+    expect(await both.json()).toEqual({ status: "ready" });
+    expect(generateContractPdf.mock.calls[0][0]).toBe("couple");
+    const input = buildContractValues.mock.calls[0][0] as { applicants: { applicant_index: number }[] };
+    expect(input.applicants.map((row) => row.applicant_index)).toEqual([0, 1]);
+    expect(tables.user_service_contracts).toHaveLength(1);
+    expect(tables.user_service_contracts[0].template).toBe("couple");
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("prepares the agreement with the firm's signature when the bucket holds it", async () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+    getObjectBytes.mockImplementation(async (key: string) => (key === "firm/signature.png" ? png : null));
+
+    const response = await POST(post(), ctx());
+
+    expect(response.status).toBe(200);
+    expect(getObjectBytes).toHaveBeenCalledWith("firm/signature.png");
+    const options = generateContractPdf.mock.calls[0][2] as { reference: string; signature: Uint8Array | null };
+    expect(options.reference).toBe(ORDER_ID);
+    expect(Array.from(options.signature ?? [])).toEqual(Array.from(png));
+  });
+
+  it("prepares it without the signature, and still answers ready, when the bucket cannot give it", async () => {
+    getObjectBytes.mockRejectedValue(new Error("no credentials"));
+
+    const response = await POST(post(), ctx());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "ready" });
+    expect(generateContractPdf.mock.calls[0][2]).toEqual({ reference: ORDER_ID, signature: null });
+    expect(logged).toHaveBeenCalledTimes(1);
+  });
+
+  it("never puts the firm's signature on an order paid with a test card, as on staging", async () => {
+    tables.user_services[0].stripe_checkout_session_id = "cs_test_a1B2c3D4e5F6";
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+    getObjectBytes.mockImplementation(async (key: string) => (key === "firm/signature.png" ? png : null));
+
+    const response = await POST(post(), ctx());
+
+    expect(response.status).toBe(200);
+    expect(getObjectBytes).not.toHaveBeenCalledWith("firm/signature.png");
+    expect(generateContractPdf.mock.calls[0][2]).toEqual({ reference: ORDER_ID, signature: null, specimen: true });
   });
 
   it("answers 401 signed out, and 403 the same way for a stranger's order and one that does not exist", async () => {

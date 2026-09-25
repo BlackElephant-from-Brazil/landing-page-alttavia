@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { getUserService } from "@/lib/db/queries";
+import { getOrderContract, getUserService } from "@/lib/db/queries";
 import type { ServiceDocRow, UserDocumentRow } from "@/lib/db/types";
 import { APPROVED_LOCKED, DOCUMENTS_STAGE, REVIEW_LOCKED, STAGE_CLOSED, isOrderFile } from "@/lib/documents/confirm";
+import { isAgreementTemplate } from "@/lib/documents/templates";
 import { deleteObject, presignUpload } from "@/lib/r2/client";
 import {
   acceptedTypesMessage,
@@ -45,6 +46,13 @@ import { getUser } from "@/lib/supabase/user";
  *     confirmed, never before.
  *   - `approved`: closed.
  *
+ * The signed agreement slot (`template` 'agreement', 0013) also stays closed
+ * while the order has no service agreement yet (2026-09-25): there is
+ * nothing to sign before the client confirms their details, and every file
+ * confirmed in that slot is mailed to the firm as the signed copy. The slot
+ * in the dashboard hides its input until then; this is the same rule on the
+ * server, so a request made by hand meets it too.
+ *
  * Why a repeat attempt reuses the pending row rather than starting a new one
  * (2026-09-22). `buildStorageKey` ends in a fresh uuid, so a new row means a
  * new object. Deleting the old row and inserting a new one on every call let
@@ -59,6 +67,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The unfinished upload this attempt meant to take over was finished or removed meanwhile. */
 const SLOT_CHANGED = "This slot changed a moment ago. Refresh the page and try again.";
+
+/** The signed agreement slot, before the order has an agreement to sign. */
+const AGREEMENT_FIRST = "Your agreement is not ready yet. Confirm your details first.";
 
 type Body = {
   userServiceId: string;
@@ -122,6 +133,10 @@ export async function POST(request: Request) {
 
     const applicants = doc.per_applicant ? order.applicants : 1;
     if (body.applicantIndex >= applicants) return refuse(422, "There is no applicant at that position.");
+
+    if (isAgreementTemplate(doc.template) && !(await getOrderContract(admin, order.id))) {
+      return refuse(409, AGREEMENT_FIRST);
+    }
 
     const ext = extensionFor(body.mimeType);
     if (!ext || !doc.accepted_mime.includes(body.mimeType)) {

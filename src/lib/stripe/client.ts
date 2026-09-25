@@ -39,6 +39,19 @@ export function isLiveMode(): boolean {
   return LIVE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 
+/**
+ * isLiveMode, with a missing or unreadable key read as test: for a record
+ * that must lean towards test when in doubt, such as where a payment made
+ * outside the platform was recorded (src/lib/orders/manual-payment.ts).
+ */
+export function holdsLiveKey(): boolean {
+  try {
+    return isLiveMode();
+  } catch {
+    return false;
+  }
+}
+
 /** "live" or "test", the suffix of the price and payment link columns. */
 export function stripeMode(): StripeMode {
   return isLiveMode() ? "live" : "test";

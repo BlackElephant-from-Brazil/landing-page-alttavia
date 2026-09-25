@@ -134,12 +134,13 @@ describe("draftFromService", () => {
 });
 
 describe("service contract", () => {
-  it("offers the firm's three models, each with a name", () => {
-    expect(CONTRACT_TEMPLATES).toEqual(["nif", "bank", "package"]);
+  it("offers the firm's four models, each with a name, the Couple package's last", () => {
+    expect(CONTRACT_TEMPLATES).toEqual(["nif", "bank", "package", "couple"]);
     expect(CONTRACT_TEMPLATES.map((model) => CONTRACT_TEMPLATE_LABELS[model])).toEqual([
       "NIF",
       "Bank account",
       "NIF + Bank account package",
+      "Couple package",
     ]);
   });
 
@@ -147,9 +148,16 @@ describe("service contract", () => {
     expect(contractTemplateFromOption("nif")).toBe("nif");
     expect(contractTemplateFromOption("bank")).toBe("bank");
     expect(contractTemplateFromOption("package")).toBe("package");
+    expect(contractTemplateFromOption("couple")).toBe("couple");
     expect(contractTemplateFromOption("")).toBeNull();
-    expect(contractTemplateFromOption("couple")).toBeNull();
+    expect(contractTemplateFromOption("family")).toBeNull();
     expect(contractTemplateFromOption("NIF")).toBeNull();
+  });
+
+  it("sends the Couple package's model like any other", () => {
+    const chosen = validateDraft({ ...validDraft(), contract_template: "couple" });
+    expect(chosen.ok && chosen.body.contract_template).toBe("couple");
+    expect(draftFromService({ ...SERVICE, contract_template: "couple" }).contract_template).toBe("couple");
   });
 
   it("always sends the key, null for none", () => {
@@ -174,8 +182,19 @@ describe("service contract", () => {
     expect(bodyFromService(SERVICE, false).contract_template).toBeNull();
   });
 
+  it("asks for a contract when a document takes back the signed service agreement", () => {
+    const agreementDoc = { ...validDraft().docs[0], uid: "agreement-row", key: "signed_agreement", template: "agreement" as const };
+    const without = validateDraft({ ...validDraft(), docs: [...validDraft().docs, agreementDoc], contract_template: null });
+    expect(without.ok).toBe(false);
+    if (without.ok) return;
+    expect(without.errors.contract_template).toBe(messages.agreementNeedsContract);
+
+    const withContract = validateDraft({ ...validDraft(), docs: [...validDraft().docs, agreementDoc], contract_template: "nif" });
+    expect(withContract.ok).toBe(true);
+  });
+
   it("refuses a contract it does not know", () => {
-    const draft = { ...validDraft(), contract_template: "couple" as unknown as ContractTemplate };
+    const draft = { ...validDraft(), contract_template: "family" as unknown as ContractTemplate };
     const result = validateDraft(draft);
     expect(result.ok).toBe(false);
     if (result.ok) return;

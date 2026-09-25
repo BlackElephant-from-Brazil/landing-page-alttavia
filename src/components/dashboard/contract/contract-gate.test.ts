@@ -2,6 +2,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import type { UserServiceApplicantRow } from "@/lib/db/types";
+
 import { ApplicantDetailsForm } from "../documents/applicant-details-form";
 import { ContractGate } from "./contract-gate";
 
@@ -59,6 +61,88 @@ describe("ContractGate", () => {
     expect(html).toContain("Prepared on 21 September 2026.");
     expect(html).not.toContain("A copy was sent");
   });
+
+  it("stays the one person card for every model but the Couple package, partner row or not", () => {
+    for (const template of [null, "nif", "bank", "package"] as const) {
+      const html = gate({ template, partner: row(1) });
+      expect(html).toContain("Confirm my details");
+      expect(html).not.toContain("partner");
+    }
+  });
+});
+
+function row(index: 0 | 1): UserServiceApplicantRow {
+  return {
+    id: index === 0 ? "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" : "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    user_service_id: ORDER_ID,
+    applicant_index: index,
+    full_name: index === 0 ? "Jane Alice Doe" : "John Robert Doe",
+    gender: index === 0 ? "f" : "m",
+    birth_place: "Austin, Texas, United States of America",
+    birth_date: "1984-07-04",
+    passport_number: index === 0 ? "X1234567" : "Y7654321",
+    passport_issuer: "United States Department of State",
+    passport_issued_on: "2021-03-12",
+    passport_expires_on: "2031-03-11",
+    tax_address: "1200 West 6th Street, Austin, TX 78703, USA",
+    created_at: "2026-09-21T10:20:00.000Z",
+    updated_at: "2026-09-21T10:20:00.000Z",
+  };
+}
+
+describe("ContractGate for the Couple package", () => {
+  it("asks for both people's details while either is missing, with no dialog in the first render", () => {
+    for (const [applicant, partner] of [
+      [null, null],
+      [row(0), null],
+      [null, row(1)],
+    ] as const) {
+      const html = gate({ template: "couple", applicant, partner });
+      expect(html).toContain(
+        `Confirm your details and your partner&#x27;s details and we prepare it. It opens in a new tab and a copy goes to ${EMAIL}.`,
+      );
+      expect(html).toContain("Confirm the details");
+      expect(html).not.toContain("Confirm my details");
+      expect(html).not.toContain("<dialog");
+      expect(html).not.toContain("Open your agreement");
+    }
+  });
+
+  it("offers the place and the button that opens the agreement once both sets are on the order", () => {
+    const html = gate({ template: "couple", applicant: row(0), partner: row(1) });
+    expect(html).toContain(
+      `Your details and your partner&#x27;s details are saved. Open the agreement to finish. It opens in a new tab and a copy goes to ${EMAIL}.`,
+    );
+    expect(html).toContain("City and country you are in today");
+    expect(html).toContain("Optional. It is printed next to the date in the annex. Leave it blank to write it in by hand.");
+    expect(html).toContain('maxLength="120"');
+    expect(html).toContain(">Open your agreement<");
+    expect(html).toContain(">Check the details<");
+    expect(html).not.toContain("<dialog");
+  });
+
+  it("shows the same ready card as everyone once the agreement exists", () => {
+    const html = gate({
+      template: "couple",
+      applicant: row(0),
+      partner: row(1),
+      preparedAt: "2026-09-25T10:05:00.000Z",
+      emailed: true,
+    });
+    expect(html).toContain("Prepared on 25 September 2026.");
+    expect(html).toContain(`href="/api/orders/${ORDER_ID}/contract?download=1"`);
+    expect(html).not.toContain("Open your agreement");
+    expect(html).not.toContain("Confirm the details");
+  });
+
+  it("keeps to the house rules in every line it adds", () => {
+    const lines = [
+      gate({ template: "couple" }),
+      gate({ template: "couple", applicant: row(0), partner: row(1) }),
+    ].join(" ");
+    expect(lines).not.toMatch(/[—–]|\s-\s/);
+    expect(lines).not.toMatch(/\bproblem\b|\btrap\b|\bfree\b|refund|money back|video call|run by lawyers/i);
+  });
 });
 
 describe("ApplicantDetailsForm", () => {
@@ -101,6 +185,35 @@ describe("ApplicantDetailsForm", () => {
       createElement(ApplicantDetailsForm, { ...base, submitLabel: "Save and download", onSaved: () => {} }),
     );
     expect(download).toContain(">Save and download<");
+  });
+
+  it("reads as the agreement's for the Couple package's two steps, and still only saves", () => {
+    const first = renderToStaticMarkup(
+      createElement(ApplicantDetailsForm, { ...base, wording: "agreement", submitLabel: "Continue", onSaved: () => {} }),
+    );
+    expect(first).toContain("Your details for the service agreement");
+    expect(first).toContain(
+      "They are printed in the agreement and in the powers of attorney as typed, so check them against the passport.",
+    );
+    expect(first).toContain(">Continue<");
+    expect(first).not.toContain("Details for the power of attorney");
+    expect(first).not.toContain("Confirm and open my agreement");
+    expect(first).not.toContain("City and country you are in today");
+
+    const partner = renderToStaticMarkup(
+      createElement(ApplicantDetailsForm, {
+        ...base,
+        applicantIndex: 1,
+        wording: "agreement",
+        submitLabel: "Continue",
+        onSaved: () => {},
+      }),
+    );
+    expect(partner).toContain("Your partner&#x27;s details for the service agreement");
+    expect(partner).toContain("check them against your partner&#x27;s passport");
+    expect(partner).toContain("The documents refer to your partner as");
+    expect(partner).not.toContain("for the power of attorney");
+    expect(`${first} ${partner}`).not.toMatch(/[—–]|\s-\s/);
   });
 
   it("says the same to the partner, without the line about someone else", () => {

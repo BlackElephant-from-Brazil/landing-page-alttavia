@@ -7,7 +7,12 @@ import { AdminLoginForm } from "@/components/admin/login-form";
 import { Container } from "@/components/ui/container";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import { Logo } from "@/components/ui/logo";
-import { PASSWORD_REQUIRED, getUserWithRole } from "@/lib/supabase/admin-user";
+import {
+  PASSWORD_REQUIRED,
+  SECOND_FACTOR_REQUIRED,
+  getUserWithRole,
+  mfaRequiredForAll,
+} from "@/lib/supabase/admin-user";
 
 export const metadata: Metadata = {
   title: "Admin sign in",
@@ -62,6 +67,14 @@ function safeNext(value: string | string[] | undefined): string {
  *
  * "Forgot your password?" runs entirely inside the form (a mode switch, no
  * other URL), so src/proxy.ts needs no exception for it.
+ *
+ * Second factor (2026-09-25, src/lib/supabase/admin-user.ts): an admin
+ * whose password session still needs the code from the authenticator app
+ * also stays here, with "Sign in with your password and your code." and
+ * the email filled in; the form asks for the password, then for the code.
+ * The page tells the form whether every admin must have a second factor
+ * (ADMIN_REQUIRE_MFA=1), so an admin without one is led through the set up
+ * right after the password instead of being sent back here in a loop.
  */
 export default async function AdminLoginPage({ searchParams }: Props) {
   const query = await searchParams;
@@ -70,6 +83,7 @@ export default async function AdminLoginPage({ searchParams }: Props) {
   const user = await getUserWithRole();
   const needsPassword = user?.needsPassword === true;
   if (user && !needsPassword) redirect(user.role === "admin" ? next : CLIENT_DASHBOARD_PATH);
+  const notice = user?.needsCode ? SECOND_FACTOR_REQUIRED : needsPassword ? PASSWORD_REQUIRED : undefined;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -97,8 +111,9 @@ export default async function AdminLoginPage({ searchParams }: Props) {
           <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-navy-soft">{copy.lead}</p>
           <AdminLoginForm
             next={next}
-            notice={needsPassword ? PASSWORD_REQUIRED : undefined}
+            notice={notice}
             defaultEmail={needsPassword ? user?.email : undefined}
+            requireSecondFactor={mfaRequiredForAll()}
           />
         </Container>
       </main>

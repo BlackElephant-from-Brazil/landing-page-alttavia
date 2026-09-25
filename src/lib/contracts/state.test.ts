@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { parseSigningPlace } from "./signing-place";
-import { contractState } from "./state";
+import { contractState, contractStatus, missingContractApplicant } from "./state";
 
 const SRC = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -22,6 +22,54 @@ describe("contractState", () => {
     expect(contractState(unpaid, withContract, [], null)).toBe("off");
     expect(contractState(paid, withContract, [], null)).toBe("needs_details");
     expect(contractState(paid, withContract, [{ applicant_index: 0 }], null)).toBe("needs_details");
+  });
+
+  it("treats the Couple package like any model: off unpaid, ready with a row, needs_details between", () => {
+    const couple = { contract_template: "couple" as const };
+    expect(contractState(unpaid, couple, [], null)).toBe("off");
+    expect(contractState(paid, couple, [], row)).toBe("ready");
+    expect(contractState(paid, couple, [], null)).toBe("needs_details");
+    expect(contractState(paid, couple, [{ applicant_index: 0 }, { applicant_index: 1 }], null)).toBe("needs_details");
+  });
+});
+
+describe("contractStatus", () => {
+  const paid = { paid_at: "2026-09-21T10:15:00.000Z" };
+  const couple = { contract_template: "couple" as const };
+  const nif = { contract_template: "nif" as const };
+  const first = { applicant_index: 0 as const };
+  const partner = { applicant_index: 1 as const };
+
+  it("names applicant 0 when the account holder's details are missing, whatever the model", () => {
+    expect(contractStatus(paid, nif, [], null)).toEqual({ state: "needs_details", missing: 0, persons: 1 });
+    expect(contractStatus(paid, couple, [], null)).toEqual({ state: "needs_details", missing: 0, persons: 2 });
+    // The partner's row alone does not make up for the account holder's.
+    expect(contractStatus(paid, couple, [partner], null)).toEqual({ state: "needs_details", missing: 0, persons: 2 });
+  });
+
+  it("names the partner on the Couple package once the account holder's details are in", () => {
+    expect(contractStatus(paid, couple, [first], null)).toEqual({ state: "needs_details", missing: 1, persons: 2 });
+  });
+
+  it("names nobody once every person the model names has details, and ignores a partner the model does not name", () => {
+    expect(contractStatus(paid, couple, [partner, first], null)).toEqual({ state: "needs_details", missing: null, persons: 2 });
+    expect(contractStatus(paid, nif, [first], null)).toEqual({ state: "needs_details", missing: null, persons: 1 });
+    expect(contractStatus(paid, { contract_template: "package" }, [first], null)).toMatchObject({ missing: null });
+  });
+
+  it("says nothing more for off and ready", () => {
+    expect(contractStatus({ paid_at: null }, couple, [], null)).toEqual({ state: "off" });
+    expect(contractStatus(paid, null, [first], null)).toEqual({ state: "off" });
+    expect(contractStatus(paid, couple, [], { id: "x" })).toEqual({ state: "ready" });
+  });
+
+  it("finds the first missing person the same way on its own", () => {
+    expect(missingContractApplicant("couple", [])).toBe(0);
+    expect(missingContractApplicant("couple", [first])).toBe(1);
+    expect(missingContractApplicant("couple", [first, partner])).toBeNull();
+    expect(missingContractApplicant("bank", [partner])).toBe(0);
+    expect(missingContractApplicant("bank", [first])).toBeNull();
+    expect(missingContractApplicant(null, [])).toBe(0);
   });
 });
 
@@ -100,7 +148,9 @@ describe("what the pure modules pull in", () => {
 
   it.each([
     "lib/contracts/state.ts",
+    "lib/contracts/templates.ts",
     "lib/contracts/signing-place.ts",
+    "components/dashboard/contract/prepare-agreement.ts",
     "lib/orders/applicant-rules.ts",
     "lib/pdf/characters.ts",
     "components/ui/scroll-lock.ts",

@@ -7,9 +7,11 @@
  * section 5) and, since 2026-09-21, "Payment received".
  *
  * To the team inbox (EMAIL_TEAM_INBOX, see src/lib/orders/notify.ts): "New
- * paid order", "Documents ready to review" and "Paid amount does not match
- * the order". Same layout with a small
- * table of facts and a footer that does not invite a reply.
+ * paid order", "Documents ready to review", "Paid amount does not match
+ * the order" and, since 2026-09-25, "Signed service agreement received",
+ * which carries the client's signed copy as an attachment when it is small
+ * enough. Same layout with a small table of facts and a footer that does not
+ * invite a reply.
  *
  * Same visual language as the Supabase code email: Georgia, navy text, a
  * gold eyebrow, one button. Table based and inline styled because that is
@@ -343,5 +345,60 @@ export function documentsReady(input: {
       { label: "Order", value: input.orderId },
     ],
     cta: { label: "Review the documents", url: input.adminUrl },
+  });
+}
+
+/**
+ * How the signed copy travels with "Signed service agreement received":
+ * attached; left out because it is over the size the email carries; left
+ * out because the bucket did not give it back; or left out because the
+ * order was paid in test mode, where anyone can place one (2026-09-25). The
+ * last three send the reader to the order, where the file is.
+ */
+export type SignedCopyDelivery = "attached" | "too_large" | "unavailable" | "test_payment";
+
+/**
+ * To the team inbox when a client's signed service agreement is confirmed
+ * (Patrícia's answer of 2026-09-24: the firm keeps a copy signed by both
+ * parties), once per review round: the first copy, then one after each copy
+ * the firm rejects (src/lib/orders/signed-copy.ts, 2026-09-25). The
+ * attachment itself is added by the caller, src/lib/orders/notify.ts, under
+ * a name of its own; `fileName` is the client's, printed as escaped text.
+ */
+export function signedAgreement(input: {
+  serviceName: string;
+  clientEmail: string;
+  orderId: string;
+  /** The name the client's file was uploaded under. */
+  fileName: string;
+  delivery: SignedCopyDelivery;
+  /** Already formatted, "8 MB": the largest file the email carries. */
+  attachmentLimit: string;
+  adminUrl: string;
+}): EmailContent {
+  const where =
+    input.delivery === "attached"
+      ? "The signed copy is attached to this email."
+      : input.delivery === "too_large"
+        ? `The file is larger than ${input.attachmentLimit}, so it is not attached. Download it from the order.`
+        : input.delivery === "test_payment"
+          ? "This order was paid in test mode, so the file is not attached. Download it from the order."
+          : "The file could not be attached. Download it from the order.";
+  return build(`Signed service agreement received: ${input.serviceName}, ${input.clientEmail}`, {
+    eyebrow: "Service agreement",
+    heading: "Signed service agreement received",
+    audience: "team",
+    paragraphs: [
+      `The client uploaded their signed service agreement for this ${input.serviceName} order.`,
+      where,
+      "Open the order to approve it or reject it with a reason.",
+    ],
+    facts: [
+      { label: "Service", value: input.serviceName },
+      { label: "Client", value: input.clientEmail },
+      { label: "Order", value: input.orderId },
+      { label: "File", value: input.fileName },
+    ],
+    cta: { label: "Open the order", url: input.adminUrl },
   });
 }

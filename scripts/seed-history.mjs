@@ -621,7 +621,7 @@ const FIXTURES = [
       poa_bank: ["uploaded", "uploaded"],
     },
     contract: false,
-    note: "two applicants, 14 slots: 10 approved, 4 to review; the Couple package has no agreement model",
+    note: "two applicants; with 0013 and 0016 applied, 14 slots: 10 approved, 3 to review (the joint bank deed is one slot), the signed agreement waiting; no agreement prepared",
   },
   {
     key: "hannah-brooks",
@@ -1598,8 +1598,11 @@ function materialise(plan, catalogue, contracts, userIdByEmail) {
     // The service agreement, exactly as the platform prepares it after payment.
     const template = service.contract_template;
     const applicant = details[0] ?? null;
+    // The Couple package's one agreement names both people (0017): without the
+    // partner's details it is not prepared, as in src/lib/contracts/ensure.ts.
+    const partner = template === "couple" ? (details[1] ?? null) : null;
     const wanted = order.contractWanted ?? true;
-    if (wanted && template && order.paidAt && applicant) {
+    if (wanted && template && order.paidAt && applicant && (template !== "couple" || partner)) {
       const generatedAt = notAfterNow(addDays(order.paidAt, 0.08));
       const key = `contracts/${orderId}/v1.pdf`;
       let values = {};
@@ -1608,6 +1611,7 @@ function materialise(plan, catalogue, contracts, userIdByEmail) {
         values = contracts.values({
           template,
           applicant,
+          partner: partner ?? undefined,
           email: order.account.email,
           totalCents: service.price_cents,
           paidAt: iso(order.paidAt),
@@ -1876,7 +1880,8 @@ async function main() {
     const variables = await import("../src/content/contracts/variables.ts");
     contracts = {
       generate: generate.generateContractPdf,
-      values: variables.buildContractValues,
+      // The facts one by one, as this script holds them (ContractFields).
+      values: variables.buildContractValuesFromFields,
       fileName: variables.contractFileName,
     };
   } catch (error) {

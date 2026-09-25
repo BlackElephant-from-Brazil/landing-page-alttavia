@@ -12,13 +12,16 @@ import { audit, errorResponse, isUuid, refuse, requestOrigin } from "../../../_l
  * they are now, as a new version under a new key, and emails it to the
  * client again. An order with no agreement yet gets its first version.
  * Answers `{ contract, emailed }`: the row after the write and whether the
- * email went out.
+ * email went out. The firm's signature (firm/signature.png in the bucket) is
+ * read on every call, so regenerating an agreement prepared before the
+ * signature arrived is how it gets signed; without the file the line stays
+ * blank and the call still succeeds.
  *
  * regenerateContract's own errors pass through as they are: 404 for an
  * unknown order or a service with no contract, 409 "Payment first.", 409
- * when the client has not entered their details, 409 when two regenerations
- * race each other. The download is GET /api/orders/[id]/contract, which an
- * admin may open too.
+ * when the client has not entered their details (or, on the Couple package,
+ * their partner's), 409 when two regenerations race each other. The
+ * download is GET /api/orders/[id]/contract, which an admin may open too.
  */
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   try {

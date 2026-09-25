@@ -41,6 +41,11 @@ import { StageTimeline } from "./stage-timeline";
  * Download once it exists. A completed order keeps a prepared agreement to
  * download and is not asked for one it never had. Only the agreement's date
  * and whether it was emailed are handed to the client component, not the row.
+ * The document list gets one more boolean from it, `contractReady`, so the
+ * signed agreement slot (0013) opens the agreement only once it exists.
+ * The card also gets the service's contract model and applicant 1's row:
+ * the Couple package's one agreement names both people (0017), so the card
+ * asks for the partner's details too before it prepares it.
  */
 
 export type OrderNotice = "cancelled" | "unconfirmed";
@@ -147,6 +152,8 @@ export function OrderView({
               applicant={applicants.find((row) => row.applicant_index === 0) ?? null}
               preparedAt={contract?.generated_at ?? null}
               emailed={!!contract?.emailed_at}
+              template={service.contract_template}
+              partner={applicants.find((row) => row.applicant_index === 1) ?? null}
             />
           )}
         </div>
@@ -163,7 +170,13 @@ export function OrderView({
       {paid && (
         <div className="space-y-6">
           <RejectedCallout slots={rejected} applicants={order.applicants} />
-          <DocumentList order={order} docs={docs} uploaded={documents} applicants={applicants} />
+          <DocumentList
+            order={order}
+            docs={docs}
+            uploaded={documents}
+            applicants={applicants}
+            contractReady={!!contract}
+          />
         </div>
       )}
 

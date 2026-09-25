@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getStripeSecretKey, isLiveMode, stripeMode } from "./client";
+import { getStripeSecretKey, holdsLiveKey, isLiveMode, stripeMode } from "./client";
 
 /**
  * The mode follows the prefix of STRIPE_SECRET_KEY. Keys here are made up:
@@ -43,5 +43,16 @@ describe("isLiveMode", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "");
     expect(() => getStripeSecretKey()).toThrow("STRIPE_SECRET_KEY must be set");
     expect(() => isLiveMode()).toThrow("STRIPE_SECRET_KEY must be set");
+  });
+});
+
+describe("holdsLiveKey", () => {
+  it("is isLiveMode, with a missing key read as test instead of thrown", () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "rk_live_placeholder");
+    expect(holdsLiveKey()).toBe(true);
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_placeholder");
+    expect(holdsLiveKey()).toBe(false);
+    vi.stubEnv("STRIPE_SECRET_KEY", "");
+    expect(holdsLiveKey()).toBe(false);
   });
 });

@@ -5,13 +5,22 @@ import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { createClient as createSupabaseClient, isAuthRetryableFetchError } from "@supabase/supabase-js";
 
+import { CodeField } from "@/components/admin/settings/code-field";
+import { MfaEnrol } from "@/components/admin/settings/mfa-enrol";
+import {
+  CODE_LENGTH as APP_CODE_LENGTH,
+  mfaErrorLine,
+  mfaErrors,
+  nextLoginStep,
+  verifiedTotpFactors,
+} from "@/components/admin/settings/mfa-helpers";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/cn";
 
 /**
  * The client island of /admin/login. Contract (docs/admin-contract.md)
- * section 4. Three modes, all at the same URL so src/proxy.ts needs no
+ * section 4. Five modes, all at the same URL so src/proxy.ts needs no
  * exception for any of them:
  *
  * 1. `signin`: email and password, then away. `signInWithPassword` through
@@ -23,6 +32,8 @@ import { cn } from "@/lib/cn";
  *    sees a user. A client who signs in here is sent on by that same guard.
  *    The error copy is deliberately generic: a wrong email and a wrong
  *    password read the same, and nothing from Supabase reaches the screen.
+ *    Before going on it asks `getAuthenticatorAssuranceLevel()` (read from
+ *    the session just written, no request) what comes next; see 4 and 5.
  *
  * 2. `request`, behind "Forgot your password?": the email, then
  *    `resetPasswordForEmail`. Supabase sends the recovery email, whose
@@ -42,6 +53,28 @@ import { cn } from "@/lib/cn";
  *    for the new password. A code is used once, so after it is accepted a
  *    rejected password is retried without it. Leaving the mode after the
  *    code was accepted signs the recovery session out.
+ *    An account with a second factor needs one more field: Supabase refuses
+ *    a new password from an aal1 session when the account has a verified
+ *    factor, and a recovery session is aal1. So once the emailed code is
+ *    accepted, if the recovery session says nextLevel aal2, the form asks
+ *    for the code from the authenticator app too and runs
+ *    `challengeAndVerify` on the recovery client before `updateUser`. An
+ *    account without a factor sees the same form as before.
+ *
+ * 4. `code` (2026-09-25): the account has a second factor (nextLevel aal2,
+ *    currentLevel aal1), so the form asks for the 6 digit code from the
+ *    authenticator app and runs `challengeAndVerify` with the account's
+ *    TOTP factor. That raises the session to aal2 in the cookies, and only
+ *    then does the form go on. A wrong code shows one line and the field
+ *    empties for another try. Until the code is right the admin area
+ *    refuses the session (src/lib/supabase/admin-user.ts: enrolled means
+ *    required), so leaving this step halfway opens nothing; "Use another
+ *    account" signs that session out.
+ *
+ * 5. `enrol` (2026-09-25): every admin must have a second factor
+ *    (ADMIN_REQUIRE_MFA=1, passed in by the page as `requireSecondFactor`)
+ *    and this account has none yet. The set up card of /admin/settings
+ *    (MfaEnrol, `required`) runs here, then the form goes on.
  *
  * Steps 2 and 3 run on their own client (recoveryClient below), not on the
  * cookie client: implicit flow, session in memory only. Two reasons. The
@@ -52,7 +85,7 @@ import { cn } from "@/lib/cn";
  * nothing is left behind if the tab is closed halfway.
  */
 
-type Mode = "signin" | "request" | "reset";
+type Mode = "signin" | "request" | "reset" | "code" | "enrol";
 
 type RecoveryClient = ReturnType<typeof createSupabaseClient>;
 
@@ -114,6 +147,15 @@ const copy = {
     submitting: "Saving",
     resendIn: (seconds: number) => `Send a new code in ${seconds} s`,
     resend: "Send a new code",
+    appCodeLabel: "Code from your authenticator app",
+    appCodeNeeded: "Code accepted. Your account has a second factor, so enter the 6 digit code from your authenticator app too.",
+  },
+  code: {
+    heading: "One more step",
+    lead: "Enter the 6 digit code from your authenticator app.",
+    submit: "Continue",
+    submitting: "Checking",
+    otherAccount: "Use another account",
   },
   back: "Back to sign in",
   done: "Password changed. Sign in with your new password.",
@@ -172,9 +214,16 @@ export type AdminLoginFormProps = {
   notice?: string;
   /** The email to start with, for an admin the page already knows. */
   defaultEmail?: string;
+  /** ADMIN_REQUIRE_MFA=1: an admin without a second factor sets one up before going on. */
+  requireSecondFactor?: boolean;
 };
 
-export function AdminLoginForm({ next, notice: initialNotice, defaultEmail }: AdminLoginFormProps) {
+export function AdminLoginForm({
+  next,
+  notice: initialNotice,
+  defaultEmail,
+  requireSecondFactor = false,
+}: AdminLoginFormProps) {
   const router = useRouter();
   const id = useId();
   const emailId = `${id}-email`;
@@ -192,6 +241,12 @@ export function AdminLoginForm({ next, notice: initialNotice, defaultEmail }: Ad
   const [confirm, setConfirm] = useState("");
   /** The recovery code was accepted: a recovery session is open and the code is spent. */
   const [verified, setVerified] = useState(false);
+  /** The code from the authenticator app: the `code` step, and a reset for an account with a second factor. */
+  const [appCode, setAppCode] = useState("");
+  /** The reset needs the app code too (the recovery session said nextLevel aal2). */
+  const [needsAppCode, setNeedsAppCode] = useState(false);
+  /** The TOTP factor the `code` step verifies against. */
+  const [factorId, setFactorId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(initialNotice ?? null);
   const [pending, setPending] = useState(false);
@@ -220,8 +275,16 @@ export function AdminLoginForm({ next, notice: initialNotice, defaultEmail }: Ad
     setNotice(message);
     setPassword("");
     setCode("");
+    setAppCode("");
+    setNeedsAppCode(false);
     setNewPassword("");
     setConfirm("");
+  }
+
+  /** On to the admin area, with the server rendering it again from the new cookies. */
+  function continueToAdmin() {
+    router.push(next);
+    router.refresh();
   }
 
   async function handleSignIn(event: FormEvent<HTMLFormElement>) {
@@ -238,20 +301,98 @@ export function AdminLoginForm({ next, notice: initialNotice, defaultEmail }: Ad
     setPending(true);
     try {
       const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({ email: address, password });
+      const { data: signedIn, error: authError } = await supabase.auth.signInWithPassword({ email: address, password });
       if (authError) {
         const rejected = authError.code === "invalid_credentials" || isClientError(authError);
         setError(isRateLimited(authError) ? copy.errors.rateLimited : rejected ? copy.errors.mismatch : copy.errors.generic);
         setPassword("");
         return;
       }
-      router.push(next);
-      router.refresh();
+
+      // Read from the session just written; no request. If it cannot be
+      // read, going on is safe: the admin area checks the level itself and
+      // sends a session short of the code back here.
+      const { data: levels } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const step = nextLoginStep(levels ?? null, requireSecondFactor);
+
+      if (step === "code") {
+        let totpId: string | null = verifiedTotpFactors(signedIn.user?.factors)[0]?.id ?? null;
+        if (!totpId) {
+          const listed = await supabase.auth.mfa.listFactors();
+          totpId = listed.data?.totp[0]?.id ?? null;
+        }
+        if (!totpId) {
+          // A verified factor of another kind: nothing this form can ask for.
+          await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+          setError(copy.errors.generic);
+          setPassword("");
+          return;
+        }
+        setFactorId(totpId);
+        setEmail(address);
+        goTo("code");
+        return;
+      }
+      if (step === "enrol") {
+        setEmail(address);
+        goTo("enrol");
+        return;
+      }
+      continueToAdmin();
     } catch {
       setError(copy.errors.generic);
     } finally {
       setPending(false);
     }
+  }
+
+  async function handleCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    if (appCode.length !== APP_CODE_LENGTH) {
+      setError(mfaErrors.codeShort);
+      return;
+    }
+    if (!factorId) {
+      goTo("signin");
+      return;
+    }
+
+    setError(null);
+    setPending(true);
+    try {
+      const { error: verifyError } = await createClient().auth.mfa.challengeAndVerify({ factorId, code: appCode });
+      if (verifyError) {
+        setError(mfaErrorLine(verifyError));
+        setAppCode("");
+        return;
+      }
+      continueToAdmin();
+    } catch {
+      setError(copy.errors.generic);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  /**
+   * Leaves the second step or the set up: the password session they hold
+   * is signed out here (the admin area refuses it anyway), then back to the
+   * email and password.
+   */
+  async function switchAccount() {
+    if (pending) return;
+    setPending(true);
+    try {
+      await createClient().auth.signOut({ scope: "local" });
+    } catch {
+      // The cookie is cleared locally even when the call fails.
+    } finally {
+      setPending(false);
+    }
+    setFactorId(null);
+    goTo("signin");
+    router.refresh();
   }
 
   /**
@@ -353,6 +494,32 @@ export function AdminLoginForm({ next, notice: initialNotice, defaultEmail }: Ad
         }
         setVerified(true);
         setNotice(copy.reset.codeAccepted);
+      }
+
+      // A recovery session is aal1, and Supabase refuses a new password from
+      // an aal1 session when the account has a second factor. Read from the
+      // session in memory; no request. Once the app code is accepted the
+      // session is aal2, so a retry after a refused password skips this.
+      const { data: levels } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (levels?.nextLevel === "aal2" && levels.currentLevel !== "aal2") {
+        if (appCode.length !== APP_CODE_LENGTH) {
+          if (needsAppCode) setError(mfaErrors.codeShort);
+          else setNotice(copy.reset.appCodeNeeded);
+          setNeedsAppCode(true);
+          return;
+        }
+        const { data: current } = await supabase.auth.getSession();
+        const totpId = verifiedTotpFactors(current.session?.user.factors)[0]?.id;
+        if (!totpId) {
+          setError(copy.errors.generic);
+          return;
+        }
+        const { error: mfaError } = await supabase.auth.mfa.challengeAndVerify({ factorId: totpId, code: appCode });
+        if (mfaError) {
+          setError(mfaErrorLine(mfaError));
+          setAppCode("");
+          return;
+        }
       }
 
       const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
@@ -553,6 +720,24 @@ export function AdminLoginForm({ next, notice: initialNotice, defaultEmail }: Ad
             />
           </div>
 
+          {needsAppCode && (
+            <div className="mt-5">
+              <CodeField
+                id={`${id}-app-code`}
+                label={copy.reset.appCodeLabel}
+                value={appCode}
+                onChange={(value) => {
+                  setAppCode(value);
+                  clearMessages();
+                }}
+                disabled={pending}
+                invalid={error === mfaErrors.codeWrong || error === mfaErrors.codeShort}
+                describedBy={messageId}
+                autoFocus
+              />
+            </div>
+          )}
+
           {message}
 
           <Button type="submit" size="lg" disabled={pending} className="mt-4 w-full sm:w-auto sm:min-w-[11rem]">
@@ -574,6 +759,56 @@ export function AdminLoginForm({ next, notice: initialNotice, defaultEmail }: Ad
           )}
           <button type="button" onClick={() => void backToSignIn()} disabled={pending} className={linkClass}>
             {copy.back}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "code") {
+    return (
+      <div className="mt-8 max-w-md">
+        <h2 className="font-serif text-xl text-navy">{copy.code.heading}</h2>
+        <p className="mt-2 text-[0.95rem] leading-relaxed text-navy-soft">{copy.code.lead}</p>
+
+        <form onSubmit={handleCode} noValidate className="mt-6" aria-busy={pending}>
+          <CodeField
+            id={`${id}-app-code`}
+            value={appCode}
+            onChange={(value) => {
+              setAppCode(value);
+              clearMessages();
+            }}
+            disabled={pending}
+            invalid={Boolean(error)}
+            describedBy={messageId}
+            autoFocus
+          />
+
+          {message}
+
+          <Button type="submit" size="lg" disabled={pending} className="mt-4 w-full sm:w-auto sm:min-w-[11rem]">
+            {pending ? copy.code.submitting : copy.code.submit}
+            {!pending && <ArrowRight className="size-4" aria-hidden />}
+          </Button>
+        </form>
+
+        <div className="mt-8">
+          <button type="button" onClick={() => void switchAccount()} disabled={pending} className={linkClass}>
+            {copy.code.otherAccount}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "enrol") {
+    return (
+      <div className="mt-8">
+        <MfaEnrol factors={[]} required onEnabled={continueToAdmin} />
+        <div className="mt-8">
+          <button type="button" onClick={() => void switchAccount()} disabled={pending} className={linkClass}>
+            {copy.code.otherAccount}
           </button>
         </div>
       </div>

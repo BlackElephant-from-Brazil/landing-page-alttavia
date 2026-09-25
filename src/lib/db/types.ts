@@ -98,10 +98,12 @@ export type UserAnswerRow = {
 
 /**
  * The firm's contract model a service uses (0009, docs/agreement-contract.md):
- * `nif`, `bank` or `package`. The text lives in
+ * `nif`, `bank`, `package` or, since 0017, `couple`: one agreement naming
+ * both people of the Couple package (Patrícia's answer of 2026-09-24), so it
+ * waits for applicant 0 and applicant 1. The text lives in
  * src/content/contracts/models.generated.ts, generated from docs/terms.
  */
-export type ContractTemplate = "nif" | "bank" | "package";
+export type ContractTemplate = "nif" | "bank" | "package" | "couple";
 
 /** public.services: what Alttavia sells. `slug` matches ProductId. */
 export type ServiceRow = {
@@ -144,6 +146,14 @@ export type ServiceStageRow = {
  */
 export type PoaTemplate = "poa_nif" | "poa_bank";
 
+/**
+ * Every value `service_docs.template` may hold: a deed, or since 0013
+ * 'agreement', the slot the signed service agreement comes back in. The
+ * guards (isDeedTemplate, isAgreementTemplate) live in
+ * src/lib/documents/templates.ts.
+ */
+export type DocTemplate = PoaTemplate | "agreement";
+
 /** public.service_docs: documents a service needs from the client. */
 export type ServiceDocRow = {
   id: string;
@@ -156,8 +166,11 @@ export type ServiceDocRow = {
   per_applicant: boolean;
   required: boolean;
   position: number;
-  /** Null for an ordinary upload; a deed slot generates this document first. */
-  template: PoaTemplate | null;
+  /**
+   * Null for an ordinary upload; a deed slot generates this document first;
+   * 'agreement' takes back the order's signed service agreement (0013).
+   */
+  template: DocTemplate | null;
 };
 
 export type DeliverableKind = "report" | "document";
@@ -191,6 +204,17 @@ export type UserServiceRow = {
   report: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
+  /**
+   * The client's acceptance of the service terms and the service agreement,
+   * written by POST /api/checkout on every Pay click while the order is
+   * unpaid, before the buyer reaches Stripe, and frozen once it is paid, so
+   * the record is the click that paid (0014, src/lib/stripe/checkout.ts,
+   * changed 2026-09-25 from "written once"). Both set or both null. Optional
+   * because a row read before 0014 is applied has neither key.
+   */
+  terms_accepted_at?: Timestamp | null;
+  /** TERMS_VERSION (src/content/terms-version.ts) in force when the client accepted. */
+  terms_version?: string | null;
 };
 
 /** public.user_service_events: audit trail of stage changes. */

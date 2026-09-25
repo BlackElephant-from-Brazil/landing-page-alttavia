@@ -2,7 +2,20 @@
 /**
  * Puts the 6 digit code into Supabase Auth's password recovery email, so
  * "Forgot your password?" on /admin/login works with a code instead of a
- * link (src/components/admin/login-form.tsx).
+ * link (src/components/admin/login-form.tsx), and (2026-09-25) sets the
+ * Auth settings the admin's second factor and the production site need:
+ *
+ *   password_min_length      12, the length /admin/settings asks for (a
+ *                            stricter value already set is kept)
+ *   mfa_totp_enroll_enabled  true, so /admin/settings can add an authenticator app
+ *   mfa_totp_verify_enabled  true, so the login can check its codes
+ *   site_url                 https://bank-nif-portugal.alttavia-relocation.com
+ *   uri_allow_list           every entry already there, plus
+ *                            https://bank-nif-portugal.alttavia-relocation.com/**
+ *
+ * A key this project's config does not return is never sent: the names
+ * are checked against the GET answer first, so a guess never reaches the
+ * PATCH, and the dry run says which one was skipped.
  *
  *   npm run auth:config             dry run: shows what would change, writes nothing
  *   npm run auth:config -- --apply  writes it
@@ -17,12 +30,13 @@
  *      markup and inline styles, with the heading and the two lines around
  *      the code rewritten for a password reset. The expiry in the copy comes
  *      from `mailer_otp_exp`.
- *   3. Prints each of the two settings as unchanged or as current and
- *      proposed. Only these two keys are ever printed; the rest of the
+ *   3. Prints each setting it owns as unchanged or as current and
+ *      proposed (the allow list as the entries it keeps and the one it
+ *      adds). Only the keys named above are ever printed; the rest of the
  *      config holds secrets (SMTP password, provider secrets) and is never
  *      shown.
- *   4. With --apply, PATCHes those two keys and nothing else, reads the
- *      config back, checks both landed, and lists by name any other key
+ *   4. With --apply, PATCHes the keys that differ and nothing else, reads
+ *      the config back, checks they landed, and lists by name any other key
  *      whose value moved (none should; the `*_custom_contents` flags
  *      Supabase keeps next to the templates are expected to).
  *
@@ -33,6 +47,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
+import { allowListEntries, mergeAllowList } from "./lib/allow-list.mjs";
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT_REF = "dgdbrnvgrpixsslgvmns";
 const API = `https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth`;
@@ -42,6 +58,11 @@ const TOKEN_TAG = "{{ .Token }}";
 /** The two settings this script owns. */
 const SUBJECT_KEY = "mailer_subjects_recovery";
 const TEMPLATE_KEY = "mailer_templates_recovery_content";
+
+/** The production site: Auth's own base URL and one more redirect it may send people to. */
+const SITE_URL = "https://bank-nif-portugal.alttavia-relocation.com";
+const ALLOW_LIST_ENTRY = `${SITE_URL}/**`;
+const PASSWORD_MIN_LENGTH = 12;
 
 /** Keys Supabase derives from the ones above; they may move on a PATCH. */
 const DERIVED_KEYS = new Set(["mailer_subjects_custom_contents", "mailer_templates_custom_contents"]);
@@ -145,6 +166,51 @@ function recoveryTemplate(magicLink, minutes) {
   return html;
 }
 
+/**
+ * The plain settings this script owns, as { key: value }, built from the
+ * current config. A key the GET did not return is left out and named in
+ * `skipped`: its name may be wrong for this API, and a PATCH must never
+ * carry a guess. A password minimum already above 12 is kept.
+ */
+function plainSettings(before) {
+  const wanted = {
+    password_min_length: PASSWORD_MIN_LENGTH,
+    mfa_totp_enroll_enabled: true,
+    mfa_totp_verify_enabled: true,
+    site_url: SITE_URL,
+    uri_allow_list: mergeAllowList(before.uri_allow_list, ALLOW_LIST_ENTRY),
+  };
+  const desired = {};
+  const skipped = [];
+  const notes = [];
+  for (const [key, value] of Object.entries(wanted)) {
+    if (!(key in before)) {
+      skipped.push(key);
+      continue;
+    }
+    if (key === "password_min_length" && Number(before[key]) > PASSWORD_MIN_LENGTH) {
+      notes.push(`password_min_length: ${before[key]} kept (stricter than ${PASSWORD_MIN_LENGTH})`);
+      continue;
+    }
+    desired[key] = value;
+  }
+  return { desired, skipped, notes };
+}
+
+function same(a, b) {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+function showAllowList(current, proposed) {
+  const before = allowListEntries(current);
+  const after = allowListEntries(proposed);
+  console.log("  keeps:");
+  if (before.length === 0) console.log("    (no entry yet)");
+  for (const entry of before) console.log(`    ${entry}`);
+  console.log("  adds:");
+  for (const entry of after.filter((value) => !before.includes(value))) console.log(`    ${entry}`);
+}
+
 function show(label, value) {
   const lines = String(value ?? "(empty)").split(/\r?\n/);
   console.log(`  ${label}:`);
@@ -166,22 +232,32 @@ async function main() {
     console.log(`Note: codes are ${before.mailer_otp_length} digits long; the admin form expects 6.\n`);
   }
 
+  const plain = plainSettings(before);
   const desired = {
     [SUBJECT_KEY]: `${TOKEN_TAG} is your Alttavia password reset code`,
     [TEMPLATE_KEY]: recoveryTemplate(before.mailer_templates_magic_link_content, minutes),
+    ...plain.desired,
   };
 
   const changes = {};
   for (const [key, value] of Object.entries(desired)) {
-    if (before[key] === value) {
+    if (same(before[key], value)) {
       console.log(`${key}: unchanged`);
       continue;
     }
     changes[key] = value;
     console.log(`${key}:`);
-    show("current", before[key]);
-    show("proposed", value);
+    if (key === "uri_allow_list") {
+      showAllowList(before[key], value);
+    } else {
+      show("current", before[key]);
+      show("proposed", value);
+    }
     console.log("");
+  }
+  for (const note of plain.notes) console.log(note);
+  for (const key of plain.skipped) {
+    console.log(`${key}: not in this project's Auth config, skipped (check the name before adding it by hand)`);
   }
 
   const keys = Object.keys(changes);
@@ -197,7 +273,7 @@ async function main() {
   await call("PATCH", changes);
   const after = await call("GET");
 
-  const missed = keys.filter((key) => after[key] !== desired[key]);
+  const missed = keys.filter((key) => !same(after[key], desired[key]));
   if (missed.length > 0) throw new Error(`Supabase did not keep: ${missed.join(", ")}`);
 
   const moved = Object.keys({ ...before, ...after }).filter(

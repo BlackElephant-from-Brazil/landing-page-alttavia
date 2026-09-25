@@ -6,7 +6,9 @@ import {
   ATTORNEY,
   buildPowerOfAttorney,
   formatDeedDate,
+  isJointPrincipals,
   signingDateFor,
+  type JointPrincipals,
   type PoaBlock,
   type PrincipalDetails,
 } from "@/content/power-of-attorney";
@@ -398,5 +400,202 @@ describe("signingDateFor", () => {
 
   it("prints the day without a leading zero", () => {
     expect(signingDateFor(new Date("2026-09-05T12:00:00Z")).day).toBe("5");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The couple's joint bank deed (2026-09-25): one deed, both persons, two signatures
+// ---------------------------------------------------------------------------
+
+const PARTNER: PrincipalDetails = {
+  fullName: "John Michael Doe",
+  gender: "m",
+  birthPlace: "Denver, Colorado, United States of America",
+  birthDate: "1982-11-23",
+  passportNumber: "Y7654321",
+  passportIssuer: "United States Department of State",
+  passportIssueDate: "2022-05-09",
+  passportExpiryDate: "2032-05-08",
+  taxAddress: "1200 West 6th Street, Apartment 14B, Austin, TX 78703, United States of America",
+};
+
+const COUPLE: JointPrincipals = [FILLED, PARTNER];
+
+/** The blocks of a deed by their role, for comparing the joint deed with the single one. */
+function byRole(blocks: PoaBlock[]) {
+  return {
+    items: blocks.filter((b) => b.kind === "item"),
+    paragraphs: blocks.filter((b) => b.kind === "paragraph"),
+    signatures: blocks.filter((b) => b.kind === "signature"),
+  };
+}
+
+function occurrences(text: string, needle: string): number {
+  return text.split(needle).length - 1;
+}
+
+describe("joint bank deed", () => {
+  it("tells the pair apart from one principal", () => {
+    expect(isJointPrincipals(COUPLE)).toBe(true);
+    expect(isJointPrincipals(FILLED)).toBe(false);
+    expect(isJointPrincipals({})).toBe(false);
+  });
+
+  it("names both persons, each with their own nascida or nascido, joined with e and and", () => {
+    const [, opening] = buildPowerOfAttorney("poa_bank", COUPLE, SIGNED);
+    if (opening.kind !== "paragraph") throw new Error("expected the identification paragraph");
+    expect(opening.pt).toContain("Jane Alice Doe, nascida em Austin");
+    expect(opening.pt).toContain(", e John Michael Doe, nascido em Denver");
+    expect(opening.pt).toContain("titular do passaporte n.º X1234567");
+    expect(opening.pt).toContain("titular do passaporte n.º Y7654321");
+    expect(opening.en).toContain("Jane Alice Doe, born in Austin");
+    expect(opening.en).toContain(", and John Michael Doe, born in Denver");
+    expect(opening.en).toContain("on 23 November 1982");
+  });
+
+  it("speaks in the plural wherever the grammar asks", () => {
+    const text = wording(buildPowerOfAttorney("poa_bank", COUPLE, SIGNED));
+    for (const plural of [
+      "constituem a sua bastante procuradora",
+      "à qual conferem os poderes especiais necessários para:",
+      "contratar seguros bancários em nome dos outorgantes;",
+      "Assinar, em nome dos outorgantes, todos os formulários",
+      "Declaram os Mandantes, de forma expressa",
+      "gestora de bens ou direitos dos outorgantes,",
+      "Mais declaram que os poderes conferidos",
+      "instrumentos de investimento em nome dos outorgantes.",
+      "hereby appoint as their lawful attorney",
+      "to whom they grant, individually",
+      "on their behalf, namely to:",
+      "In their name and on their behalf",
+      "close bank accounts in their name",
+      "in the name of the principals;",
+      "To sign, on behalf of the Principals, all forms",
+      "The Principals expressly declare that",
+      "a manager of the Principals’ assets",
+      "The Principals further declare that",
+      "investment instruments on behalf of the Principals.",
+    ]) {
+      expect(text, plural).toContain(plural);
+    }
+    for (const singular of [
+      "constitui a sua",
+      "à qual confere os",
+      "do outorgante",
+      "Declara o Mandante",
+      "Mais declara que",
+      "hereby appoints",
+      "grants,",
+      "Principal’s",
+    ]) {
+      expect(text, singular).not.toContain(singular);
+    }
+    expect(text).not.toMatch(/\b(his|her|he|she)\b/);
+    expect(text).not.toMatch(/\b[Pp]rincipal\b/);
+  });
+
+  it("keeps clauses b) and d), the lapse clause and the closing line exactly as the single deed has them", () => {
+    const single = byRole(buildPowerOfAttorney("poa_bank", FILLED, SIGNED));
+    const joint = byRole(buildPowerOfAttorney("poa_bank", COUPLE, SIGNED));
+    expect(joint.items.map((i) => i.number)).toEqual(["a)", "b)", "c)", "d)", "e)"]);
+    expect(joint.items[1]).toEqual(single.items[1]);
+    expect(joint.items[3]).toEqual(single.items[3]);
+    expect(joint.items[3].kind === "item" && joint.items[3].pt).toContain("conta de titular único");
+    // The paragraphs are the opening, the declaration, the lapse clause and the closing line.
+    expect(joint.paragraphs).toHaveLength(4);
+    expect(joint.paragraphs.slice(2)).toEqual(single.paragraphs.slice(2));
+  });
+
+  it("ends with the closing line, then one signature line per person, in applicant order", () => {
+    const blocks = buildPowerOfAttorney("poa_bank", COUPLE, SIGNED);
+    expect(blocks.slice(-2)).toEqual([
+      { kind: "signature", name: "Jane Alice Doe" },
+      { kind: "signature", name: "John Michael Doe" },
+    ]);
+    expect(blocks.at(-3)?.kind).toBe("paragraph");
+    expect(byRole(blocks).signatures).toHaveLength(2);
+  });
+
+  it("prints both names in both languages and under both signature lines", async () => {
+    const text = await textOf(await generatePowerOfAttorney("poa_bank", COUPLE, SIGNED));
+    // Portuguese paragraph, English paragraph, and the line under each signature.
+    expect(occurrences(text, "Jane Alice Doe")).toBe(3);
+    expect(occurrences(text, "John Michael Doe")).toBe(3);
+    expect(text).toContain("constituem a sua bastante procuradora");
+    expect(text).toContain("hereby appoint as their lawful attorney");
+  });
+
+  it("keeps the closing line and both signatures together on the last page", async () => {
+    const couples: JointPrincipals[] = [[{}, {}], COUPLE, [WORST_CASE, WORST_CASE], [MAXIMAL, MAXIMAL]];
+    for (const couple of couples) {
+      const pages = await pageTexts(await generatePowerOfAttorney("poa_bank", couple, SIGNED));
+      const last = pages[pages.length - 1];
+      expect(last).toContain("Fazendo fé");
+      expect(last).toContain("In witness whereof");
+      // The names appear on the last page only under the signature lines; a
+      // long one wraps, so its first word is what is looked for.
+      const [a, b] = couple.map((p) => (p.fullName ?? "[NOME COMPLETO]").split(" ")[0]);
+      if (a === b) {
+        expect(occurrences(last, a)).toBeGreaterThanOrEqual(2);
+      } else {
+        expect(occurrences(last, a)).toBeGreaterThanOrEqual(1);
+        expect(occurrences(last, b)).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
+
+  it("fits on at most three pages, blank, filled, or with a long name and the longest address", async () => {
+    expect(await pageCount(await generatePowerOfAttorney("poa_bank", [{}, {}]))).toBeLessThanOrEqual(3);
+    expect(await pageCount(await generatePowerOfAttorney("poa_bank", COUPLE, SIGNED))).toBeLessThanOrEqual(3);
+    expect(
+      await pageCount(await generatePowerOfAttorney("poa_bank", [WORST_CASE, { ...WORST_CASE, gender: "m" }], SIGNED)),
+    ).toBeLessThanOrEqual(3);
+  });
+
+  it("renders both persons at the SQL maximum without throwing, within one extra page", async () => {
+    expect(await pageCount(await generatePowerOfAttorney("poa_bank", [MAXIMAL, MAXIMAL], SIGNED))).toBeLessThanOrEqual(4);
+  });
+
+  it("reads as a template for two when nothing is supplied", () => {
+    const blocks = buildPowerOfAttorney("poa_bank", [{}, {}]);
+    const [, opening] = blocks;
+    if (opening.kind !== "paragraph") throw new Error("expected the identification paragraph");
+    expect(occurrences(opening.pt, "[NOME COMPLETO]")).toBe(2);
+    expect(occurrences(opening.pt, "nascido(a) em")).toBe(2);
+    expect(occurrences(opening.en, "[TAX RESIDENCE ADDRESS]")).toBe(2);
+    expect(blocks.slice(-2)).toEqual([
+      { kind: "signature", name: "[NOME COMPLETO]" },
+      { kind: "signature", name: "[NOME COMPLETO]" },
+    ]);
+  });
+
+  it("prepares each person's fields for the fonts", async () => {
+    const text = await textOf(
+      await generatePowerOfAttorney("poa_bank", [FILLED, { ...PARTNER, fullName: "Łukasz Żółć" }], SIGNED),
+    );
+    expect(occurrences(text, "Lukasz Zolc")).toBe(3);
+    expect(occurrences(text, "Jane Alice Doe")).toBe(3);
+  });
+
+  it("has no joint NIF deed: each person signs their own", async () => {
+    expect(() => buildPowerOfAttorney("poa_nif", COUPLE)).toThrow(/Only the bank deed/);
+    await expect(generatePowerOfAttorney("poa_nif", COUPLE)).rejects.toThrow(/Only the bank deed/);
+  });
+
+  it("refuses a template that is not a deed rather than print the NIF one", () => {
+    // 0013 lets a slot carry 'agreement', the signed service agreement.
+    expect(() => buildPowerOfAttorney("agreement" as unknown as "poa_nif")).toThrow(/No power of attorney/);
+  });
+
+  it("leaves the single bank deed in the singular, with one signature", () => {
+    const blocks = buildPowerOfAttorney("poa_bank", FILLED, SIGNED);
+    const text = wording(blocks);
+    expect(text).toContain("constitui a sua bastante procuradora");
+    expect(text).toContain("à qual confere os poderes");
+    expect(text).toContain("Declara o Mandante");
+    expect(text).toContain("em nome do outorgante.");
+    expect(text).toContain("hereby appoints as her lawful attorney");
+    expect(text).toContain("on behalf of the Principal.");
+    expect(byRole(blocks).signatures).toHaveLength(1);
   });
 });

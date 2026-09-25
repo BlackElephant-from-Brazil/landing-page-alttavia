@@ -193,26 +193,42 @@ describe("validateServiceInput", () => {
     expect(result.value.deliverables.map((d) => d.position)).toEqual([0, 1]);
   });
 
-  it("accepts a deed on a document, reads null or absent as none, and refuses anything else", () => {
+  it("accepts a deed or the signed agreement on a document, reads null or absent as none, and refuses anything else", () => {
     const withDeed = validateServiceInput(
       input({
         docs: [
           { key: "poa_nif", label: "Power of attorney for the NIF", template: "poa_nif" },
           { key: "poa_bank", label: "Power of attorney for the bank account", template: "poa_bank" },
           { key: "passport", label: "Passport", template: null },
+          // 0013 adds this slot to every wizard service; saving them must send it back unchanged.
+          { key: "signed_agreement", label: "Signed service agreement", template: "agreement" },
         ],
       }),
     );
-    expect(withDeed.ok && withDeed.value.docs.map((d) => d.template)).toEqual(["poa_nif", "poa_bank", null]);
+    expect(withDeed.ok && withDeed.value.docs.map((d) => d.template)).toEqual(["poa_nif", "poa_bank", null, "agreement"]);
     const absent = validateServiceInput(input());
     expect(absent.ok && absent.value.docs.every((d) => d.template === null)).toBe(true);
-    expect(errorOf(input({ docs: [{ key: "x", label: "X", template: "poa_x" }] }))).toBe("Choose a deed or none.");
-    expect(errorOf(input({ docs: [{ key: "x", label: "X", template: "" }] }))).toBe("Choose a deed or none.");
-    expect(errorOf(input({ docs: [{ key: "x", label: "X", template: 1 }] }))).toBe("Choose a deed or none.");
+    expect(errorOf(input({ docs: [{ key: "x", label: "X", template: "poa_x" }] }))).toBe("Choose a document to sign or none.");
+    expect(errorOf(input({ docs: [{ key: "x", label: "X", template: "" }] }))).toBe("Choose a document to sign or none.");
+    expect(errorOf(input({ docs: [{ key: "x", label: "X", template: 1 }] }))).toBe("Choose a document to sign or none.");
   });
 
-  it("accepts one of the three contract models, reads null as none, and refuses anything else", () => {
-    for (const model of ["nif", "bank", "package"] as const) {
+  it("refuses a signed agreement slot on a service whose contract is none, and only when the body names the contract", () => {
+    const agreementSlot = { key: "signed_agreement", label: "Signed service agreement", template: "agreement" };
+    const docs = [{ key: "passport", label: "Passport" }, agreementSlot];
+
+    expect(errorOf(input({ docs, contract_template: null }))).toBe(
+      "Choose a service contract, or remove the signed service agreement from the documents.",
+    );
+    expect(validateServiceInput(input({ docs, contract_template: "nif" })).ok).toBe(true);
+    // No agreement slot: no contract is fine.
+    expect(validateServiceInput(input({ contract_template: null })).ok).toBe(true);
+    // Without the key the stored contract decides, in upsertService.
+    expect(validateServiceInput(input({ docs })).ok).toBe(true);
+  });
+
+  it("accepts one of the four contract models, reads null as none, and refuses anything else", () => {
+    for (const model of ["nif", "bank", "package", "couple"] as const) {
       const result = validateServiceInput(input({ contract_template: model }));
       expect(result.ok && result.value.contract_template).toBe(model);
     }
@@ -220,7 +236,7 @@ describe("validateServiceInput", () => {
     expect(none.ok && none.value.contract_template).toBeNull();
     expect(none.ok && "contract_template" in none.value).toBe(true);
 
-    expect(errorOf(input({ contract_template: "couple" }))).toBe("Choose a contract or none.");
+    expect(errorOf(input({ contract_template: "pair" }))).toBe("Choose a contract or none.");
     expect(errorOf(input({ contract_template: "" }))).toBe("Choose a contract or none.");
     expect(errorOf(input({ contract_template: "NIF" }))).toBe("Choose a contract or none.");
     expect(errorOf(input({ contract_template: 1 }))).toBe("Choose a contract or none.");
@@ -243,8 +259,8 @@ describe("validateServiceInput", () => {
   });
 
   it("reports a wrong contract where the form shows it: after the timeline, before the Stripe fields", () => {
-    expect(errorOf(input({ timeline: "x".repeat(121), contract_template: "couple" }))).toContain("Timeline");
-    expect(errorOf(input({ contract_template: "couple", stripe_price_id_live: "prod_123" }))).toBe(
+    expect(errorOf(input({ timeline: "x".repeat(121), contract_template: "pair" }))).toContain("Timeline");
+    expect(errorOf(input({ contract_template: "pair", stripe_price_id_live: "prod_123" }))).toBe(
       "Choose a contract or none.",
     );
   });
@@ -488,6 +504,38 @@ describe("upsertService", () => {
     expect(cleared.contract_template).toBeNull();
     const explicit = log.filter((l) => l.startsWith("update services")).pop() ?? "";
     expect(explicit).toContain('"contract_template":null');
+  });
+
+  it("refuses a signed agreement slot the stored contract cannot serve, before writing", async () => {
+    const agreementDocs = [
+      { key: "passport", label: "Passport" },
+      { key: "proof_of_address", label: "Proof of address", per_applicant: false },
+      { key: "signed_agreement", label: "Signed service agreement", template: "agreement" },
+    ];
+
+    // A body that leaves the contract out, on a service stored with none.
+    seedExisting();
+    tables.services[0].contract_template = null;
+    await expect(upsertService(db, valid({ docs: agreementDocs }), SERVICE_ID)).rejects.toMatchObject({
+      name: "ServiceError",
+      code: "agreement_without_contract",
+      status: 422,
+      message: "Choose a service contract, or remove the signed service agreement from the documents.",
+    });
+    expect(log).toHaveLength(0);
+
+    // A new service with the slot and no contract.
+    await expect(upsertService(db, valid({ slug: "niss-only", docs: agreementDocs }))).rejects.toMatchObject({
+      code: "agreement_without_contract",
+      status: 422,
+    });
+    expect(log).toHaveLength(0);
+
+    // The stored contract serves it when the body is silent.
+    tables.services[0].contract_template = "nif";
+    const saved = await upsertService(db, valid({ docs: agreementDocs }), SERVICE_ID);
+    expect(saved.contract_template).toBe("nif");
+    expect(saved.docs.map((d) => d.template)).toContain("agreement");
   });
 
   it("stores null for a new service whose form did not name a contract", async () => {

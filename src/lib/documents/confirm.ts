@@ -1,9 +1,10 @@
 import { getUserService, type Db } from "@/lib/db/queries";
 import type { ServiceDocRow, UserDocumentRow, UserServiceRow } from "@/lib/db/types";
-import { notifyDocumentsReady } from "@/lib/orders/notify";
+import { notifyDocumentsReady, notifySignedAgreement } from "@/lib/orders/notify";
 import { deleteObject, headObjectSize } from "@/lib/r2/client";
 
 import { DOCUMENTS_STAGE } from "./stage";
+import { isAgreementTemplate } from "./templates";
 
 /**
  * Step two of a client's upload, in one place.
@@ -27,6 +28,13 @@ import { DOCUMENTS_STAGE } from "./stage";
  *      update, so two calls at the same time cannot both report success.
  *   4. Tell the team, when this upload filled the last required slot and the
  *      set was not already complete.
+ *   5. Send the team the signed service agreement, when the slot is the one
+ *      whose template is 'agreement' (0013_signed_agreement_slot.sql), once
+ *      per review round (Patrícia's answer of 2026-09-24, she keeps the copy
+ *      signed by both parties; the round rule of 2026-09-25 is in
+ *      src/lib/orders/signed-copy.ts). The file itself rides along only for
+ *      an order paid with real money (src/lib/orders/live-payment.ts); a
+ *      test order's notice says the file is on the order.
  *
  * Why 2 comes before 3 (2026-09-22). `user_documents_live_slot_idx`
  * (0004_hardening.sql) is a unique index over (order, document, applicant)
@@ -37,14 +45,19 @@ import { DOCUMENTS_STAGE } from "./stage";
  * The drop is therefore a step the flip depends on, not an afterthought: the
  * object goes best effort, the row does not.
  *
- * Step 4 is best effort: a failure there is logged and the upload stands,
- * because the file is already in the bucket and on record. It fires on the
- * move from an incomplete set to a complete one only (changed 2026-09-22):
- * replacing a file that was rejected completes the set again and sends, while
- * swapping a file that was merely waiting for review sends nothing, since the
- * slot was filled before and the set was therefore already complete. Without
- * that rule a client could repeat upload, remove, upload and post the firm an
- * email each time.
+ * Steps 4 and 5 are best effort: a failure there is logged and the upload
+ * stands, because the file is already in the bucket and on record. Step 4
+ * fires on the move from an incomplete set to a complete one only (changed
+ * 2026-09-22): replacing a file that was rejected completes the set again
+ * and sends, while swapping a file that was merely waiting for review sends
+ * nothing, since the slot was filled before and the set was therefore
+ * already complete. Without that rule a client could repeat upload, remove,
+ * upload and post the firm an email each time. Step 5 has a stricter rule of
+ * its own, since each of its emails carries a file of up to 8 MB (review of
+ * 2026-09-25): the first signed copy goes, and another only after the firm
+ * rejected one, whatever the client uploads, replaces or removes in between.
+ * notifySignedAgreement decides that from the order's history, so it is not
+ * decided here.
  *
  * DOCUMENTS_STAGE, the one stage on which a client may still change a file,
  * is re-exported from ./stage so the routes take it from here and the browser
@@ -155,11 +168,31 @@ export async function confirmDocumentUpload(input: {
   const confirmed = updated as UserDocumentRow;
 
   // The upload is recorded. When it filled the last required slot, and the
-  // set was not already complete, the team hears about it. Best effort:
-  // notifyDocumentsReady never throws.
-  if (!replacedLiveFile) await notifyDocumentsReady({ order, document: confirmed }, { db, origin });
+  // set was not already complete, the team hears about it; when it is the
+  // signed agreement, the team gets the file itself, once per review round.
+  // Best effort: neither notifier throws, and neither does the slot lookup.
+  const agreement = await isSignedAgreementSlot(db, confirmed.service_doc_id);
+  await Promise.all([
+    replacedLiveFile ? null : notifyDocumentsReady({ order, document: confirmed }, { db, origin }),
+    agreement ? notifySignedAgreement({ order, document: confirmed }, { db, origin }) : null,
+  ]);
 
   return confirmed;
+}
+
+/**
+ * Whether the slot takes the signed service agreement back. Read after the
+ * upload is recorded, so a lookup that fails only costs the email: it is
+ * logged and answered false.
+ */
+async function isSignedAgreementSlot(db: Db, serviceDocId: string): Promise<boolean> {
+  try {
+    const doc = await loadServiceDoc(db, serviceDocId);
+    return isAgreementTemplate(doc?.template);
+  } catch (err) {
+    console.error(`confirmDocumentUpload: slot ${serviceDocId} not read; no signed agreement email:`, err);
+    return false;
+  }
 }
 
 /** The unique index over the live rows of a slot refused the write. */

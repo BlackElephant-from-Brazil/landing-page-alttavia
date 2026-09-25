@@ -6,14 +6,14 @@ import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
-import type { PoaTemplate } from "@/lib/db/types";
+import type { DocTemplate } from "@/lib/db/types";
 
 import { listsCopy as copy } from "./copy";
 import {
   ACCEPTED_MIME_OPTIONS,
   DELIVERABLE_KINDS,
+  DOC_TEMPLATES,
   LIMITS,
-  POA_TEMPLATES,
   suggestKey,
   type DeliverableDraft,
   type DocDraft,
@@ -35,14 +35,14 @@ import { CheckboxField, FieldGroup, ListError, SelectField, TextAreaField, TextF
 
 const KIND_OPTIONS = DELIVERABLE_KINDS.map((kind) => ({ value: kind, label: copy.kinds[kind] }));
 
-/** "" stands for null in the select: a plain upload slot. */
+/** "" stands for null in the select: a plain upload slot. The signed agreement slot (0013) is the last option. */
 const TEMPLATE_OPTIONS = [
   { value: "", label: copy.templateNone },
-  ...POA_TEMPLATES.map((template) => ({ value: template, label: copy.templates[template] })),
+  ...DOC_TEMPLATES.map((template) => ({ value: template, label: copy.templates[template] })),
 ];
 
-function templateFromOption(value: string): PoaTemplate | null {
-  return (POA_TEMPLATES as readonly string[]).includes(value) ? (value as PoaTemplate) : null;
+function templateFromOption(value: string): DocTemplate | null {
+  return (DOC_TEMPLATES as readonly string[]).includes(value) ? (value as DocTemplate) : null;
 }
 
 type RowProps<T> = {

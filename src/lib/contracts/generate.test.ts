@@ -2,13 +2,25 @@ import { inflateSync } from "node:zlib";
 import { PDFArray, PDFDocument, PDFRawStream } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 
-import { CONTRACT_MODELS } from "@/content/contracts/models.generated";
-import { buildContractValues, type ContractValues } from "@/content/contracts/variables";
+import { LETTERHEAD_LOGO } from "@/content/contracts/letterhead.generated";
+import { CONTRACT_LETTERHEAD, CONTRACT_MODELS } from "@/content/contracts/models.generated";
+import { buildContractValues, buildContractValuesFromFields, type ContractValues } from "@/content/contracts/variables";
 import type { ContractTemplate, UserServiceApplicantRow } from "@/lib/db/types";
-import { BLANK_RULE, contractBlocks, generateContractPdf, hasValues, substituteBlocks } from "./generate";
+import {
+  BLANK_RULE,
+  FIRM_SIGNATURE_MAX_PIXELS,
+  SECOND_PARTY_SIGNATORY,
+  SPECIMEN_LINE,
+  annexBlocks,
+  contractBlocks,
+  generateContractPdf,
+  hasValues,
+  substituteBlocks,
+} from "./generate";
 
-const TEMPLATES: ContractTemplate[] = ["nif", "bank", "package"];
+const TEMPLATES: ContractTemplate[] = ["nif", "bank", "package", "couple"];
 const TOKEN = /\[[^\[\]]+\]/;
+const NEW_ADDRESS = "Av. António Augusto Aguiar, 24, 1st floor right, Office 3, 1050-016 Lisbon, Portugal";
 
 /** The standard fonts write WinAnsi, which is Windows-1252: the em dash and the euro sign live above Latin-1. */
 const winAnsi = new TextDecoder("windows-1252");
@@ -70,6 +82,75 @@ async function pageCount(pdf: Uint8Array): Promise<number> {
   return (await PDFDocument.load(pdf)).getPageCount();
 }
 
+/** Every image drawn on each page: where (x, y of the lower left corner) and how big, in points. */
+async function pageImages(pdf: Uint8Array): Promise<{ x: number; y: number; width: number; height: number }[][]> {
+  const image =
+    /1 0 0 1 ([\d.-]+) ([\d.-]+) cm\s+1 0 0 1 0 0 cm\s+([\d.-]+) 0 0 ([\d.-]+) 0 0 cm\s+1 0 0 1 0 0 cm\s+\/\S+ Do/g;
+  return (await pageStreams(pdf)).map((stream) =>
+    [...stream.matchAll(image)].map(([, x, y, width, height]) => ({
+      x: Number(x),
+      y: Number(y),
+      width: Number(width),
+      height: Number(height),
+    })),
+  );
+}
+
+/** The baseline of the first line on a page that reads `text`, from the text matrices pdf-lib wrote. */
+async function baselineOf(pdf: Uint8Array, pageIndex: number, text: string): Promise<number | undefined> {
+  const stream = (await pageStreams(pdf))[pageIndex];
+  for (const [, , y, hex] of stream.matchAll(/1 0 0 1 ([\d.-]+) ([\d.-]+) Tm\s*<([0-9A-Fa-f]*)> Tj/g)) {
+    if (winAnsi.decode(Buffer.from(hex, "hex")).startsWith(text)) return Number(y);
+  }
+  return undefined;
+}
+
+/** A small transparent PNG with a stroke across it, 600 x 200: a stand in for the firm's signature. */
+async function samplePng(width = 600, height = 200): Promise<Uint8Array> {
+  const { deflateSync } = await import("node:zlib");
+  const raw = Buffer.alloc(height * (width * 4 + 1));
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (Math.abs(y - height / 2 - Math.sin(x / 40) * 40) > 3) continue;
+      const at = y * (width * 4 + 1) + 1 + x * 4;
+      raw[at] = 20;
+      raw[at + 1] = 40;
+      raw[at + 2] = 110;
+      raw[at + 3] = 255;
+    }
+  }
+  const chunk = (type: string, data: Buffer) => {
+    const head = Buffer.alloc(8);
+    head.writeUInt32BE(data.length, 0);
+    head.write(type, 4, "latin1");
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(Buffer.concat([head.subarray(4), data])));
+    return Buffer.concat([head, data, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 6;
+  return new Uint8Array(
+    Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk("IHDR", header),
+      chunk("IDAT", deflateSync(raw)),
+      chunk("IEND", Buffer.alloc(0)),
+    ]),
+  );
+}
+
+function crc32(bytes: Uint8Array): number {
+  let c = 0xffffffff;
+  for (const byte of bytes) {
+    c ^= byte;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
 const APPLICANT: UserServiceApplicantRow = {
   id: "00000000-0000-4000-8000-000000000001",
   user_service_id: "00000000-0000-4000-8000-000000000002",
@@ -87,15 +168,33 @@ const APPLICANT: UserServiceApplicantRow = {
   updated_at: "2026-09-21T10:00:00Z",
 };
 
-const FEE: Record<ContractTemplate, number> = { nif: 14900, bank: 39900, package: 49700 };
+const FEE: Record<ContractTemplate, number> = { nif: 14900, bank: 39900, package: 49700, couple: 59700 };
 
+/** Her partner, applicant 1 of the Couple package. */
+const PARTNER: UserServiceApplicantRow = {
+  ...APPLICANT,
+  id: "00000000-0000-4000-8000-000000000003",
+  applicant_index: 1,
+  full_name: "John Robert Doe",
+  gender: "m",
+  birth_place: "Denver, Colorado, United States of America",
+  birth_date: "1982-11-23",
+  passport_number: "Y7654321",
+};
+
+/**
+ * The values of a paid order, as ensure.ts builds them. For the Couple
+ * package the partner is the given applicant's twin when the applicant is
+ * not the usual one, so a worst case is a worst case for both persons.
+ */
 function valuesFor(template: ContractTemplate, applicant: UserServiceApplicantRow = APPLICANT, place: string | null = "Austin, United States") {
+  const partner: UserServiceApplicantRow =
+    applicant === APPLICANT ? PARTNER : { ...applicant, id: PARTNER.id, applicant_index: 1 };
   return buildContractValues({
-    template,
-    applicant,
+    order: { total_cents: FEE[template], paid_at: "2026-09-21T10:15:00Z" },
+    service: { slug: template, name: template, contract_template: template },
+    applicants: [applicant, partner],
     email: "jane.doe@example.com",
-    totalCents: FEE[template],
-    paidAt: "2026-09-21T10:15:00Z",
     signingPlace: place,
   });
 }
@@ -155,7 +254,9 @@ describe("contract values into blocks", () => {
         "tax resident at 1200 West 6th Street, Apartment 14B, Austin, TX 78703, United States of America, with email " +
         "address jane.doe@example.com, hereinafter referred to as the First Party or Client;",
     );
-    expect(text).toContain("is €149 (one hundred and forty-nine euros), plus VAT");
+    expect(text).toContain("is €149 (one hundred and forty-nine euros), VAT included.");
+    expect(text).toContain(`with registered office at ${NEW_ADDRESS}, duly represented by`);
+    expect(text).toContain(`To: ALTTAVIA RELOCATION, Unipessoal Lda., ${NEW_ADDRESS} — info@alttavia-relocation.com`);
     expect(text).toContain("for a period of 12 (twelve) months as from the assignment of the NIF");
     expect(text).toContain("Done in duplicate at Lisbon, on 21 September 2026.");
     expect(text).toContain("relating to NIF, dated 21 September 2026 (the \"Contract\")");
@@ -170,13 +271,71 @@ describe("contract values into blocks", () => {
     const pack = contractBlocks("package", valuesFor("package"));
     expect(pack.contract.map((b) => b.text).join("\n")).toContain("is €497 (four hundred and ninety-seven euros)");
     expect(pack.annex.map((b) => b.text).join("\n")).toContain("relating to NIF + BANK ACCOUNT PACKAGE, dated");
+    // The partner row of a one person order prints nowhere.
+    expect([...pack.contract, ...pack.annex].map((b) => b.text).join("\n")).not.toContain("John Robert Doe");
+  });
+
+  it("names both persons of the Couple package, in the contract and in Annex I", () => {
+    const { contract, annex } = contractBlocks("couple", valuesFor("couple"));
+    const text = contract.map((b) => b.text).join("\n");
+    expect(text).toContain(
+      "United States of America, and John Robert Doe, born in Denver, Colorado, United States of America, on 23 November 1982",
+    );
+    expect(text).toContain("both with email address jane.doe@example.com, hereinafter jointly referred to as the First Party or Client;");
+    expect(text).toContain("is €597 (five hundred and ninety-seven euros), VAT included.");
+
+    const signatures = contract.slice(contract.findIndex((b) => b.kind === "signatureHeading")).map((b) => b.text);
+    expect(signatures).toEqual([
+      "SIGNATURES",
+      "The First Party,",
+      "Jane Alice Doe",
+      "John Robert Doe",
+      "The Second Party,",
+      SECOND_PARTY_SIGNATORY,
+      "For and on behalf of ALTTAVIA RELOCATION, Unipessoal Lda.",
+    ]);
+
+    const opening = annex[3];
+    expect(opening.text).toBe(
+      "This Annex forms an integral part of the Contract for Legal Services signed between Jane Alice Doe, holder of " +
+        "passport no. X1234567, and John Robert Doe, holder of passport no. Y7654321, jointly as Client, and ALTTAVIA " +
+        "RELOCATION, Unipessoal Lda., as Second Party, relating to COUPLE PACKAGE, dated 21 September 2026 (the \"Contract\").",
+    );
+    expect(opening.bold?.map(([s, e]) => opening.text.slice(s, e))).toEqual([
+      "Jane Alice Doe",
+      "X1234567",
+      "John Robert Doe",
+      "Y7654321",
+      "ALTTAVIA RELOCATION, Unipessoal Lda.",
+      "COUPLE PACKAGE",
+      "21 September 2026",
+    ]);
+    expect(annex.filter((b) => b.kind === "signatureName").map((b) => b.text)).toEqual([
+      "Jane Alice Doe — Client",
+      "John Robert Doe — Client",
+      "Signature of the consumer (only if this form is notified on paper)",
+    ]);
+  });
+
+  it("adapts Annex I for the Couple package only, and in two places", () => {
+    for (const template of ["nif", "bank", "package"] as const) expect(annexBlocks(template)).toBe(CONTRACT_MODELS.annex);
+    const couple = annexBlocks("couple");
+    expect(couple).toHaveLength(CONTRACT_MODELS.annex.length + 1);
+    const changed = couple.filter((block) => !CONTRACT_MODELS.annex.some((original) => JSON.stringify(original) === JSON.stringify(block)));
+    expect(changed.map((b) => b.text)).toEqual([
+      "This Annex forms an integral part of the Contract for Legal Services signed between [FULL NAME], holder of passport " +
+        "no. [PASSPORT NO.], and [FULL NAME 2], holder of passport no. [PASSPORT NO. 2], jointly as Client, and ALTTAVIA " +
+        "RELOCATION, Unipessoal Lda., as Second Party, relating to [SERVICE: NIF / BANK ACCOUNT / NIF + BANK ACCOUNT " +
+        "PACKAGE], dated [DAY] [MONTH] [YEAR] (the \"Contract\").",
+      "[FULL NAME 2] — Client",
+    ]);
   });
 
   it("reads as a template when nothing is supplied", () => {
     for (const template of TEMPLATES) {
       const { contract, annex } = contractBlocks(template, {});
       expect(contract).toEqual(CONTRACT_MODELS[template]);
-      expect(annex).toEqual(CONTRACT_MODELS.annex);
+      expect(annex).toEqual(annexBlocks(template));
     }
     const text = contractBlocks("nif", {}).annex.map((b) => b.text).join("\n");
     expect(text).toContain("Place and date: [PLACE], [DAY] [MONTH] [YEAR]");
@@ -185,7 +344,7 @@ describe("contract values into blocks", () => {
   });
 
   it("keeps the bracket of a token that has no value, beside the ones that have", () => {
-    const values = buildContractValues({ template: "nif", applicant: null, email: null, totalCents: 14900, paidAt: null });
+    const values = buildContractValuesFromFields({ template: "nif", applicant: null, email: null, totalCents: 14900, paidAt: null });
     const text = contractBlocks("nif", values).contract.map((b) => b.text).join("\n");
     expect(text).toContain("[FULL NAME], born in [PLACE OF BIRTH]");
     expect(text).toContain("with email address [EMAIL]");
@@ -231,7 +390,9 @@ describe("contract values into blocks", () => {
   });
 });
 
-describe("contract PDF", () => {
+// Several cases here generate and read back a dozen or more PDFs across the four models: more than vitest's
+// default 5 seconds on a busy machine, so the whole block gets 60.
+describe("contract PDF", { timeout: 60_000 }, () => {
   it("is a valid A4 document with its properties set", async () => {
     const pdf = await generateContractPdf("nif", {});
     expect(Buffer.from(pdf.slice(0, 5)).toString()).toBe("%PDF-");
@@ -247,7 +408,8 @@ describe("contract PDF", () => {
   });
 
   it("stays within the page counts the layout was tuned for, blank or filled", async () => {
-    const limit: Record<ContractTemplate, number> = { nif: 11, bank: 11, package: 12 };
+    // The letterhead of 2026-09-25 moved no model past its pin; the Couple package may take one page more than the package.
+    const limit: Record<ContractTemplate, number> = { nif: 11, bank: 11, package: 12, couple: 13 };
     for (const template of TEMPLATES) {
       expect(await pageCount(await generateContractPdf(template, {})), `${template} blank`).toBeLessThanOrEqual(limit[template]);
       expect(await pageCount(await generateContractPdf(template, valuesFor(template))), `${template} filled`).toBeLessThanOrEqual(
@@ -346,6 +508,101 @@ describe("contract PDF", () => {
     expect(partA).toContain("at a distance or away from business premises;");
     expect(partA).toContain("Place and date: Austin, United States, 21 September 2026");
     expect(partA).toContain("— Client");
+
+    // Both Client lines of the Couple package stay there too.
+    for (const values of [valuesFor("couple"), valuesFor("couple", MAXIMAL)]) {
+      const couple = await pageTexts(await generateContractPdf("couple", values));
+      const page = couple.find((text) => text.includes("This Contract was concluded (tick one):"));
+      expect(page?.match(/— Client/g)).toHaveLength(2);
+    }
+  });
+
+  it("keeps both First Party lines of the Couple package with the rest of the signatures", async () => {
+    const pages = await pageTexts(await generateContractPdf("couple", valuesFor("couple")));
+    const closing = pages.find((page) => page.includes("Done in duplicate at Lisbon"));
+    expect(closing).toContain("The First Party, Jane Alice Doe John Robert Doe The Second Party, PATRÍCIA SOARES VIANA");
+  });
+
+  it("prints the letterhead at the top of the first page, and only there", async () => {
+    for (const template of TEMPLATES) {
+      const pdf = await generateContractPdf(template, valuesFor(template), { reference: "Order 1" });
+      const lines = await pageLines(pdf);
+      // The header's four lines, then the title.
+      expect(lines[0].slice(0, 5), template).toEqual([...CONTRACT_LETTERHEAD[template], "CONTRACT FOR LEGAL SERVICES"]);
+      for (const page of lines.slice(1)) expect(page.join(" "), template).not.toContain("+351 934 548 395");
+
+      // The logo: once, on the first page, 30 mm wide, its aspect kept, inside the left margin.
+      const images = await pageImages(pdf);
+      expect(images[0], template).toHaveLength(1);
+      const [logo] = images[0];
+      expect(logo.x).toBeCloseTo(66, 1);
+      expect(logo.width).toBeCloseTo((30 * 72) / 25.4, 1);
+      expect(logo.height / logo.width).toBeCloseTo(LETTERHEAD_LOGO.height / LETTERHEAD_LOGO.width, 3);
+      expect(logo.y + logo.height).toBeLessThan(842 - 30);
+      for (const page of images.slice(1)) expect(page, template).toEqual([]);
+
+      // The contract starts under the letterhead.
+      const title = await baselineOf(pdf, 0, "CONTRACT FOR LEGAL SERVICES");
+      expect(title).toBeLessThan(logo.y - 10);
+    }
+  });
+
+  it("draws the firm's signature above the Second Party's line when it is given, and nothing when not", async () => {
+    const signature = await samplePng();
+    for (const template of TEMPLATES) {
+      const signed = await generateContractPdf(template, valuesFor(template), { signature });
+      const pages = await pageTexts(signed);
+      const at = pages.findIndex((page) => page.includes(SECOND_PARTY_SIGNATORY) && page.includes("The Second Party,"));
+      const images = await pageImages(signed);
+      expect(images.flat(), template).toHaveLength(2);
+      expect(images[at], template).toHaveLength(1);
+      const [drawn] = images[at];
+
+      // About 40 mm wide, aspect kept (600 x 200), set on the rule: above the name, below the label.
+      expect(drawn.width).toBeCloseTo((40 * 72) / 25.4, 1);
+      expect(drawn.width / drawn.height).toBeCloseTo(3, 3);
+      const name = (await baselineOf(signed, at, SECOND_PARTY_SIGNATORY)) ?? 0;
+      const label = (await baselineOf(signed, at, "The Second Party,")) ?? 0;
+      expect(drawn.y).toBeGreaterThan(name);
+      expect(drawn.y + drawn.height).toBeLessThan(label - 2);
+
+      // Without it, the logo alone; null and an empty file count as none.
+      for (const none of [undefined, null, new Uint8Array(0)]) {
+        const blank = await generateContractPdf(template, valuesFor(template), { signature: none });
+        expect((await pageImages(blank)).flat(), template).toHaveLength(1);
+      }
+    }
+  });
+
+  it("keeps the signed agreement within its page pin and its signature block on one page", async () => {
+    const signature = await samplePng(300, 300);
+    const limit: Record<ContractTemplate, number> = { nif: 11, bank: 11, package: 12, couple: 13 };
+    for (const template of TEMPLATES) {
+      const pdf = await generateContractPdf(template, valuesFor(template, MAXIMAL), { signature });
+      const pages = await pageTexts(pdf);
+      expect(pages.length, template).toBeLessThanOrEqual(limit[template] + 1);
+      const closing = pages.filter((page) => page.includes("Done in duplicate at Lisbon"));
+      expect(closing[0], template).toContain("For and on behalf of ALTTAVIA RELOCATION, Unipessoal Lda.");
+    }
+  });
+
+  it("refuses a signature file it cannot read, so the caller can go on without it", async () => {
+    await expect(generateContractPdf("nif", valuesFor("nif"), { signature: new Uint8Array([1, 2, 3, 4]) })).rejects.toThrow();
+  });
+
+  it("embeds a signature up to 600 x 300 pixels and refuses a larger one, which anyone holding the PDF could extract", async () => {
+    expect(FIRM_SIGNATURE_MAX_PIXELS).toEqual({ width: 600, height: 300 });
+    const fits = await generateContractPdf("nif", valuesFor("nif"), { signature: await samplePng(600, 300) });
+    expect((await pageImages(fits)).flat()).toHaveLength(2);
+
+    for (const [width, height] of [
+      [601, 200],
+      [400, 301],
+    ]) {
+      await expect(
+        generateContractPdf("nif", valuesFor("nif"), { signature: await samplePng(width, height) }),
+      ).rejects.toThrow(`is ${width} x ${height} pixels; at most 600 x 300`);
+    }
   });
 
   it("numbers every page and prints the reference on each", async () => {
@@ -368,6 +625,24 @@ describe("contract PDF", () => {
     expect(first).toContain('Reference: Order "xxx');
     expect(first).toContain("...");
     expect(first).toContain("Page 1 of");
+  });
+
+  it("marks every page of a specimen under the footer, and never moves the text for it", async () => {
+    const plain = await generateContractPdf("package", valuesFor("package"), { reference: "Order 7F3A9C1B" });
+    const specimen = await generateContractPdf("package", valuesFor("package"), { reference: "Order 7F3A9C1B", specimen: true });
+
+    const pages = await pageLines(specimen);
+    expect(pages).toHaveLength(await pageCount(plain));
+    pages.forEach((lines, i) => {
+      // Under the footer: the last line of the page.
+      expect(lines[lines.length - 1]).toBe(SPECIMEN_LINE);
+      expect(lines[lines.length - 2]).toContain(`Page ${i + 1} of ${pages.length}`);
+    });
+    // Everything above it is the plain agreement, line for line.
+    expect(pages.map((lines) => lines.slice(0, -1))).toEqual(await pageLines(plain));
+
+    for (const page of await pageTexts(plain)) expect(page).not.toContain(SPECIMEN_LINE);
+    expect(SPECIMEN_LINE).not.toMatch(/[–—]|\b(problem|trap|free|refund|money back)\b/i);
   });
 
   it("keeps the em dash, the curly apostrophe and the euro sign", async () => {

@@ -10,6 +10,8 @@ import { formatEuro } from "@/content/bank-nif";
 import { cn } from "@/lib/cn";
 import type { ServiceRow } from "@/lib/db/types";
 
+import { PayTermsNote } from "./pay-terms-note";
+
 /**
  * The purchase drawer: a `<dialog>` panel on the right edge, full height,
  * that slides in with what the wizard's result screen shows for a product
@@ -17,12 +19,15 @@ import type { ServiceRow } from "@/lib/db/types";
  * have ready) and ends on Confirm purchase.
  *
  * Confirm posts /api/orders with the service slug (every service is one unit
- * per purchase, so nothing else is sent), then /api/checkout for the order it
- * made, and sends the browser to Stripe. The server prices the order from the
- * service row; the drawer only names the slug. The button stays disabled
- * after a successful request, since the page is about to leave and a second
- * click would open a second order. The line under the button names the Terms
- * the purchase accepts and opens them in a new tab, so the drawer stays open.
+ * per purchase, so nothing else is sent), then /api/checkout with
+ * `{ userServiceId, acceptTerms: true }` for the order it made, and sends the
+ * browser to Stripe. The server prices the order from the service row; the
+ * drawer only names the slug. The button stays disabled after a successful
+ * request, since the page is about to leave and a second click would open a
+ * second order. The line under the button is the one every Pay button
+ * carries (pay-terms-note.tsx): the click accepts the service terms and the
+ * service agreement, the checkout route records that on the order, and
+ * "service terms" opens in a new tab so the drawer stays open.
  *
  * `showModal()` keeps focus inside natively and wires Esc, which arrives as
  * the `cancel` event and closes the same way the X and the backdrop do. The
@@ -31,13 +36,6 @@ import type { ServiceRow } from "@/lib/db/types";
  * the visitor prefers reduced motion, in which case it closes at once. The
  * dialog is `overflow-clip`, so only the inner body scrolls.
  */
-
-/**
- * The terms a purchase accepts: the service terms page (what is delivered,
- * on what timeline), which is what the firm's contracting terms will replace
- * or extend when they arrive.
- */
-const SERVICE_TERMS_PATH = "/en/service-terms";
 
 const PENDING_LABEL = "Opening secure checkout";
 const FALLBACK_ERROR = "Checkout could not be opened. Please try again.";
@@ -52,8 +50,6 @@ const copy = {
   reassurance:
     "Secure payment through Stripe. Your order appears on this dashboard right away, and you upload your documents there.",
   confirm: "Confirm purchase",
-  termsPrefix: "By purchasing you accept the",
-  termsLink: "Terms",
   notNow: "Not now",
   close: "Close",
 } as const;
@@ -75,6 +71,7 @@ export function PurchaseDrawer({
   const [error, setError] = useState<string | null>(null);
   const titleId = useId();
   const errorId = useId();
+  const termsId = useId();
 
   const price = formatEuro(service.price_cents);
   const includes = Array.isArray(service.includes) ? service.includes : [];
@@ -132,7 +129,11 @@ export function PurchaseDrawer({
     try {
       const order = await postJson<{ userServiceId?: unknown }>("/api/orders", { serviceSlug: service.slug });
       if (typeof order.userServiceId === "string") {
-        const checkout = await postJson<{ url?: unknown }>("/api/checkout", { userServiceId: order.userServiceId });
+        // The click is the acceptance of the terms line under the button.
+        const checkout = await postJson<{ url?: unknown }>("/api/checkout", {
+          userServiceId: order.userServiceId,
+          acceptTerms: true,
+        });
         if (typeof checkout.url === "string") url = checkout.url;
       }
     } catch (err) {
@@ -240,7 +241,7 @@ export function PurchaseDrawer({
             onClick={confirm}
             disabled={pending}
             aria-busy={pending}
-            aria-describedby={error ? errorId : undefined}
+            aria-describedby={error ? `${errorId} ${termsId}` : termsId}
             className="w-full"
           >
             <Lock className="size-4" aria-hidden />
@@ -251,18 +252,7 @@ export function PurchaseDrawer({
               {error}
             </p>
           )}
-          <p className="mt-3 text-center text-xs leading-relaxed text-navy-muted">
-            {copy.termsPrefix}{" "}
-            <a
-              href={SERVICE_TERMS_PATH}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-sm font-medium text-navy-soft underline-offset-4 transition-colors duration-200 hover:text-gold-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-            >
-              {copy.termsLink}
-            </a>
-            .
-          </p>
+          <PayTermsNote id={termsId} align="center" className="mt-3" />
           <Button type="button" size="md" variant="ghost" onClick={close} disabled={pending} className="mt-2 w-full">
             {copy.notNow}
           </Button>

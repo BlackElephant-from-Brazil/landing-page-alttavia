@@ -22,14 +22,28 @@
  *   admin-code the same admin account with a session from an emailed code
  *              instead of the password: the admin area must treat it as a
  *              client (src/lib/supabase/admin-user.ts).
+ *   admin-aal1 (2026-09-25, only when the admin column ran at aal2, see
+ *              below) the same account with a second password session
+ *              that never gave the authenticator code. The account has a
+ *              second factor, so the admin area must treat it as a client
+ *              too ("enrolled means required").
  *
- * After the routes, the same two admin sessions go straight to PostgREST with
- * the publishable key, the way anyone holding the token could, and read the
- * tables RLS guards (0011_admin_password_session.sql). The code session must
- * see only the admin account's own rows: anything more is a LEAK, since the
- * app treats that session as a client. The password session must see other
- * accounts' rows, or the admin pages (which read through RLS) go blank: warn.
- * A table the project does not have yet (a migration not applied) is noted.
+ * Second factor: when ADMIN_SUPPORT_TOTP_SECRET is in .env.local (written
+ * by `node scripts/admin-totp.mjs`), the admin column answers the factor's
+ * challenge right after signInWithPassword with a code computed by
+ * scripts/lib/totp.mjs, so it runs at aal2 the way Patrícia's browser does
+ * after the code step. Without the variable the admin column runs at aal1,
+ * which is refused as soon as the account has a factor or
+ * ADMIN_REQUIRE_MFA=1 is set on the server; the run says so.
+ *
+ * After the routes, the admin sessions go straight to PostgREST with the
+ * publishable key, the way anyone holding the token could, and read the
+ * tables RLS guards (0011_admin_password_session.sql, 0015_admin_mfa.sql).
+ * The code session and the aal1 session must see only the admin account's
+ * own rows: anything more is a LEAK, since the app treats those sessions as
+ * a client. The admin session must see other accounts' rows, or the admin
+ * pages (which read through RLS) go blank: warn. A table the project does
+ * not have yet (a migration not applied) is noted.
  *
  * Routes are discovered from the file tree (route.ts files, with the methods
  * each one exports), so a route added later is called too. Known routes have
@@ -51,8 +65,11 @@
  * way @supabase/ssr stores them: sb-<ref>-auth-token, value "base64-" plus
  * the base64url JSON of the session, split into .0, .1, ... past 3180
  * characters. Clients: auth.admin.generateLink (magiclink, which sends no
- * email) then verifyOtp with its token hash. Admin: signInWithPassword.
- * Tokens and presigned URLs are never printed.
+ * email) then verifyOtp with its token hash. Admin: signInWithPassword, then
+ * challengeAndVerify when the TOTP secret is set. Verifying a factor signs
+ * the account's aal1 sessions out, so the admin's code and aal1 sessions
+ * are opened after it. Tokens, secrets, codes and presigned URLs are never
+ * printed.
  *
  * How a cell reads: the HTTP status, then
  *   (nothing)  as expected
@@ -66,8 +83,8 @@
  *
  * Reads .env.local (the readEnvFile pattern of scripts/stripe-setup.mjs):
  * NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
- * SUPABASE_SECRET_KEY, and optionally ADMIN_SUPPORT_EMAIL and
- * ADMIN_SUPPORT_PASSWORD.
+ * SUPABASE_SECRET_KEY, and optionally ADMIN_SUPPORT_EMAIL,
+ * ADMIN_SUPPORT_PASSWORD and ADMIN_SUPPORT_TOTP_SECRET.
  */
 
 import { randomUUID } from "node:crypto";
@@ -76,6 +93,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, relative, sep } from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
+
+import { secondsLeft, totp } from "./lib/totp.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const API_DIR = join(ROOT, "src", "app", "api");
@@ -200,6 +219,38 @@ async function codeSession(admin, publicClient, email) {
   return verified.data.session;
 }
 
+/**
+ * Raises a password session to aal2 the way the login's code step does:
+ * challengeAndVerify on the account's TOTP factor with a code computed from
+ * the secret. Waits for a fresh 30 second step when the current one is
+ * about to end, and tries the next step once on a refusal (clock skew).
+ * Answers { session } at aal2, or { note } saying why the admin column
+ * stays at aal1. Never prints the secret or a code.
+ */
+async function raiseToAal2(client, secret) {
+  const listed = await client.auth.mfa.listFactors();
+  if (listed.error) return { note: `could not list the admin's factors (${listed.error.code ?? listed.error.message})` };
+  const factor = listed.data.totp[0];
+  if (!factor) {
+    return { note: "ADMIN_SUPPORT_TOTP_SECRET is set but the support admin has no factor (node scripts/admin-totp.mjs)" };
+  }
+  const attempt = () => client.auth.mfa.challengeAndVerify({ factorId: factor.id, code: totp(secret) });
+  const wait = () => new Promise((resolve) => setTimeout(resolve, secondsLeft() * 1000 + 250));
+  try {
+    if (secondsLeft() < 3) await wait();
+    let result = await attempt();
+    if (result.error && result.error.code !== "over_request_rate_limit") {
+      await wait();
+      result = await attempt();
+    }
+    if (result.error) return { note: `the authenticator code was refused (${result.error.code ?? "refused"}); is ADMIN_SUPPORT_TOTP_SECRET current?` };
+  } catch (error) {
+    return { note: `could not compute the authenticator code (${error.message})` };
+  }
+  const { data } = await client.auth.getSession();
+  return data.session ? { session: data.session } : { note: "no session after the authenticator code" };
+}
+
 // ---------------------------------------------------------------------------
 // Fixtures: ids from the demo data
 // ---------------------------------------------------------------------------
@@ -238,10 +289,23 @@ async function fixturesFor(admin, email) {
     contractOrder: contract ? orders.find((o) => o.id === contract.user_service_id) : null,
     document: live.find((d) => d.status === "uploaded") ?? live[0] ?? null,
     deliverable: deliverables.find((d) => d.status === "ready") ?? null,
-    deedDoc: paidOrder ? serviceDocs.find((d) => d.service_id === paidOrder.service_id && d.template) ?? null : null,
+    deedDoc: paidOrder ? deedDocFor(serviceDocs, paidOrder.service_id) : null,
     applicant: paidOrder ? applicants.find((a) => a.user_service_id === paidOrder.id && a.applicant_index === 0) ?? null : null,
     serviceId: paidOrder?.service_id ?? orders[0]?.service_id ?? null,
   };
+}
+
+/**
+ * A deed slot of the service, for the deed route's probes. Deeds only: since
+ * 0013 a slot may carry 'agreement', which the deed route answers 404. A
+ * per applicant deed first, because the probes ask for `?applicant=0` and the
+ * couple's joint bank deed (0016) needs both people's details.
+ */
+function deedDocFor(serviceDocs, serviceId) {
+  const deeds = serviceDocs.filter(
+    (d) => d.service_id === serviceId && (d.template === "poa_nif" || d.template === "poa_bank"),
+  );
+  return deeds.find((d) => d.per_applicant) ?? deeds[0] ?? null;
 }
 
 const APPLICANT_FIELDS = [
@@ -299,6 +363,16 @@ function knownProbes(fx) {
   const adminRoute = (options) => options;
 
   return {
+    // --- Public routes -----------------------------------------------------
+    "GET /api/health": {
+      // The uptime check: public on purpose, answers every caller the same.
+      public: true,
+      own: () => ({ path: "/api/health", expect: [200] }),
+      anon: () => ({ path: "/api/health", expect: [200] }),
+      other: null,
+      admin: () => ({ path: "/api/health", expect: [200] }),
+    },
+
     // --- Client routes -----------------------------------------------------
     "POST /api/apply/submit": {
       own: () => ({ path: "/api/apply/submit", ...json({ answers: {} }), expect: [422] }),
@@ -315,10 +389,13 @@ function knownProbes(fx) {
       admin: "skip: would end the admin's sessions everywhere",
     },
     "POST /api/checkout": {
-      own: () => ({ path: "/api/checkout", ...json({ userServiceId: id(A.paidOrder) }), expect: [409] }),
-      anon: () => ({ path: "/api/checkout", ...json({ userServiceId: id(A.paidOrder) }), expect: [401] }),
-      other: () => ({ path: "/api/checkout", ...json({ userServiceId: id(B.paidOrder) }), expect: [403] }),
-      admin: () => ({ path: "/api/checkout", ...json({ userServiceId: id(A.paidOrder) }), expect: [403] }),
+      // acceptTerms: true since 0014; without it every caller with a session gets 422 before
+      // anything is read. The paid and owner checks come before the acceptance is written,
+      // so none of these probes stamps a demo order.
+      own: () => ({ path: "/api/checkout", ...json({ userServiceId: id(A.paidOrder), acceptTerms: true }), expect: [409] }),
+      anon: () => ({ path: "/api/checkout", ...json({ userServiceId: id(A.paidOrder), acceptTerms: true }), expect: [401] }),
+      other: () => ({ path: "/api/checkout", ...json({ userServiceId: id(B.paidOrder), acceptTerms: true }), expect: [403] }),
+      admin: () => ({ path: "/api/checkout", ...json({ userServiceId: id(A.paidOrder), acceptTerms: true }), expect: [403] }),
     },
     "GET /api/deliverables/[id]": {
       own: () => ({ path: `/api/deliverables/${id(A.deliverable)}`, expect: ["redirect"] }),
@@ -479,6 +556,12 @@ function knownProbes(fx) {
       own: () => ({ path: `/api/admin/orders/${id(A.paidOrder)}/stage`, ...RAW }),
       other: () => ({ path: `/api/admin/orders/${id(B.paidOrder)}/stage`, ...RAW }),
       admin: () => ({ path: `/api/admin/orders/${id(A.paidOrder)}/stage`, ...RAW, expect: [400] }),
+    }),
+    "POST /api/admin/mfa-event": adminRoute({
+      // A body that is not JSON: refused before Supabase Auth is asked, and no audit line is written.
+      own: () => ({ path: "/api/admin/mfa-event", ...RAW }),
+      other: null,
+      admin: () => ({ path: "/api/admin/mfa-event", ...RAW, expect: [400] }),
     }),
     "POST /api/admin/password": adminRoute({
       own: () => ({ path: "/api/admin/password", ...RAW }),
@@ -664,9 +747,11 @@ const RLS_TABLES = [
 
 /**
  * Reads each table with the secret key (the truth), with the admin's code
- * session and with the admin's password session, both through PostgREST
- * with the publishable key. Counts only; no row is printed. Answers the
- * lines to print and the findings, in the route table's finding format.
+ * session, with the admin's password session (aal2 when the TOTP secret is
+ * set) and, when it was opened, with the admin's second password session
+ * at aal1, all through PostgREST with the publishable key. Counts only; no
+ * row is printed. Answers the lines to print and the findings, in the route
+ * table's finding format.
  */
 async function rlsProbe(url, publishable, secretClient, sessions, adminId) {
   const { data: ownOrders, error: ownError } = await secretClient.from("user_services").select("id").eq("user_id", adminId);
@@ -679,6 +764,7 @@ async function rlsProbe(url, publishable, secretClient, sessions, adminId) {
     });
   const codeClient = asSession(sessions.adminCode);
   const passwordClient = asSession(sessions.admin);
+  const aal1Client = sessions.adminAal1 ? asSession(sessions.adminAal1) : null;
 
   const rows = [];
   const findings = [];
@@ -686,7 +772,8 @@ async function rlsProbe(url, publishable, secretClient, sessions, adminId) {
     const truth = await secretClient.from(spec.table).select(spec.columns).limit(PROBE_ROWS);
     if (truth.error) {
       const missing = truth.error.code === "PGRST205" || /could not find the table/i.test(truth.error.message);
-      rows.push([spec.table, "-", "-", "-", `not checked: ${missing ? "no such table (migration not applied?)" : truth.error.message.slice(0, 60)}`]);
+      const dashes = aal1Client ? ["-", "-", "-", "-"] : ["-", "-", "-"];
+      rows.push([spec.table, ...dashes, `not checked: ${missing ? "no such table (migration not applied?)" : truth.error.message.slice(0, 60)}`]);
       continue;
     }
     const foreign = (data) => (data ?? []).filter((row) => !spec.own(row, mine)).length;
@@ -695,6 +782,8 @@ async function rlsProbe(url, publishable, secretClient, sessions, adminId) {
     const password = await passwordClient.from(spec.table).select(spec.columns).limit(PROBE_ROWS);
     const codeSeen = code.error ? null : foreign(code.data);
     const passwordSeen = password.error ? null : foreign(password.data);
+    const aal1 = aal1Client ? await aal1Client.from(spec.table).select(spec.columns).limit(PROBE_ROWS) : null;
+    const aal1Seen = !aal1 || aal1.error ? null : foreign(aal1.data);
 
     let verdict = "";
     if (codeSeen) {
@@ -703,7 +792,15 @@ async function rlsProbe(url, publishable, secretClient, sessions, adminId) {
         `LEAK PostgREST ${spec.table} as adminCode: ${codeSeen} row(s) of other accounts ` +
           "(expected none; is 0011_admin_password_session.sql applied?)",
       );
-    } else if (total > 0 && !passwordSeen) {
+    }
+    if (aal1Seen) {
+      verdict = "LEAK";
+      findings.push(
+        `LEAK PostgREST ${spec.table} as adminAal1: ${aal1Seen} row(s) of other accounts ` +
+          "(expected none: the account has a second factor; is 0015_admin_mfa.sql applied?)",
+      );
+    }
+    if (!verdict && total > 0 && !passwordSeen) {
       verdict = "warn";
       findings.push(
         `warn PostgREST ${spec.table} as admin: ${passwordSeen === null ? `error: ${password.error.message.slice(0, 80)}` : "no row of other accounts"}` +
@@ -714,6 +811,7 @@ async function rlsProbe(url, publishable, secretClient, sessions, adminId) {
       spec.table,
       String(total),
       codeSeen === null ? "refused" : String(codeSeen),
+      ...(aal1Client ? [aal1Seen === null ? "refused" : String(aal1Seen)] : []),
       passwordSeen === null ? "refused" : String(passwordSeen),
       verdict,
     ]);
@@ -767,11 +865,15 @@ async function main() {
 
   const adminEmail = env("ADMIN_SUPPORT_EMAIL");
   const adminPassword = env("ADMIN_SUPPORT_PASSWORD");
+  const totpSecret = env("ADMIN_SUPPORT_TOTP_SECRET");
   let adminNote = "";
-  /** The two admin sessions, kept for the PostgREST probe after the routes. */
+  /** Why the admin column runs at aal1, or the aal1 column is missing; the columns still run. */
+  let mfaNote = "";
+  /** The admin sessions, kept for the PostgREST probe after the routes. */
   const adminSessions = {};
   if (adminEmail && adminPassword) {
-    const signIn = await authClient(url, publishable).auth.signInWithPassword({ email: adminEmail, password: adminPassword });
+    const adminClient = authClient(url, publishable);
+    const signIn = await adminClient.auth.signInWithPassword({ email: adminEmail, password: adminPassword });
     if (signIn.error || !signIn.data.session) {
       adminNote = `admin columns skipped: password sign in failed (${signIn.error?.message ?? "no session"})`;
     } else {
@@ -780,25 +882,58 @@ async function main() {
         adminNote = "admin columns skipped: ADMIN_SUPPORT_EMAIL is not an admin account";
         await admin.auth.admin.signOut(signIn.data.session.access_token, "local").catch(() => undefined);
       } else {
-        opened.push(signIn.data.session);
-        cookies.admin = sessionCookie(url, signIn.data.session);
+        // The second factor first: verifying it signs the account's aal1
+        // sessions out, so the code and aal1 sessions come after it.
+        let adminSession = signIn.data.session;
+        let atAal2 = false;
+        const enrolled = (signIn.data.user.factors ?? []).some((factor) => factor.status === "verified");
+        if (totpSecret) {
+          const raised = await raiseToAal2(adminClient, totpSecret);
+          if (raised.session) {
+            adminSession = raised.session;
+            atAal2 = true;
+          } else {
+            mfaNote = `admin column runs at aal1: ${raised.note}`;
+          }
+        } else if (enrolled) {
+          mfaNote =
+            "admin column runs at aal1: the support admin has a second factor but ADMIN_SUPPORT_TOTP_SECRET is not in .env.local " +
+            "(node scripts/admin-totp.mjs --unenrol, then node scripts/admin-totp.mjs)";
+        }
+        opened.push(adminSession);
+        cookies.admin = sessionCookie(url, adminSession);
         const adminCode = await codeSession(admin, publicClient, adminEmail);
         opened.push(adminCode);
         cookies.adminCode = sessionCookie(url, adminCode);
-        adminSessions.admin = signIn.data.session;
+        adminSessions.admin = adminSession;
         adminSessions.adminCode = adminCode;
         adminSessions.userId = signIn.data.user.id;
+        if (atAal2) {
+          // A second password session that never gives the code: aal1 on an enrolled account.
+          const second = await authClient(url, publishable).auth.signInWithPassword({ email: adminEmail, password: adminPassword });
+          if (second.error || !second.data.session) {
+            mfaNote = `admin-aal1 column skipped: second password sign in failed (${second.error?.message ?? "no session"})`;
+          } else {
+            opened.push(second.data.session);
+            cookies.adminAal1 = sessionCookie(url, second.data.session);
+            adminSessions.adminAal1 = second.data.session;
+          }
+        }
       }
     }
   } else {
     adminNote = "admin columns skipped: ADMIN_SUPPORT_EMAIL and ADMIN_SUPPORT_PASSWORD are not in .env.local";
   }
   if (adminNote) console.warn(`\n  ! ${adminNote}`);
+  if (mfaNote) console.warn(`\n  ! ${mfaNote}`);
 
   // --- Plan -------------------------------------------------------------------
   const routes = discoverRoutes();
   const known = knownProbes(fx);
-  const roles = ["anon", "own", "other", "admin", "adminCode"];
+  /** Admin account sessions the app must treat as a client: an emailed code, and a password without the code. */
+  const LIMITED = new Set(["adminCode", "adminAal1"]);
+  const roles = ["anon", "own", "other", "admin", "adminCode", ...(cookies.adminAal1 ? ["adminAal1"] : [])];
+  const LABELS = { adminCode: "admin-code", adminAal1: "admin-aal1" };
   const plan = routes.map((route) => {
     const key = `${route.method} ${route.path}`;
     const spec = known[key] ?? genericProbe(route, fx);
@@ -814,15 +949,16 @@ async function main() {
   for (const { route, key, spec } of plan) {
     const cells = {};
     for (const role of roles) {
-      // anon defaults to the owner's probe; admin-code, a client session on the admin's account, to the admin's.
+      // anon defaults to the owner's probe; admin-code and admin-aal1, client sessions on the admin's account, to the admin's.
       const probeFn = {
         anon: spec.anon ?? spec.own,
         own: spec.own,
         other: spec.other,
         admin: spec.admin,
         adminCode: spec.adminCode ?? spec.admin,
+        adminAal1: spec.adminCode ?? spec.admin,
       }[role];
-      if ((role === "admin" || role === "adminCode") && !cookies.admin) {
+      if ((role === "admin" || LIMITED.has(role)) && !cookies.admin) {
         cells[role] = { text: "skip" };
         continue;
       }
@@ -841,13 +977,14 @@ async function main() {
       let expect = probe.expect ?? null;
       if (isAdminRoute && role === "anon") expect = [401];
       if (isAdminRoute && (role === "own" || role === "other")) expect = [403];
-      if (isAdminRoute && role === "adminCode") expect = [401, 403];
-      if (role === "adminCode" && !isAdminRoute) expect = namesAnasRows ? ["denied"] : (probe.expect ?? null);
+      const limited = LIMITED.has(role);
+      if (isAdminRoute && limited) expect = [401, 403];
+      if (limited && !isAdminRoute) expect = namesAnasRows ? ["denied"] : (probe.expect ?? null);
       const guarded =
         (role === "anon" && !spec.public) ||
         role === "other" ||
-        (isAdminRoute && (role === "own" || role === "adminCode")) ||
-        (role === "adminCode" && namesAnasRows);
+        (isAdminRoute && (role === "own" || limited)) ||
+        (limited && namesAnasRows);
       const result = await call(route.method, probe, cookies[role]);
       const verdict = judge(result, expect, guarded);
       cells[role] = { text: `${result.status || "ERR"}${verdict ? ` ${verdict}` : ""}`, verdict, result, expect };
@@ -868,7 +1005,7 @@ async function main() {
   }
 
   // --- Table ------------------------------------------------------------------
-  const headers = ["route", "method", "anon", "own", "other", "admin", "admin-code"];
+  const headers = ["route", "method", ...roles.map((role) => LABELS[role] ?? role)];
   const rows = results
     .sort((a, b) => a.route.path.localeCompare(b.route.path) || METHODS.indexOf(a.route.method) - METHODS.indexOf(b.route.method))
     .map(({ route, spec, cells }) => [
@@ -883,7 +1020,14 @@ async function main() {
   for (const row of rows) console.log(line(row));
 
   if (rls) {
-    const rlsHeaders = ["PostgREST table", "others' rows", "admin-code sees", "admin sees", ""];
+    const rlsHeaders = [
+      "PostgREST table",
+      "others' rows",
+      "admin-code sees",
+      ...(adminSessions.adminAal1 ? ["admin-aal1 sees"] : []),
+      "admin sees",
+      "",
+    ];
     const rlsWidths = rlsHeaders.map((h, i) => Math.max(h.length, ...rls.rows.map((r) => String(r[i]).length)));
     const rlsLine = (cols) => cols.map((c, i) => String(c).padEnd(rlsWidths[i])).join("  ").trimEnd();
     console.log(`\n${rlsLine(rlsHeaders)}`);
@@ -913,6 +1057,7 @@ async function main() {
   if (generic.length) console.log(`\n* generic probe (no probe written for it yet): ${generic.join(", ")}`);
   if (skips.size) console.log(`\nskipped:\n  ${[...skips].join("\n  ")}`);
   if (adminNote) console.log(`\n${adminNote}`);
+  if (mfaNote) console.log(`\n${mfaNote}`);
   if (findings.length) console.log(`\nfindings:\n  ${findings.join("\n  ")}`);
 
   const leaks = findings.filter((f) => f.startsWith("LEAK")).length;

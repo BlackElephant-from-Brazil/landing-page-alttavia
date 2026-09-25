@@ -4,6 +4,7 @@ import { Pencil } from "lucide-react";
 import { formatEuro } from "@/content/bank-nif";
 import { cn } from "@/lib/cn";
 import type { ContractTemplate, ServiceWithConfig } from "@/lib/db/types";
+import { isDeedTemplate } from "@/lib/documents/templates";
 
 import { tableCopy as copy } from "./copy";
 import { CONTRACT_TEMPLATE_LABELS } from "./editor-model";
@@ -80,7 +81,8 @@ export function ServiceTable({ services }: { services: ServiceWithConfig[] }) {
                 <td className={cn(cellClass, "text-right tabular-nums")}>{service.stages.length}</td>
                 <td className={cn(cellClass, "text-right tabular-nums")}>
                   {service.docs.length}
-                  <DeedsHint count={service.docs.filter((d) => d.template).length} />
+                  {/* Deeds only: the signed agreement slot (0013) is not a deed the platform fills in. */}
+                  <DeedsHint count={service.docs.filter((d) => isDeedTemplate(d.template)).length} />
                 </td>
                 <td className={cn(cellClass, "text-right")}>
                   <Link

@@ -1,5 +1,6 @@
 import { EyebrowSolo } from "@/components/ui/eyebrow";
 import type { ServiceDocRow, UserDocumentRow, UserServiceApplicantRow, UserServiceRow } from "@/lib/db/types";
+import { isJointDeed } from "@/lib/poa/joint";
 
 import { latestDocument } from "../order-status";
 import { DocumentSlot, type SlotDocument } from "./document-slot";
@@ -24,6 +25,18 @@ import { DocumentSlot, type SlotDocument } from "./document-slot";
  * may be replaced or removed there, and once the order moves on the slot
  * takes nothing at all, empty or rejected included. The routes answer to the
  * same rule.
+ *
+ * The signed agreement slot (`template` 'agreement', 0013) also gets
+ * `contractReady`, one boolean the order view derives from its contract row
+ * (never the row, whose printed variables stay on the server): the slot
+ * opens the agreement only once it exists. It is not per applicant, so on a
+ * couple order it sits under "For both of you" and asks both to sign the one
+ * paper.
+ *
+ * The couple's joint bank deed (isJointDeed, migration 0016) is shared as
+ * well, so it too sits under "For both of you", as one slot. It gets `joint`
+ * and applicant 1's row as `partner` beside applicant 0's, because the one
+ * deed names both people and asks for both sets of details.
  */
 
 type Props = {
@@ -32,6 +45,8 @@ type Props = {
   uploaded: UserDocumentRow[];
   /** The principal's details entered so far, by applicant index; empty until the first deed is prepared. */
   applicants?: UserServiceApplicantRow[];
+  /** The order's service agreement has been prepared, so the signed agreement slot can open it. */
+  contractReady?: boolean;
 };
 
 type Slot = {
@@ -40,12 +55,15 @@ type Slot = {
   current?: SlotDocument;
   /** The details for this slot's applicant, on a deed slot; null until entered, and on ordinary slots. */
   applicant: UserServiceApplicantRow | null;
+  /** The joint deed names both people: one slot, applicant 0's row above and applicant 1's here. */
+  joint: boolean;
+  partner: UserServiceApplicantRow | null;
 };
 
 const APPLICANT_LABELS = ["You", "Your partner"] as const;
 const SHARED_LABEL = "For both of you";
 
-export function DocumentList({ order, docs, uploaded, applicants: applicantRows = [] }: Props) {
+export function DocumentList({ order, docs, uploaded, applicants: applicantRows = [], contractReady = false }: Props) {
   const applicants = order.applicants === 2 ? 2 : 1;
   const slots = buildSlots(docs, uploaded, applicants, applicantRows);
   const received = slots.filter((s) => s.current?.status === "uploaded" || s.current?.status === "approved").length;
@@ -79,32 +97,42 @@ export function DocumentList({ order, docs, uploaded, applicants: applicantRows 
               heading={heading}
               order={order}
               slots={slots.filter((s) => s.doc.per_applicant && s.applicantIndex === index)}
+              contractReady={contractReady}
             />
           ))}
-          <Group heading={SHARED_LABEL} order={order} slots={slots.filter((s) => !s.doc.per_applicant)} />
+          <Group
+            heading={SHARED_LABEL}
+            order={order}
+            slots={slots.filter((s) => !s.doc.per_applicant)}
+            contractReady={contractReady}
+          />
         </div>
       ) : (
-        <SlotList order={order} slots={slots} className="mt-6" />
+        <SlotList order={order} slots={slots} contractReady={contractReady} className="mt-6" />
       )}
     </section>
   );
 }
 
-function Group({ heading, order, slots }: { heading: string; order: UserServiceRow; slots: Slot[] }) {
+type GroupProps = { heading: string; order: UserServiceRow; slots: Slot[]; contractReady: boolean };
+
+function Group({ heading, order, slots, contractReady }: GroupProps) {
   if (slots.length === 0) return null;
   return (
     <div>
       <h3 className="text-xs font-medium uppercase tracking-[0.18em] text-gold-dark">{heading}</h3>
-      <SlotList order={order} slots={slots} className="mt-3" />
+      <SlotList order={order} slots={slots} contractReady={contractReady} className="mt-3" />
     </div>
   );
 }
 
-function SlotList({ order, slots, className }: { order: UserServiceRow; slots: Slot[]; className?: string }) {
+type SlotListProps = { order: UserServiceRow; slots: Slot[]; contractReady: boolean; className?: string };
+
+function SlotList({ order, slots, contractReady, className }: SlotListProps) {
   const twoApplicants = order.applicants === 2;
   return (
     <ul className={`${className ?? ""} space-y-4`.trim()}>
-      {slots.map(({ doc, applicantIndex, current, applicant }) => (
+      {slots.map(({ doc, applicantIndex, current, applicant, joint, partner }) => (
         <DocumentSlot
           // The key carries the latest row and its status, so a slot mounts
           // fresh when a refresh brings a new upload or a review back.
@@ -124,6 +152,12 @@ function SlotList({ order, slots, className }: { order: UserServiceRow; slots: S
           template={doc.template}
           applicant={applicant}
           applicantLabel={twoApplicants && doc.per_applicant ? APPLICANT_LABELS[applicantIndex] : undefined}
+          // Read by the signed agreement slot only: whether the agreement
+          // exists to be opened, and whether two people sign the one paper.
+          contractReady={contractReady}
+          bothSign={twoApplicants && !doc.per_applicant}
+          joint={joint}
+          partner={partner}
         />
       ))}
     </ul>
@@ -141,6 +175,7 @@ function buildSlots(
   const slots: Slot[] = [];
   for (const doc of sorted) {
     const count = doc.per_applicant ? applicants : 1;
+    const joint = isJointDeed(doc, applicants);
     for (let index = 0; index < count; index++) {
       const applicantIndex = index as 0 | 1;
       const latest = latestDocument(uploaded, doc.id, applicantIndex);
@@ -156,6 +191,8 @@ function buildSlots(
             }
           : undefined,
         applicant: doc.template ? (applicantRows.find((row) => row.applicant_index === applicantIndex) ?? null) : null,
+        joint,
+        partner: joint ? (applicantRows.find((row) => row.applicant_index === 1) ?? null) : null,
       });
     }
   }

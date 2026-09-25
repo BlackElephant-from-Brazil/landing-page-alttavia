@@ -329,6 +329,37 @@ describe("POST /api/documents/upload-url", () => {
     expect(ids()).toEqual([EXISTING]);
   });
 
+  it("keeps the signed agreement slot closed until the order has an agreement to sign", async () => {
+    seed([]);
+    tables.service_docs = [{ ...doc, key: "signed_agreement", template: "agreement" }];
+
+    const response = await ask("application/pdf", "signed agreement.pdf");
+
+    expect(response.status).toBe(409);
+    expect(await errorOf(response)).toBe("Your agreement is not ready yet. Confirm your details first.");
+    expect(presignUpload).not.toHaveBeenCalled();
+    expect(ids()).toEqual([]);
+  });
+
+  it("opens the signed agreement slot once the agreement exists", async () => {
+    seed([]);
+    tables.service_docs = [{ ...doc, key: "signed_agreement", template: "agreement" }];
+    tables.user_service_contracts = [{ id: "contract-1", user_service_id: ORDER_ID, version: 1 }];
+
+    const response = await ask("application/pdf", "signed agreement.pdf");
+
+    expect(response.status).toBe(200);
+    expect(tables.user_documents).toHaveLength(1);
+  });
+
+  it("never asks for an agreement on an ordinary slot or a deed", async () => {
+    for (const template of [null, "poa_nif"] as const) {
+      seed([]);
+      tables.service_docs = [{ ...doc, template }];
+      expect((await ask()).status).toBe(200);
+    }
+  });
+
   it("refuses a new file for an approved slot", async () => {
     seed([existing("approved")]);
 

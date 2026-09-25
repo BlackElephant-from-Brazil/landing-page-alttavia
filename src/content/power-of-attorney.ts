@@ -15,6 +15,17 @@
  * Nothing here is legal drafting on our part. Treat the wording as fixed and
  * send any change back to the firm. The one house choice is how a date is
  * spelled out (formatDeedDate), which the models leave free form.
+ *
+ * One exception, and it is ours: the JOINT BANK DEED (2026-09-25). The
+ * couple package opens one joint account, and the firm asked for one bank
+ * power of attorney carrying the data of both persons, signed by both, with
+ * no new wording for clause d). The firm has no Word model for it, so the
+ * plural forms it needs (constituem, conferem, dos outorgantes, their, the
+ * Principals…) are our reading of the bank model, collected in JOINT_VOICE
+ * and jointOpening() below. THE FIRM MUST READ THEM before a couple signs
+ * one: `npm run poa:preview -- --bank --joint --filled` prints the deed.
+ * The single deeds are built from the same functions and print exactly the
+ * words they printed before.
  */
 
 import { lisbonCalendarDate } from "@/lib/dates/lisbon";
@@ -61,6 +72,18 @@ export type PrincipalDetails = {
   taxAddress?: string;
 };
 
+/**
+ * The two persons of the couple's joint bank deed, in applicant order: the
+ * first is named first in the deed and signs first. Only the bank deed takes
+ * them; a NIF is personal, so each person signs their own NIF deed.
+ */
+export type JointPrincipals = readonly [PrincipalDetails, PrincipalDetails];
+
+/** True for the pair the joint bank deed takes, false for one principal. */
+export function isJointPrincipals(value: PrincipalDetails | JointPrincipals): value is JointPrincipals {
+  return Array.isArray(value);
+}
+
 /** Date the deed is signed. Empty parts print the model's placeholders. */
 export type SigningDate = {
   day?: string;
@@ -74,6 +97,7 @@ export type PoaBlock =
   | { kind: "paragraph"; pt: string; en: string }
   /** A granted power. `number` is the label the model uses: "1)" or "a)". */
   | { kind: "item"; number: string; pt: string; en: string }
+  /** A line to sign on, the principal's name printed under it. The joint bank deed ends with two, one per person. */
   | { kind: "signature"; name: string };
 
 type Lang = "pt" | "en";
@@ -187,38 +211,149 @@ function fieldsFor(principal: PrincipalDetails, signedOn: SigningDate): Fields {
 }
 
 // ---------------------------------------------------------------------------
+// One principal or two: the words that change with the number
+// ---------------------------------------------------------------------------
+
+/**
+ * Every word of the deeds that depends on how many principals grant the
+ * power. The single deeds take singleVoice(), which is the models' own
+ * wording with the one principal's gendered English words; the couple's
+ * joint bank deed takes JOINT_VOICE.
+ */
+type Voice = {
+  /** PT opening: "constitui" a sua bastante procuradora. */
+  constitui: string;
+  /** PT opening: à qual "confere" os poderes especiais. */
+  confere: string;
+  /** PT clauses a) and e) and the declaration: em nome "do outorgante". */
+  doOutorgante: string;
+  /** PT declaration, first sentence: "Declara o Mandante", de forma expressa. */
+  declaraOMandante: string;
+  /** PT declaration, second sentence: "Mais declara" que. */
+  maisDeclara: string;
+  /** EN opening: hereby "appoints" as. */
+  appoints: string;
+  /** EN possessive: "her", "his", "his/her"; "their" for two. */
+  his: string;
+  /** EN opening: to whom "she grants". */
+  heGrants: string;
+  /** EN clause a): in the name of the "principal". */
+  principal: string;
+  /** EN clause e) and the declaration: the "Principal". */
+  Principal: string;
+  /** EN declaration: of the "Principal’s" assets. */
+  PrincipalPossessive: string;
+  /** EN declaration: The Principal expressly "declares". */
+  declares: string;
+};
+
+/** The models' own words, for the one principal a deed names. */
+function singleVoice(f: Fields): Voice {
+  return {
+    constitui: "constitui",
+    confere: "confere",
+    doOutorgante: "do outorgante",
+    declaraOMandante: "Declara o Mandante",
+    maisDeclara: "Mais declara",
+    appoints: "appoints",
+    his: f.his,
+    heGrants: `${f.he} grants`,
+    principal: "principal",
+    Principal: "Principal",
+    PrincipalPossessive: "Principal’s",
+    declares: "declares",
+  };
+}
+
+/**
+ * ============================================================================
+ * OUR WORDING, NOT THE FIRM'S. TO BE READ AND APPROVED BY THE FIRM.
+ * ============================================================================
+ *
+ * The plural of the bank model, for the couple's one deed with two
+ * principals (2026-09-25). The firm asked for the data of both persons and
+ * both signatures, with clause d) unchanged, and has no Word model for it.
+ * Everything else in the joint deed is the bank model word for word; these
+ * swaps, the "e" / "and" that joins the two identification clauses in
+ * jointOpening, and the second signature line are the whole difference.
+ * "A sua bastante procuradora" and "em seu nome e representação" read
+ * correctly for two and stay as the model has them.
+ */
+const JOINT_VOICE: Voice = {
+  constitui: "constituem",
+  confere: "conferem",
+  doOutorgante: "dos outorgantes",
+  declaraOMandante: "Declaram os Mandantes",
+  maisDeclara: "Mais declaram",
+  appoints: "appoint",
+  his: "their",
+  heGrants: "they grant",
+  principal: "principals",
+  Principal: "Principals",
+  PrincipalPossessive: "Principals’",
+  declares: "declare",
+};
+
+// ---------------------------------------------------------------------------
 // The deeds
 // ---------------------------------------------------------------------------
 
-/** The identification paragraph, identical in both models. */
-function opening(f: Fields): PoaBlock {
+/** One principal as the identification paragraph names them, in Portuguese, up to the tax address. */
+function identityPt(f: Fields): string {
+  return (
+    `${f.text("fullName", "pt")}, ${f.born} em ${f.text("birthPlace", "pt")}, em ` +
+    `${f.text("birthDate", "pt")}, maior de idade, titular do passaporte n.º ` +
+    `${f.text("passportNumber", "pt")}, emitido por ${f.text("passportIssuer", "pt")} em ` +
+    `${f.text("passportIssueDate", "pt")}, válido até ${f.text("passportExpiryDate", "pt")}, ` +
+    `residente fiscal em ${f.text("taxAddress", "pt")}`
+  );
+}
+
+/** The same clause in English. */
+function identityEn(f: Fields): string {
+  return (
+    `${f.text("fullName", "en")}, born in ${f.text("birthPlace", "en")}, on ` +
+    `${f.text("birthDate", "en")}, of legal age, holder of passport no. ` +
+    `${f.text("passportNumber", "en")}, issued by ${f.text("passportIssuer", "en")} on ` +
+    `${f.text("passportIssueDate", "en")}, valid until ${f.text("passportExpiryDate", "en")}, ` +
+    `tax resident at ${f.text("taxAddress", "en")}`
+  );
+}
+
+/**
+ * The principals as the opening names them. One: the model's clause. Two
+ * (OURS, see JOINT_VOICE): both clauses, each with its own nascida or
+ * nascido, joined with ", e " in Portuguese and ", and " in English.
+ */
+function jointOpening(people: readonly Fields[]): { pt: string; en: string } {
+  return {
+    pt: people.map(identityPt).join(", e "),
+    en: people.map(identityEn).join(", and "),
+  };
+}
+
+/** The identification paragraph, identical in both models; see jointOpening for two principals. */
+function opening(people: readonly Fields[], v: Voice): PoaBlock {
+  const who = jointOpening(people);
   return {
     kind: "paragraph",
     pt:
-      `${f.text("fullName", "pt")}, ${f.born} em ${f.text("birthPlace", "pt")}, em ` +
-      `${f.text("birthDate", "pt")}, maior de idade, titular do passaporte n.º ` +
-      `${f.text("passportNumber", "pt")}, emitido por ${f.text("passportIssuer", "pt")} em ` +
-      `${f.text("passportIssueDate", "pt")}, válido até ${f.text("passportExpiryDate", "pt")}, ` +
-      `residente fiscal em ${f.text("taxAddress", "pt")}, constitui a sua bastante procuradora, ` +
+      `${who.pt}, ${v.constitui} a sua bastante procuradora, ` +
       "com a possibilidade de substabelecer, a Exma. Senhora Dra. Patrícia Soares Viana, " +
       "advogada, inscrita na Ordem dos Advogados sob o n.º 65755L do Conselho Regional de " +
       "Lisboa, contribuinte fiscal n.º 295970677, com domicílio profissional na Av. António " +
       "Augusto Aguiar, 24, 1.º Direito, Escritório 3, 1050-016, Lisboa, telefone +351 934 548 395 " +
-      "e endereço de correio eletrónico patriciaviana-65755L@adv.oa.pt, à qual confere os " +
+      `e endereço de correio eletrónico patriciaviana-65755L@adv.oa.pt, à qual ${v.confere} os ` +
       "poderes especiais necessários para:",
     en:
-      `${f.text("fullName", "en")}, born in ${f.text("birthPlace", "en")}, on ` +
-      `${f.text("birthDate", "en")}, of legal age, holder of passport no. ` +
-      `${f.text("passportNumber", "en")}, issued by ${f.text("passportIssuer", "en")} on ` +
-      `${f.text("passportIssueDate", "en")}, valid until ${f.text("passportExpiryDate", "en")}, ` +
-      `tax resident at ${f.text("taxAddress", "en")}, hereby appoints as ${f.his} lawful attorney, ` +
+      `${who.en}, hereby ${v.appoints} as ${v.his} lawful attorney, ` +
       "with the power to substitute, Ms. Dra. Patrícia Soares Viana, attorney-at-law, member of " +
       "the Portuguese Bar Association under no. 65755L of the Lisbon Regional Council, taxpayer " +
       "no. 295970677, with professional address at Av. António Augusto Aguiar, 24, 1st Floor " +
       "Right, Office 3, 1050-016 Lisbon, telephone +351 934 548 395 and email " +
-      `patriciaviana-65755L@adv.oa.pt, to whom ${f.he} grants, individually, the necessary, full ` +
+      `patriciaviana-65755L@adv.oa.pt, to whom ${v.heGrants}, individually, the necessary, full ` +
       "and sufficient powers, including powers of substitution, to act jointly or separately on " +
-      `${f.his} behalf, namely to:`,
+      `${v.his} behalf, namely to:`,
   };
 }
 
@@ -269,8 +404,14 @@ function nifDeed(f: Fields): PoaBlock[] {
   ];
 }
 
-/** MODELO - Procuracao Conta Bancaria: five lettered powers, the declaration, the lapse clause, the signing line. */
-function bankDeed(f: Fields): PoaBlock[] {
+/**
+ * MODELO - Procuracao Conta Bancaria: five lettered powers, the declaration,
+ * the lapse clause, the signing line. `f` gives the signing date, `v` the
+ * words that follow the number of principals (singleVoice or JOINT_VOICE).
+ * Clauses b) and d), the lapse clause and the closing line read the same
+ * for one principal or two; d) is the firm's and stays as the model has it.
+ */
+function bankDeed(f: Fields, v: Voice): PoaBlock[] {
   return [
     {
       kind: "item",
@@ -288,9 +429,9 @@ function bankDeed(f: Fields): PoaBlock[] {
         "operacionalização; com poderes ainda para movimentar e consultar contas bancárias, " +
         "solicitar e receber cartões matriz, códigos de acesso e credenciais de segurança " +
         "associados às contas abertas por via da presente procuração, e, bem assim, contratar " +
-        "seguros bancários em nome do outorgante;",
+        `seguros bancários em nome ${v.doOutorgante};`,
       en:
-        `In ${f.his} name and on ${f.his} behalf, apply for and proceed with the opening of a bank ` +
+        `In ${v.his} name and on ${v.his} behalf, apply for and proceed with the opening of a bank ` +
         "account with any banking institution in Portugal, upon presentation of this instrument " +
         "and of the required elements and information, with powers to sign account opening " +
         "agreements, submit requests for issuance of debit and/or credit cards, subscribe to " +
@@ -301,7 +442,7 @@ function bankDeed(f: Fields): PoaBlock[] {
         "as well as perform all acts necessary for its issuance, activation and operationalization; " +
         "with further powers to operate and consult bank accounts, request and receive matrix " +
         "cards, access codes and security credentials related to accounts opened under this power " +
-        "of attorney, and, furthermore, to contract insurance products in the name of the principal;",
+        `of attorney, and, furthermore, to contract insurance products in the name of the ${v.principal};`,
     },
     {
       kind: "item",
@@ -336,7 +477,7 @@ function bankDeed(f: Fields): PoaBlock[] {
         "realizadas, autorizar a cobrança de comissões devidas e praticar todos os atos necessários " +
         "à gestão integral das referidas contas;",
       en:
-        `To open, operate and close bank accounts in ${f.his} name, including current accounts, ` +
+        `To open, operate and close bank accounts in ${v.his} name, including current accounts, ` +
         "securities accounts, custody accounts and escrow accounts, with any banking institution " +
         "and without any limitations, accepting the debit therein of any expenses arising from the " +
         "movement of the same, and/or to request the issuance of any bank statements relating to " +
@@ -358,13 +499,13 @@ function bankDeed(f: Fields): PoaBlock[] {
       kind: "item",
       number: "e)",
       pt:
-        "Assinar, em nome do outorgante, todos os formulários, declarações e documentos necessários " +
+        `Assinar, em nome ${v.doOutorgante}, todos os formulários, declarações e documentos necessários ` +
         "ao cumprimento de obrigações legais e regulamentares, incluindo, mas sem limitar, os " +
         "formulários fiscais aplicáveis (designadamente W-9, quando exigível) e documentos " +
         "relacionados com a proteção de dados pessoais, nomeadamente no âmbito do Regulamento Geral " +
         "sobre a Proteção de Dados (RGPD).",
       en:
-        "To sign, on behalf of the Principal, all forms, declarations and documents necessary to " +
+        `To sign, on behalf of the ${v.Principal}, all forms, declarations and documents necessary to ` +
         "comply with legal and regulatory obligations, including, but not limited to, applicable " +
         "tax forms (namely Form W-9, where required) and documents related to the protection of " +
         "personal data, in particular within the framework of the General Data Protection " +
@@ -373,27 +514,27 @@ function bankDeed(f: Fields): PoaBlock[] {
     {
       kind: "paragraph",
       pt:
-        "Declara o Mandante, de forma expressa, que a presente procuradora não atuará como gestora " +
-        "de bens ou direitos do outorgante, não assumindo, por qualquer forma, funções de " +
-        "administração, disposição ou gestão patrimonial. Mais declara que os poderes conferidos " +
+        `${v.declaraOMandante}, de forma expressa, que a presente procuradora não atuará como gestora ` +
+        `de bens ou direitos ${v.doOutorgante}, não assumindo, por qualquer forma, funções de ` +
+        `administração, disposição ou gestão patrimonial. ${v.maisDeclara} que os poderes conferidos ` +
         "pela presente procuração se destinam exclusivamente à prática de atos administrativos, " +
         "preparatórios e técnicos necessários à abertura, formalização e ativação de conta " +
         "bancária, não podendo a procuradora, designadamente, efetuar levantamentos, " +
         "transferências, pagamentos ou quaisquer outras operações financeiras, utilizar cartões " +
         "bancários, ainda que emitidos ao abrigo da presente procuração, ordenar ou autorizar " +
         "movimentos de fundos, nem contratar produtos financeiros, crédito ou instrumentos de " +
-        "investimento em nome do outorgante.",
+        `investimento em nome ${v.doOutorgante}.`,
       en:
-        "The Principal expressly declares that the Attorney-in-fact shall not act as a manager of " +
-        "the Principal’s assets or rights, and shall not, in any way, assume functions of " +
-        "administration, disposal or asset management. The Principal further declares that the " +
+        `The ${v.Principal} expressly ${v.declares} that the Attorney-in-fact shall not act as a manager of ` +
+        `the ${v.PrincipalPossessive} assets or rights, and shall not, in any way, assume functions of ` +
+        `administration, disposal or asset management. The ${v.Principal} further ${v.declares} that the ` +
         "powers granted under this power of attorney are strictly limited to the performance of " +
         "administrative, preparatory and technical acts necessary for the opening, formalization " +
         "and activation of a bank account. Accordingly, the Attorney-in-fact is expressly " +
         "prohibited from carrying out withdrawals, transfers, payments or any other financial " +
         "transactions, from using bank cards, even if issued under this power of attorney, from " +
         "ordering or authorizing movements of funds, or from entering financial products, credit " +
-        "agreements or investment instruments on behalf of the Principal.",
+        `agreements or investment instruments on behalf of the ${v.Principal}.`,
     },
     {
       kind: "paragraph",
@@ -412,17 +553,32 @@ function bankDeed(f: Fields): PoaBlock[] {
  * Builds one deed, paragraph by paragraph, in the order its model uses.
  * Portuguese first, English second, always as a pair. Called with no
  * principal and no date it yields the blank template.
+ *
+ * `principals` is one principal, or, for the bank deed only, the couple's
+ * pair: the joint deed names both, speaks in the plural (JOINT_VOICE, our
+ * wording) and ends with one signature line per person, in applicant order.
+ * `[{}, {}]` yields the blank joint template. A pair on the NIF deed throws:
+ * a NIF is personal, and each person signs their own deed.
  */
 export function buildPowerOfAttorney(
   kind: PoaTemplate,
-  principal: PrincipalDetails = {},
+  principals: PrincipalDetails | JointPrincipals = {},
   signedOn: SigningDate = {},
 ): PoaBlock[] {
-  const f = fieldsFor(principal, signedOn);
+  // A slot's template column holds more than deeds since 0013 ('agreement'):
+  // anything else must fail here rather than quietly print the NIF deed.
+  if (kind !== "poa_nif" && kind !== "poa_bank") throw new Error(`No power of attorney for template ${String(kind)}.`);
+  const joint = isJointPrincipals(principals);
+  if (joint && kind !== "poa_bank") {
+    throw new Error("Only the bank deed has a joint form: each person signs their own NIF deed.");
+  }
+  const people = (joint ? principals : [principals]).map((principal) => fieldsFor(principal, signedOn));
+  const [first] = people;
+  const voice = joint ? JOINT_VOICE : singleVoice(first);
   return [
     { kind: "title", pt: "Procuração", en: "Power of Attorney" },
-    opening(f),
-    ...(kind === "poa_bank" ? bankDeed(f) : nifDeed(f)),
-    { kind: "signature", name: f.text("fullName", "pt") },
+    opening(people, voice),
+    ...(kind === "poa_bank" ? bankDeed(first, voice) : nifDeed(first)),
+    ...people.map((f): PoaBlock => ({ kind: "signature", name: f.text("fullName", "pt") })),
   ];
 }

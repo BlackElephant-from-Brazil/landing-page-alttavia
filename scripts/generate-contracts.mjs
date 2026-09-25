@@ -1,112 +1,80 @@
 #!/usr/bin/env node
 /**
  * Writes src/content/contracts/models.generated.ts from the firm's Word
- * models in docs/terms/, so the contract PDF says what the models say. The
- * wording is never retyped: change a .docx, run this, commit both.
+ * models in docs/terms/, so the contract PDF says what the models say, and
+ * src/content/contracts/letterhead.generated.ts with the logo of their
+ * letterhead. The wording is never retyped: change a .docx, run this,
+ * commit all three.
  *
- *   npm run contracts:generate               write the module
- *   npm run contracts:generate -- --check    exit 1 when the module is stale
- *   npm run contracts:generate -- --stdout   print the module, write nothing
+ *   npm run contracts:generate               write both modules
+ *   npm run contracts:generate -- --check    exit 1 when either module is stale
+ *   npm run contracts:generate -- --stdout   print the models module, write nothing
+ *
+ * The models in docs/terms/ are themselves written by
+ * scripts/edit-contract-models.mjs from the originals the firm sent on
+ * 2026-09-21 (docs/terms/originais-2026-09-21/), with the changes Patrícia
+ * approved on 2026-09-24; the Couple package model is derived there from
+ * the package model. Run that script first when an edit changes.
  *
  * A .docx is a zip. Its entries are found through the central directory and
- * inflated with node's own zlib, so there is no dependency to install. The
- * body, word/document.xml, is walked tag by tag: a paragraph's text is its
- * runs joined (Word splits a run wherever it likes, often inside a word),
- * entities are decoded, tabs and line breaks become a space, and the bold
- * runs are kept as character ranges because the models use bold to make the
- * waivers conspicuous.
+ * inflated with node's own zlib (scripts/lib/zip.mjs), so there is no
+ * dependency to install. The body, word/document.xml, is walked tag by tag:
+ * a paragraph's text is its runs joined (Word splits a run wherever it
+ * likes, often inside a word), entities are decoded, tabs and line breaks
+ * become a space, and the bold runs are kept as character ranges because the
+ * models use bold to make the waivers conspicuous.
  *
  * What the script cannot read in the BODY (a table, automatic numbering, a
  * symbol run, a drawing) stops it with an error instead of quietly dropping
  * text from a legal document.
  *
- * The LETTERHEAD is another matter, and this is everything the module leaves
- * out. Each model has a page header and a page footer outside the body: the
- * body's section properties (w:headerReference, w:footerReference, type
- * "default") name a relationship id, word/_rels/document.xml.rels turns it
- * into a part (word/header2.xml, word/footer1.xml). The header holds the
- * firm's logo as two pictures and a text box with a phone number, an email
- * address, a URL and an office address; the footer holds one drawing. The
- * script resolves both parts and exports the header's text, line by line, as
- * CONTRACT_LETTERHEAD. The pictures are NOT extracted and nothing of the
- * letterhead is drawn in the PDF today: whether the client's copy carries
- * one is an open question for the firm. A run warns about the pictures once.
- * A footer that gains text, or a model with a different first page or even
- * page header, stops the script: that would be wording nobody exported.
+ * The LETTERHEAD lives outside the body. Each model has a page header and a
+ * page footer: the body's section properties (w:headerReference,
+ * w:footerReference, type "default") name a relationship id,
+ * word/_rels/document.xml.rels turns it into a part (word/header2.xml,
+ * word/footer1.xml). The header holds the firm's logo, a column of small
+ * icons and a text box with a phone number, an email address, a URL and an
+ * office address; the footer holds one drawing. The script exports the
+ * header's text, line by line, as CONTRACT_LETTERHEAD, and the logo (the
+ * widest picture of the header) as LETTERHEAD_LOGO in its own module: the
+ * PNG shrunk to a size that prints sharp at 30 mm (scripts/lib/png.mjs) and
+ * written as base64. The five models must carry the same logo. The icon
+ * column and the footer drawing are not reproduced; a run says so once, on
+ * stderr. A footer that gains text, or a model with a different first page
+ * or even page header, stops the script: that would be wording nobody
+ * exported.
  *
  * docs/agreement-contract.md section 3 is the design.
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
-import { inflateRawSync } from "node:zlib";
+
+import { decodePng, downscale, encodePng, isPng } from "./lib/png.mjs";
+import { readZipEntry } from "./lib/zip.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const TERMS = join(ROOT, "docs", "terms");
 const OUT = join(ROOT, "src", "content", "contracts", "models.generated.ts");
+const LETTERHEAD_OUT = join(ROOT, "src", "content", "contracts", "letterhead.generated.ts");
 
-/** Model id, then the file the firm sent. The order is the order of the module. */
+/** Model id, then the file in docs/terms/. The order is the order of the module. */
 const MODELS = [
   ["nif", "MODELO - Contract for Legal Services - NIF (blank fields).docx"],
   ["bank", "MODELO - Contract for Legal Services - Bank Account (blank fields).docx"],
   ["package", "MODELO - Contract for Legal Services - NIF + Bank Account Package (blank fields).docx"],
+  ["couple", "MODELO - Contract for Legal Services - Couple Package (blank fields).docx"],
   ["annex", "MODELO - Annex I - Immediate Commencement and Withdrawal (blank fields).docx"],
 ];
 
-// ---------------------------------------------------------------------------
-// Zip
-// ---------------------------------------------------------------------------
-
-const EOCD_SIGNATURE = 0x06054b50;
-const CENTRAL_SIGNATURE = 0x02014b50;
-const LOCAL_SIGNATURE = 0x04034b50;
-
-/** Returns one entry of a zip archive, inflated. */
-function readZipEntry(buffer, name, file) {
-  let eocd = -1;
-  const floor = Math.max(0, buffer.length - 22 - 0xffff);
-  for (let i = buffer.length - 22; i >= floor; i--) {
-    if (buffer.readUInt32LE(i) === EOCD_SIGNATURE) {
-      eocd = i;
-      break;
-    }
-  }
-  if (eocd < 0) throw new Error(`${file}: not a zip archive (no end of central directory).`);
-
-  const count = buffer.readUInt16LE(eocd + 10);
-  let offset = buffer.readUInt32LE(eocd + 16);
-
-  for (let n = 0; n < count; n++) {
-    if (buffer.readUInt32LE(offset) !== CENTRAL_SIGNATURE) {
-      throw new Error(`${file}: broken central directory at entry ${n}.`);
-    }
-    const method = buffer.readUInt16LE(offset + 10);
-    const compressedSize = buffer.readUInt32LE(offset + 20);
-    const nameLength = buffer.readUInt16LE(offset + 28);
-    const extraLength = buffer.readUInt16LE(offset + 30);
-    const commentLength = buffer.readUInt16LE(offset + 32);
-    const localOffset = buffer.readUInt32LE(offset + 42);
-    const entryName = buffer.toString("utf8", offset + 46, offset + 46 + nameLength);
-
-    if (entryName === name) {
-      if (buffer.readUInt32LE(localOffset) !== LOCAL_SIGNATURE) {
-        throw new Error(`${file}: broken local header for ${name}.`);
-      }
-      // The local header repeats the name and carries its own extra field,
-      // whose length may differ from the central one.
-      const localNameLength = buffer.readUInt16LE(localOffset + 26);
-      const localExtraLength = buffer.readUInt16LE(localOffset + 28);
-      const start = localOffset + 30 + localNameLength + localExtraLength;
-      const data = buffer.subarray(start, start + compressedSize);
-      if (method === 0) return Buffer.from(data);
-      if (method === 8) return inflateRawSync(data);
-      throw new Error(`${file}: ${name} uses zip method ${method}, only stored and deflate are read.`);
-    }
-    offset += 46 + nameLength + extraLength + commentLength;
-  }
-  throw new Error(`${file}: no ${name} inside.`);
-}
+/**
+ * The logo is shrunk by a whole factor to at least this many pixels across
+ * (2639 / 6 = 440): some 370 dpi at the 30 mm the contract prints it, sharp
+ * on paper, and cheap to embed, which every agreement does (a larger logo
+ * made each PDF measurably slower to generate).
+ */
+const LOGO_TARGET_WIDTH = 400;
 
 // ---------------------------------------------------------------------------
 // WordprocessingML
@@ -281,12 +249,21 @@ function readParagraphs(xml, file) {
 // Letterhead: the page header and footer, which live outside the body
 // ---------------------------------------------------------------------------
 
-const RELATIONSHIPS = "word/_rels/document.xml.rels";
+const DOCUMENT = "word/document.xml";
 const SETTINGS = "word/settings.xml";
 
-/** Relationship id to part name ("rId8" to "word/header2.xml"), from the body's relationships. */
-function readRelationships(buffer, file) {
-  const xml = readZipEntry(buffer, RELATIONSHIPS, file).toString("utf8");
+/** Where the relationships of a part live: word/header2.xml has word/_rels/header2.xml.rels. */
+function relationshipsOf(part) {
+  return posix.join(posix.dirname(part), "_rels", `${posix.basename(part)}.rels`);
+}
+
+/**
+ * Relationship id to part name, from the relationships of `part`: for the
+ * body "rId8" to "word/header2.xml", for a header "rId2" to
+ * "word/media/image3.png". A target is relative to the part's folder.
+ */
+function readRelationships(buffer, part, file) {
+  const xml = readZipEntry(buffer, relationshipsOf(part), file).toString("utf8");
   const parts = new Map();
   for (const match of xml.matchAll(TAGS)) {
     const [, closing, tag, attributes = ""] = match;
@@ -294,7 +271,7 @@ function readRelationships(buffer, file) {
     const id = attribute(attributes, "Id");
     const target = attribute(attributes, "Target");
     if (!id || !target || attribute(attributes, "TargetMode") === "External") continue;
-    parts.set(id, target.startsWith("/") ? target.slice(1) : `word/${target}`);
+    parts.set(id, target.startsWith("/") ? target.slice(1) : posix.join(posix.dirname(part), target));
   }
   return parts;
 }
@@ -313,7 +290,7 @@ function letterheadParts(documentXml, buffer, file) {
   const found = { header: null, footer: null };
   if (sections.length === 0) return found;
 
-  const relationships = readRelationships(buffer, file);
+  const relationships = readRelationships(buffer, DOCUMENT, file);
   const settings = readZipEntry(buffer, SETTINGS, file).toString("utf8");
   const evenAndOdd = [...settings.matchAll(TAGS)].some(
     ([, closing, tag, attributes = ""]) => !closing && tag === "w:evenAndOddHeaders" && isOn(attributes),
@@ -341,7 +318,7 @@ function letterheadParts(documentXml, buffer, file) {
       throw new Error(`${file}: the model prints a different ${kind} on its ${type} page(s). Teach scripts/generate-contracts.mjs first.`);
     }
     const part = relationships.get(id);
-    if (!part) throw new Error(`${file}: ${kind} reference ${id} is not in ${RELATIONSHIPS}.`);
+    if (!part) throw new Error(`${file}: ${kind} reference ${id} is not in ${relationshipsOf(DOCUMENT)}.`);
     found[kind] = part;
   }
   return found;
@@ -406,7 +383,34 @@ function readLetterheadPart(xml) {
   return { lines, images };
 }
 
-/** `{ lines, images }` for one model: the header's text, and the pictures of header and footer together. */
+/**
+ * The pictures a header or footer part draws: `{ media, width, height }`,
+ * the media part ("word/media/image3.png") and the size the model draws it
+ * at, in EMU (914400 to the inch). A text box is a drawing too, but with no
+ * picture in it, and is skipped.
+ */
+function readPictures(buffer, part, file) {
+  const xml = readZipEntry(buffer, part, file)
+    .toString("utf8")
+    .replace(/<mc:Fallback\b[\s\S]*?<\/mc:Fallback>/g, "");
+  const relationships = readRelationships(buffer, part, file);
+  const pictures = [];
+  for (const [drawing] of xml.matchAll(/<wp:(anchor|inline)\b[\s\S]*?<\/wp:\1>/g)) {
+    const blip = /<a:blip\b[^>]*?\sr:embed="([^"]+)"/.exec(drawing);
+    if (!blip) continue;
+    const media = relationships.get(blip[1]);
+    if (!media) throw new Error(`${file}: picture ${blip[1]} of ${part} is not in ${relationshipsOf(part)}.`);
+    const extent = /<wp:extent\b([^>]*?)\/?>/.exec(drawing)?.[1] ?? "";
+    pictures.push({ media, width: Number(attribute(extent, "cx") ?? 0), height: Number(attribute(extent, "cy") ?? 0) });
+  }
+  return pictures;
+}
+
+/**
+ * One model's letterhead: `{ lines, images, logo }`. The header's text; how
+ * many pictures header and footer hold together; and the logo, the widest
+ * picture of the header, as the PNG file the model embeds.
+ */
 function readLetterhead(documentXml, buffer, file) {
   const parts = letterheadParts(documentXml, buffer, file);
   const header = parts.header ? readLetterheadPart(readZipEntry(buffer, parts.header, file).toString("utf8")) : { lines: [], images: 0 };
@@ -414,7 +418,17 @@ function readLetterhead(documentXml, buffer, file) {
   if (footer.lines.length > 0) {
     throw new Error(`${file}: the page footer holds text ("${footer.lines[0]}"). Teach scripts/generate-contracts.mjs to export it first.`);
   }
-  return { lines: header.lines, images: header.images + footer.images };
+
+  let logo = null;
+  if (parts.header) {
+    const [widest] = readPictures(buffer, parts.header, file).sort((a, b) => b.width - a.width);
+    if (widest) {
+      const bytes = readZipEntry(buffer, widest.media, file);
+      if (!isPng(bytes)) throw new Error(`${file}: the letterhead logo ${widest.media} is not a PNG. Teach scripts/generate-contracts.mjs first.`);
+      logo = { media: widest.media, bytes, width: widest.width, height: widest.height };
+    }
+  }
+  return { lines: header.lines, images: header.images + footer.images, logo };
 }
 
 // ---------------------------------------------------------------------------
@@ -579,14 +593,17 @@ const HEADER = `/**
  *
  * One block per paragraph of the model, in the model's order. Tokens such as
  * [FULL NAME] stay in the text as written; src/content/contracts/variables.ts
- * knows every one of them. Numbering gaps and anything else that looks like
- * a slip are the models' own and are reported to the firm, not fixed here.
+ * knows every one of them. The models are the originals the firm sent on
+ * 2026-09-21 with the changes Patrícia approved on 2026-09-24 (address, VAT,
+ * numbering), applied by scripts/edit-contract-models.mjs, which also derives
+ * the Couple package model from the package model. Anything else that looks
+ * like a slip is the firm's own and is reported, not fixed here.
  *
  * CONTRACT_MODELS is the body of each model and only the body. The models
  * also have a letterhead outside it: a page header with the firm's logo and
  * a few lines of text, and a page footer with a drawing. Its text is exported
- * below as CONTRACT_LETTERHEAD; its pictures are not extracted, and the PDF
- * generator draws none of it for now (an open question for the firm).
+ * below as CONTRACT_LETTERHEAD and its logo in letterhead.generated.ts; the
+ * PDF draws both on the first page of every contract.
  *
  * Plain data for the server: no React, no node imports. It is large, so keep
  * it out of client components.
@@ -633,77 +650,150 @@ export type ContractBlock = {
   ruleAbove?: true;
 };
 
-export type ContractModelId = "nif" | "bank" | "package" | "annex";
+export type ContractModelId = ${MODELS.map(([id]) => JSON.stringify(id)).join(" | ")};
 `;
 
 const LETTERHEAD_COMMENT = `
 /**
  * The text of each model's letterhead: the lines of its default page header
- * (the part the body's w:headerReference names), top to bottom. Text only.
- * The logo beside it and the drawing in the page footer are pictures and are
- * not extracted. Nothing here is drawn in the PDF today; it is kept so the
- * wording is on record and a changed letterhead fails models.test.ts.
+ * (the part the body's w:headerReference names), top to bottom. The PDF
+ * prints them at the top right of the first page, beside the logo of
+ * letterhead.generated.ts. The icon column beside them and the drawing in
+ * the page footer are not reproduced.
  */
 `;
 
-function moduleSource() {
+const LETTERHEAD_HEADER = `/**
+ * GENERATED by scripts/generate-contracts.mjs from the firm's Word models in
+ * docs/terms/. Do not edit by hand: replace the .docx and run
+ *
+ *   npm run contracts:generate
+ *
+ * The logo of the models' letterhead, the widest picture of their page
+ * header, which every model carries the same. The PDF of a contract draws it
+ * at the top left of the first page, 30 mm wide (src/lib/contracts/
+ * generate.ts). The model's picture is shrunk by a whole factor so it prints
+ * sharp at that size without making every agreement carry the full file.
+ *
+ * Plain data for the server. It is some 35 KB of base64: keep it out of
+ * client components.
+ */
+`;
+
+/** Base64 in lines short enough to read in a diff. */
+const BASE64_LINE = 100;
+
+/** Everything the models give, read once: the blocks and letterhead of each. */
+function readModels() {
+  return MODELS.map(([id, file]) => {
+    const buffer = readFileSync(join(TERMS, file));
+    const xml = readZipEntry(buffer, DOCUMENT, file).toString("utf8");
+    return { id, file, blocks: toBlocks(readParagraphs(xml, file), file), letterhead: readLetterhead(xml, buffer, file) };
+  });
+}
+
+function moduleSource(models) {
   let source = HEADER;
   source += "\n/** The Word file each model was read from, in docs/terms/. */\n";
   source += "export const CONTRACT_MODEL_FILES: Record<ContractModelId, string> = {\n";
-  for (const [id, file] of MODELS) source += `  ${id}: ${JSON.stringify(file)},\n`;
+  for (const { id, file } of models) source += `  ${id}: ${JSON.stringify(file)},\n`;
   source += "};\n";
 
-  const letterheads = [];
   source += "\nexport const CONTRACT_MODELS: Record<ContractModelId, readonly ContractBlock[]> = {\n";
-  for (const [id, file] of MODELS) {
-    const buffer = readFileSync(join(TERMS, file));
-    const xml = readZipEntry(buffer, "word/document.xml", file).toString("utf8");
-    const blocks = toBlocks(readParagraphs(xml, file), file);
-    source += `  ${id}: [\n${blocks.map(blockSource).join("\n")}\n  ],\n`;
-    letterheads.push([id, readLetterhead(xml, buffer, file)]);
-  }
+  for (const { id, blocks } of models) source += `  ${id}: [\n${blocks.map(blockSource).join("\n")}\n  ],\n`;
   source += "};\n";
 
   source += LETTERHEAD_COMMENT;
   source += "export const CONTRACT_LETTERHEAD: Record<ContractModelId, readonly string[]> = {\n";
-  for (const [id, { lines }] of letterheads) {
+  for (const { id, letterhead } of models) {
+    const { lines } = letterhead;
     source += lines.length === 0 ? `  ${id}: [],\n` : `  ${id}: [\n${lines.map((line) => `    ${JSON.stringify(line)},`).join("\n")}\n  ],\n`;
   }
   source += "};\n";
-
-  // Once per run, whatever the mode, on stderr so --stdout stays the module and nothing else.
-  const pictures = letterheads.filter(([, { images }]) => images > 0);
-  if (pictures.length > 0) {
-    const detail = pictures.map(([id, { images }]) => `${id}: ${images}`).join(", ");
-    console.warn(
-      `Letterhead images are not reproduced: the pictures in the models' page header and footer (${detail}) are left out. ` +
-        "Only the header's text is exported, as CONTRACT_LETTERHEAD, and the PDF draws none of it.",
-    );
-  }
   return source;
 }
 
+/**
+ * The logo module. Every model must embed the same logo, byte for byte: one
+ * letterhead for every contract, or the script stops.
+ */
+function letterheadSource(models) {
+  const withLogo = models.filter(({ letterhead }) => letterhead.logo);
+  if (withLogo.length !== models.length) {
+    const missing = models.filter(({ letterhead }) => !letterhead.logo).map(({ id }) => id);
+    throw new Error(`No letterhead logo in the header of: ${missing.join(", ")}. Teach scripts/generate-contracts.mjs first.`);
+  }
+  const [first] = withLogo;
+  for (const { id, letterhead } of withLogo) {
+    if (Buffer.compare(letterhead.logo.bytes, first.letterhead.logo.bytes) !== 0) {
+      throw new Error(`The ${id} model carries another logo than the ${first.id} model. One letterhead for every contract: settle it in the models first.`);
+    }
+  }
+
+  const { media, bytes, width: drawnWidth, height: drawnHeight } = first.letterhead.logo;
+  const original = decodePng(bytes, `${first.file} ${media}`);
+  const factor = Math.max(1, Math.floor(original.width / LOGO_TARGET_WIDTH));
+  const shrunk = downscale(original, factor);
+  const png = encodePng(shrunk).toString("base64");
+  const lines = [];
+  for (let at = 0; at < png.length; at += BASE64_LINE) lines.push(`    ${JSON.stringify(png.slice(at, at + BASE64_LINE))},`);
+
+  const mm = (emu) => (emu / 36000).toFixed(1);
+  let source = LETTERHEAD_HEADER;
+  source += "\nexport type LetterheadImage = {\n";
+  source += "  /** Pixels. */\n  readonly width: number;\n  readonly height: number;\n";
+  source += "  /** The PNG file, base64. */\n  readonly png: string;\n};\n";
+  source += `\n/** From ${media} (${original.width} x ${original.height} px, drawn ${mm(drawnWidth)} x ${mm(drawnHeight)} mm in the models), shrunk by ${factor}. */\n`;
+  source += "export const LETTERHEAD_LOGO: LetterheadImage = {\n";
+  source += `  width: ${shrunk.width},\n  height: ${shrunk.height},\n`;
+  source += `  png: [\n${lines.join("\n")}\n  ].join(""),\n};\n`;
+  return source;
+}
+
+/** Once per run, whatever the mode, on stderr so --stdout stays the module and nothing else. */
+function warnAboutPictures(models) {
+  const left = models
+    .map(({ id, letterhead }) => [id, letterhead.images - (letterhead.logo ? 1 : 0)])
+    .filter(([, count]) => count > 0);
+  if (left.length === 0) return;
+  console.warn(
+    `Letterhead pictures not reproduced: besides the logo, the models' page header and footer hold ` +
+      `${left.map(([id, count]) => `${id}: ${count}`).join(", ")} (the icon column beside the text and the footer drawing). ` +
+      "The PDF draws the logo and the header's text only.",
+  );
+}
+
+/** The committed file, as git stores it: a Windows checkout may hold CRLF. */
+function committed(path) {
+  try {
+    return readFileSync(path, "utf8").replace(/\r\n/g, "\n");
+  } catch {
+    return ""; // Missing counts as stale.
+  }
+}
+
 const args = new Set(process.argv.slice(2));
-const source = moduleSource();
+const models = readModels();
+const source = moduleSource(models);
+warnAboutPictures(models);
 
 if (args.has("--stdout")) {
   process.stdout.write(source);
 } else if (args.has("--check")) {
-  let current = "";
-  try {
-    // A Windows checkout may hold the file with CRLF; git stores LF.
-    current = readFileSync(OUT, "utf8").replace(/\r\n/g, "\n");
-  } catch {
-    // Missing counts as stale.
-  }
-  if (current !== source) {
-    console.error("src/content/contracts/models.generated.ts is stale. Run npm run contracts:generate.");
+  const stale = [];
+  if (committed(OUT) !== source) stale.push("src/content/contracts/models.generated.ts");
+  if (committed(LETTERHEAD_OUT) !== letterheadSource(models)) stale.push("src/content/contracts/letterhead.generated.ts");
+  if (stale.length > 0) {
+    console.error(`${stale.join(" and ")} ${stale.length === 1 ? "is" : "are"} stale. Run npm run contracts:generate.`);
     process.exit(1);
   }
-  console.log("src/content/contracts/models.generated.ts is up to date.");
+  console.log("src/content/contracts/models.generated.ts and letterhead.generated.ts are up to date.");
 } else {
   mkdirSync(dirname(OUT), { recursive: true });
   writeFileSync(OUT, source, "utf8");
+  const letterhead = letterheadSource(models);
+  writeFileSync(LETTERHEAD_OUT, letterhead, "utf8");
   const blocks = (source.match(/^ {4}\{ kind: /gm) ?? []).length;
   console.log(`Wrote ${blocks} blocks from ${MODELS.length} models to ${OUT}`);
+  console.log(`Wrote the letterhead logo (${(letterhead.length / 1024).toFixed(1)} kB of source) to ${LETTERHEAD_OUT}`);
 }

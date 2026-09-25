@@ -23,8 +23,12 @@ import { getUserWithRole } from "@/lib/supabase/admin-user";
  *
  *   404  the service has no contract, so there is nothing to prepare
  *   409  `{ error: "Payment first." }` on an unpaid order
- *   409  `{ error: "details_missing" }` when applicant 0 has no details yet,
- *        the code the form reacts to
+ *   409  `{ error: "details_missing", applicant: 0 | 1 }` when a person the
+ *        agreement names has no details on the order yet: `applicant` is the
+ *        first one missing, 0 the account holder, 1 the partner of the
+ *        Couple package, whose one agreement names both. `error` is the code
+ *        the forms react to; `applicant` tells the agreement card which
+ *        details dialog to open next.
  *   403  an admin: the firm regenerates through /api/admin/orders/[id]/contract
  *
  * GET, owner or admin: 200 with the stored PDF itself, read from the bucket
@@ -169,7 +173,9 @@ export async function POST(request: Request, ctx: Params) {
     });
 
     if (result.status === "ready") return NextResponse.json({ status: "ready" });
-    if (result.status === "needs_details") return refuse(409, DETAILS_MISSING);
+    if (result.status === "needs_details") {
+      return NextResponse.json({ error: DETAILS_MISSING, applicant: result.applicant }, { status: 409 });
+    }
     if (result.reason === "unpaid") return refuse(409, PAYMENT_FIRST);
     if (result.reason === "no_template") return refuse(404, NO_CONTRACT);
     // The order was there a moment ago and is gone: answer what a missing order answers.

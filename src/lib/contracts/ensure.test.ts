@@ -18,28 +18,41 @@ type Row = Record<string, unknown>;
 type Write = { table: string; op: "insert" | "update"; payload: Row };
 type Failure = { table: string; op: "select" | "insert" | "update"; message: string };
 
-const { tables, writes, failures, sendEmail, putObject, getObjectBytes, buildContractValues, contractFileName, generateContractPdf } =
-  vi.hoisted(() => ({
-    tables: {} as Record<string, Record<string, unknown>[]>,
-    writes: [] as { table: string; op: "insert" | "update"; payload: Record<string, unknown> }[],
-    failures: [] as { table: string; op: "select" | "insert" | "update"; message: string }[],
-    sendEmail: vi.fn(),
-    putObject: vi.fn(),
-    getObjectBytes: vi.fn(),
-    buildContractValues: vi.fn(),
-    contractFileName: vi.fn(),
-    generateContractPdf: vi.fn(),
-  }));
+const {
+  tables,
+  writes,
+  failures,
+  sendEmail,
+  putObject,
+  getObjectBytes,
+  buildContractValues,
+  contractFileName,
+  generateContractPdf,
+} = vi.hoisted(() => ({
+  tables: {} as Record<string, Record<string, unknown>[]>,
+  writes: [] as { table: string; op: "insert" | "update"; payload: Record<string, unknown> }[],
+  failures: [] as { table: string; op: "select" | "insert" | "update"; message: string }[],
+  sendEmail: vi.fn(),
+  putObject: vi.fn(),
+  getObjectBytes: vi.fn(),
+  buildContractValues: vi.fn(),
+  contractFileName: vi.fn(),
+  generateContractPdf: vi.fn(),
+}));
 
 vi.mock("@/lib/email/send", () => ({ sendEmail }));
 vi.mock("@/lib/r2/client", () => ({ putObject, getObjectBytes }));
 vi.mock("@/content/contracts/variables", () => ({ buildContractValues, contractFileName }));
 vi.mock("@/lib/contracts/generate", () => ({ generateContractPdf }));
 
+import { MANUAL_PAYMENT_LIVE_NOTE, MANUAL_PAYMENT_TEST_NOTE } from "@/lib/orders/manual-payment";
+
 import {
   ContractError,
+  FIRM_SIGNATURE_KEY,
   MAX_SIGNING_PLACE_LENGTH,
   contractState,
+  contractStatus,
   contractStorageKey,
   ensureContract,
   parseSigningPlace,
@@ -122,8 +135,14 @@ const OWNER_ID = "11111111-1111-4111-8111-111111111111";
 const SERVICE_ID = "44444444-4444-4444-8444-444444444444";
 const ORIGIN = "http://localhost:3000";
 const PAID_AT = "2026-09-21T10:15:00.000Z";
+/** The seeded order was paid through live Stripe, so its agreement may carry the firm's signature. */
+const LIVE_SESSION = "cs_live_a1B2c3D4e5F6";
+const TEST_SESSION = "cs_test_a1B2c3D4e5F6";
 const PDF_BYTES = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]);
 const STORED_BYTES = new Uint8Array([37, 80, 68, 70, 45, 115, 116, 111, 114, 101, 100]);
+/** The eight bytes every PNG starts with, and a little more: what the firm's signature file looks like to ensure.ts. */
+const SIGNATURE_PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82]);
+const COUPLE_SERVICE_ID = "66666666-6666-4666-8666-666666666666";
 
 function applicant(overrides: Partial<UserServiceApplicantRow> = {}): UserServiceApplicantRow {
   return {
@@ -165,7 +184,14 @@ function contractRow(overrides: Partial<UserServiceContractRow> = {}): UserServi
 
 function seed() {
   tables.user_services = [
-    { id: ORDER_ID, user_id: OWNER_ID, service_id: SERVICE_ID, total_cents: 14900, paid_at: PAID_AT },
+    {
+      id: ORDER_ID,
+      user_id: OWNER_ID,
+      service_id: SERVICE_ID,
+      total_cents: 14900,
+      paid_at: PAID_AT,
+      stripe_checkout_session_id: LIVE_SESSION,
+    },
   ];
   tables.services = [{ id: SERVICE_ID, slug: "nif-only", name: "NIF only", contract_template: "nif" }];
   tables.users = [{ id: OWNER_ID, email: "client@example.com" }];
@@ -173,8 +199,43 @@ function seed() {
   tables.user_service_contracts = [];
 }
 
+/** The order becomes a Couple package order: the service names the model for two, and the partner's details are there. */
+function seedCouple() {
+  tables.services = [{ id: COUPLE_SERVICE_ID, slug: "couple", name: "Couple package", contract_template: "couple" }];
+  tables.user_services[0].service_id = COUPLE_SERVICE_ID;
+  tables.user_services[0].total_cents = 59700;
+  tables.user_services[0].applicants = 2;
+  tables.user_service_applicants = [partnerRow(), applicant()];
+}
+
+function partnerRow(overrides: Partial<UserServiceApplicantRow> = {}): UserServiceApplicantRow {
+  return applicant({
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    applicant_index: 1,
+    full_name: "John Robert Doe",
+    gender: "m",
+    passport_number: "Y7654321",
+    ...overrides,
+  });
+}
+
 function stored(): UserServiceContractRow | undefined {
   return tables.user_service_contracts[0] as unknown as UserServiceContractRow | undefined;
+}
+
+/** A key this module writes for `version`: the version, then the random suffix of one attempt. */
+function versionKey(version: number) {
+  return expect.stringMatching(new RegExp(`^contracts/${ORDER_ID}/v${version}-[a-z0-9]{8}\\.pdf$`));
+}
+
+/** The keys getObjectBytes was asked for, in order. */
+function bytesAskedFor(): string[] {
+  return getObjectBytes.mock.calls.map(([key]) => key as string);
+}
+
+/** The bucket as it starts: the stored agreements are there, the firm's signature is not. */
+function bucket(signature: Uint8Array | null = null) {
+  getObjectBytes.mockImplementation(async (key: string) => (key === FIRM_SIGNATURE_KEY ? signature : STORED_BYTES));
 }
 
 /** A character by code point, so the control characters under test are visible in the source. */
@@ -203,13 +264,14 @@ beforeEach(() => {
   putObject.mockReset();
   putObject.mockResolvedValue(undefined);
   getObjectBytes.mockReset();
-  getObjectBytes.mockResolvedValue(STORED_BYTES);
+  bucket();
   buildContractValues.mockReset();
   // Like the real one: a token with no value is left out of the record.
   buildContractValues.mockImplementation(
-    (input: { applicant: UserServiceApplicantRow | null; email: string | null; signingPlace?: string | null }) => {
+    (input: { applicants: UserServiceApplicantRow[]; email: string; signingPlace?: string | null }) => {
       const values: Record<string, string> = {};
-      if (input.applicant) values["[FULL NAME]"] = input.applicant.full_name;
+      if (input.applicants[0]) values["[FULL NAME]"] = input.applicants[0].full_name;
+      if (input.applicants[1]) values["[FULL NAME 2]"] = input.applicants[1].full_name;
       if (input.email) values["[EMAIL]"] = input.email;
       if (input.signingPlace) values["[PLACE]"] = input.signingPlace;
       return values;
@@ -241,6 +303,17 @@ describe("contractState", () => {
   it("waits for the client's confirmation on a paid order with a contract, details typed or not", () => {
     expect(contractState(paid, withContract, [], null)).toBe("needs_details");
     expect(contractState(paid, withContract, [applicant()], null)).toBe("needs_details");
+  });
+
+  it("is offered from here with the person whose details are missing, the partner's on the Couple package", () => {
+    const couple = { contract_template: "couple" as const };
+    expect(contractStatus(paid, couple, [], null)).toEqual({ state: "needs_details", missing: 0, persons: 2 });
+    expect(contractStatus(paid, couple, [applicant()], null)).toEqual({ state: "needs_details", missing: 1, persons: 2 });
+    expect(contractStatus(paid, couple, [applicant(), partnerRow()], null)).toEqual({
+      state: "needs_details",
+      missing: null,
+      persons: 2,
+    });
   });
 });
 
@@ -291,16 +364,24 @@ describe("parseSigningPlace", () => {
 });
 
 describe("contractStorageKey", () => {
-  it("follows contracts/{order}/v{version}.pdf", () => {
-    expect(contractStorageKey(ORDER_ID, 1)).toBe(`contracts/${ORDER_ID}/v1.pdf`);
-    expect(contractStorageKey(ORDER_ID, 12)).toBe(`contracts/${ORDER_ID}/v12.pdf`);
+  it("follows contracts/{order}/v{version}-{nonce}.pdf", () => {
+    expect(contractStorageKey(ORDER_ID, 1, "ab12cd34")).toBe(`contracts/${ORDER_ID}/v1-ab12cd34.pdf`);
+    expect(contractStorageKey(ORDER_ID, 12, "ab12cd34")).toBe(`contracts/${ORDER_ID}/v12-ab12cd34.pdf`);
   });
 
-  it("refuses an id that could leave the folder and a version that is not a positive whole number", () => {
+  it("gives every attempt at a version a key of its own", () => {
+    const keys = new Set(Array.from({ length: 50 }, () => contractStorageKey(ORDER_ID, 1)));
+    expect(keys.size).toBe(50);
+    for (const key of keys) expect(key).toEqual(versionKey(1));
+  });
+
+  it("refuses an id that could leave the folder, a version that is not a positive whole number and an odd suffix", () => {
     expect(() => contractStorageKey("../x", 1)).toThrow();
     expect(() => contractStorageKey(`${ORDER_ID}/x`, 1)).toThrow();
     expect(() => contractStorageKey(ORDER_ID, 0)).toThrow();
     expect(() => contractStorageKey(ORDER_ID, 1.5)).toThrow();
+    expect(() => contractStorageKey(ORDER_ID, 1, "../x")).toThrow();
+    expect(() => contractStorageKey(ORDER_ID, 1, "")).toThrow();
   });
 });
 
@@ -330,9 +411,9 @@ describe("ensureContract", () => {
     expectNoSideEffects();
   });
 
-  it("needs details while applicant 0 has none, even when applicant 1 has", async () => {
+  it("needs details while applicant 0 has none, even when applicant 1 has, and names applicant 0", async () => {
     tables.user_service_applicants = [applicant({ applicant_index: 1 })];
-    expect(await ensureContract(db, ORDER_ID)).toEqual({ status: "needs_details" });
+    expect(await ensureContract(db, ORDER_ID)).toEqual({ status: "needs_details", applicant: 0 });
     expectNoSideEffects();
   });
 
@@ -341,20 +422,22 @@ describe("ensureContract", () => {
 
     expect(buildContractValues).toHaveBeenCalledTimes(1);
     expect(buildContractValues).toHaveBeenCalledWith({
-      template: "nif",
-      applicant: applicant(),
+      order: expect.objectContaining({ id: ORDER_ID, total_cents: 14900, paid_at: PAID_AT }),
+      service: { slug: "nif-only", name: "NIF only", contract_template: "nif" },
+      applicants: [applicant()],
       email: "client@example.com",
-      totalCents: 14900,
-      paidAt: PAID_AT,
       signingPlace: "Austin, USA",
     });
     const values = buildContractValues.mock.results[0].value;
-    expect(generateContractPdf).toHaveBeenCalledWith("nif", values, { reference: ORDER_ID });
+    // No signature in the bucket yet: the generator is told so and leaves the line blank.
+    expect(generateContractPdf).toHaveBeenCalledTimes(1);
+    expect(generateContractPdf).toHaveBeenCalledWith("nif", values, { reference: ORDER_ID, signature: null });
+    expect(bytesAskedFor()).toEqual([FIRM_SIGNATURE_KEY]);
     expect(contractFileName).toHaveBeenCalledWith("nif", "Jane Alice Doe");
 
     expect(putObject).toHaveBeenCalledTimes(1);
     const put = putObject.mock.calls[0][0];
-    expect(put.key).toBe(`contracts/${ORDER_ID}/v1.pdf`);
+    expect(put.key).toEqual(versionKey(1));
     expect(put.contentType).toBe("application/pdf");
     expect(Array.from(put.body as Uint8Array)).toEqual(Array.from(PDF_BYTES));
 
@@ -363,7 +446,7 @@ describe("ensureContract", () => {
       user_service_id: ORDER_ID,
       template: "nif",
       version: 1,
-      storage_key: `contracts/${ORDER_ID}/v1.pdf`,
+      storage_key: put.key,
       file_name: "service-agreement-nif-jane-alice-doe.pdf",
       size_bytes: PDF_BYTES.byteLength,
       variables: values,
@@ -420,7 +503,8 @@ describe("ensureContract", () => {
     expect(generateContractPdf).toHaveBeenCalledTimes(1);
     expect(putObject).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledTimes(1);
-    expect(getObjectBytes).not.toHaveBeenCalled();
+    // The first call read the signature to generate; the second read nothing, not even the stored file.
+    expect(bytesAskedFor()).toEqual([FIRM_SIGNATURE_KEY]);
     expect(tables.user_service_contracts).toHaveLength(1);
   });
 
@@ -446,7 +530,8 @@ describe("ensureContract", () => {
     expect(second).toMatchObject({ status: "ready", created: false, emailed: true });
     expect(generateContractPdf).toHaveBeenCalledTimes(1);
     expect(putObject).toHaveBeenCalledTimes(1);
-    expect(getObjectBytes).toHaveBeenCalledWith(`contracts/${ORDER_ID}/v1.pdf`);
+    expect(getObjectBytes).toHaveBeenCalledWith(putObject.mock.calls[0][0].key);
+    expect(stored()?.storage_key).toBe(putObject.mock.calls[0][0].key);
     expect(sendEmail).toHaveBeenCalledTimes(2);
     const retry = sendEmail.mock.calls[1][0];
     expect(retry.to).toBe("client@example.com");
@@ -490,7 +575,8 @@ describe("ensureContract", () => {
     const result = await ensureContract(db, ORDER_ID);
 
     expect(result).toMatchObject({ status: "ready", created: true, emailed: false });
-    expect(buildContractValues.mock.calls[0][0].email).toBeNull();
+    // The values take a string: an empty one, which prints the model's own bracket.
+    expect(buildContractValues.mock.calls[0][0].email).toBe("");
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
@@ -509,7 +595,12 @@ describe("ensureContract", () => {
     expect(tables.user_service_contracts).toHaveLength(1);
     expect(writes).toHaveLength(0);
     expect(sendEmail).not.toHaveBeenCalled();
-    expect(getObjectBytes).not.toHaveBeenCalled();
+    // It read the signature to generate its own copy, and never the winner's file to email it.
+    expect(bytesAskedFor()).toEqual([FIRM_SIGNATURE_KEY]);
+    // Its own upload went to a key of its own, so the file the winner's row describes is untouched.
+    expect(putObject.mock.calls[0][0].key).toEqual(versionKey(1));
+    expect(putObject.mock.calls[0][0].key).not.toBe(winner.storage_key);
+    expect(tables.user_service_contracts[0].storage_key).toBe(winner.storage_key);
   });
 
   it("throws on an insert error that is not a duplicate", async () => {
@@ -517,6 +608,239 @@ describe("ensureContract", () => {
 
     await expect(ensureContract(db, ORDER_ID)).rejects.toThrow("contracts insert: disk full");
     expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("prints applicant 0 alone on a one person model, even with a partner row on the order", async () => {
+    tables.user_service_applicants = [partnerRow(), applicant()];
+
+    await ensureContract(db, ORDER_ID);
+
+    expect(buildContractValues.mock.calls[0][0].applicants).toEqual([applicant()]);
+  });
+});
+
+describe("ensureContract for the Couple package", () => {
+  function expectNothingPrepared() {
+    expect(writes).toHaveLength(0);
+    expect(generateContractPdf).not.toHaveBeenCalled();
+    expect(putObject).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
+  }
+
+  it("needs applicant 0 first, with or without the partner's details", async () => {
+    seedCouple();
+    tables.user_service_applicants = [];
+    expect(await ensureContract(db, ORDER_ID)).toEqual({ status: "needs_details", applicant: 0 });
+
+    tables.user_service_applicants = [partnerRow()];
+    expect(await ensureContract(db, ORDER_ID)).toEqual({ status: "needs_details", applicant: 0 });
+    expectNothingPrepared();
+  });
+
+  it("needs the partner once applicant 0 is in", async () => {
+    seedCouple();
+    tables.user_service_applicants = [applicant()];
+
+    expect(await ensureContract(db, ORDER_ID)).toEqual({ status: "needs_details", applicant: 1 });
+    expectNothingPrepared();
+  });
+
+  it("prepares one agreement naming both, applicant 0 first, recorded under the couple model", async () => {
+    seedCouple();
+
+    const result = await ensureContract(db, ORDER_ID, { signingPlace: "Lisbon, Portugal", origin: ORIGIN });
+
+    expect(result).toMatchObject({ status: "ready", created: true, emailed: true });
+    expect(buildContractValues).toHaveBeenCalledWith({
+      order: expect.objectContaining({ id: ORDER_ID, total_cents: 59700 }),
+      service: { slug: "couple", name: "Couple package", contract_template: "couple" },
+      applicants: [applicant(), partnerRow()],
+      email: "client@example.com",
+      signingPlace: "Lisbon, Portugal",
+    });
+    expect(generateContractPdf.mock.calls[0][0]).toBe("couple");
+    expect(contractFileName).toHaveBeenCalledWith("couple", "Jane Alice Doe");
+    expect(tables.user_service_contracts).toHaveLength(1);
+    expect(stored()).toMatchObject({ template: "couple", version: 1 });
+    expect(stored()?.variables).toMatchObject({ "[FULL NAME]": "Jane Alice Doe", "[FULL NAME 2]": "John Robert Doe" });
+    // One agreement, one email, to the account.
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail.mock.calls[0][0].to).toBe("client@example.com");
+    expect(sendEmail.mock.calls[0][0].text).toContain("Couple package");
+  });
+
+  it("stays idempotent for two people: the second call prepares nothing", async () => {
+    seedCouple();
+    await ensureContract(db, ORDER_ID);
+    const again = await ensureContract(db, ORDER_ID);
+
+    expect(again).toMatchObject({ status: "ready", created: false, emailed: false });
+    expect(generateContractPdf).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the firm's signature", () => {
+  it("is read from firm/signature.png and handed to the generator when it is there", async () => {
+    bucket(SIGNATURE_PNG);
+
+    const result = await ensureContract(db, ORDER_ID);
+
+    expect(result).toMatchObject({ status: "ready", created: true });
+    expect(getObjectBytes).toHaveBeenCalledWith("firm/signature.png");
+    expect(generateContractPdf).toHaveBeenCalledTimes(1);
+    const options = generateContractPdf.mock.calls[0][2];
+    expect(options.reference).toBe(ORDER_ID);
+    expect(Array.from(options.signature as Uint8Array)).toEqual(Array.from(SIGNATURE_PNG));
+    expect(logged).not.toHaveBeenCalled();
+  });
+
+  it("is left out, quietly, while the file is not in the bucket", async () => {
+    bucket(null);
+
+    expect(await ensureContract(db, ORDER_ID)).toMatchObject({ status: "ready", created: true });
+    expect(generateContractPdf.mock.calls[0][2]).toEqual({ reference: ORDER_ID, signature: null });
+    expect(logged).not.toHaveBeenCalled();
+  });
+
+  it("is left out, with a log line, when the bucket fails or the file is not a PNG, and the agreement still goes out", async () => {
+    getObjectBytes.mockRejectedValueOnce(new Error("bucket down"));
+    expect(await ensureContract(db, ORDER_ID)).toMatchObject({ status: "ready", created: true, emailed: true });
+    expect(generateContractPdf.mock.calls[0][2]).toEqual({ reference: ORDER_ID, signature: null });
+    expect(logged).toHaveBeenCalledTimes(1);
+
+    tables.user_service_contracts = [];
+    bucket(STORED_BYTES);
+    expect(await ensureContract(db, ORDER_ID)).toMatchObject({ status: "ready", created: true });
+    expect(generateContractPdf.mock.calls[1][2]).toEqual({ reference: ORDER_ID, signature: null });
+    expect(logged).toHaveBeenCalledTimes(2);
+  });
+
+  it("is dropped when the generator cannot draw it: the agreement is generated again without it", async () => {
+    bucket(SIGNATURE_PNG);
+    generateContractPdf.mockRejectedValueOnce(new Error("Unknown PNG chunk"));
+
+    const result = await ensureContract(db, ORDER_ID);
+
+    expect(result).toMatchObject({ status: "ready", created: true, emailed: true });
+    expect(generateContractPdf).toHaveBeenCalledTimes(2);
+    expect(generateContractPdf.mock.calls[0][2].signature).toBeInstanceOf(Uint8Array);
+    expect(generateContractPdf.mock.calls[1][2]).toEqual({ reference: ORDER_ID, signature: null });
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(tables.user_service_contracts).toHaveLength(1);
+  });
+
+  it("does not hide a failure of the generator itself", async () => {
+    generateContractPdf.mockRejectedValue(new Error("font missing"));
+
+    await expect(ensureContract(db, ORDER_ID)).rejects.toThrow("font missing");
+    expect(tables.user_service_contracts).toHaveLength(0);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("is not read when an agreement is only emailed again", async () => {
+    bucket(SIGNATURE_PNG);
+    tables.user_service_contracts = [contractRow({ emailed_at: null })];
+
+    await ensureContract(db, ORDER_ID);
+
+    expect(bytesAskedFor()).toEqual([`contracts/${ORDER_ID}/v1.pdf`]);
+    expect(generateContractPdf).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Staging, local development and every Stripe test payment share the bucket
+ * that holds the firm's signature, and the database. Only an order paid with
+ * real money may carry it; every other agreement is a specimen. A payment
+ * recorded outside the platform counts as real only when the order's own
+ * events say it was recorded on production (src/lib/orders/live-payment.ts),
+ * never because of the host preparing the agreement.
+ */
+describe("the firm's signature on an order not paid with real money", () => {
+  beforeEach(() => {
+    bucket(SIGNATURE_PNG);
+  });
+
+  /** A payment the admin recorded outside the platform, with the note the deploy wrote. */
+  function paidOutside(note: string) {
+    tables.user_services[0].stripe_checkout_session_id = null;
+    tables.user_service_events = [
+      { id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", user_service_id: ORDER_ID, to_stage: "documents", note },
+    ];
+  }
+
+  it("is never read for a test card's order, and the agreement is a specimen", async () => {
+    tables.user_services[0].stripe_checkout_session_id = TEST_SESSION;
+    // Whatever the events say: the session says how the order was paid.
+    tables.user_service_events = [{ id: "e1", user_service_id: ORDER_ID, to_stage: "documents", note: MANUAL_PAYMENT_LIVE_NOTE }];
+
+    expect(await ensureContract(db, ORDER_ID)).toMatchObject({ status: "ready", created: true, emailed: true });
+
+    expect(bytesAskedFor()).not.toContain(FIRM_SIGNATURE_KEY);
+    expect(generateContractPdf.mock.calls[0][2]).toEqual({ reference: ORDER_ID, signature: null, specimen: true });
+  });
+
+  it("is never read for a payment recorded outside the platform on staging or in development", async () => {
+    paidOutside(MANUAL_PAYMENT_TEST_NOTE);
+
+    await ensureContract(db, ORDER_ID);
+
+    expect(bytesAskedFor()).not.toContain(FIRM_SIGNATURE_KEY);
+    expect(generateContractPdf.mock.calls[0][2]).toEqual({ reference: ORDER_ID, signature: null, specimen: true });
+  });
+
+  it("is never read for a payment recorded before the note said where", async () => {
+    paidOutside("Paid outside the platform, recorded by the admin");
+
+    await ensureContract(db, ORDER_ID);
+
+    expect(bytesAskedFor()).not.toContain(FIRM_SIGNATURE_KEY);
+    expect(generateContractPdf.mock.calls[0][2]).toEqual({ reference: ORDER_ID, signature: null, specimen: true });
+  });
+
+  it("is read for a payment recorded outside the platform on production", async () => {
+    paidOutside(MANUAL_PAYMENT_LIVE_NOTE);
+
+    await ensureContract(db, ORDER_ID);
+
+    expect(bytesAskedFor()).toEqual([FIRM_SIGNATURE_KEY]);
+    const options = generateContractPdf.mock.calls[0][2];
+    expect(Array.from(options.signature as Uint8Array)).toEqual(Array.from(SIGNATURE_PNG));
+    expect(options.specimen).toBeUndefined();
+  });
+
+  it("does not take another order's record for this one", async () => {
+    tables.user_services[0].stripe_checkout_session_id = null;
+    tables.user_service_events = [{ id: "e1", user_service_id: "another-order", to_stage: "documents", note: MANUAL_PAYMENT_LIVE_NOTE }];
+
+    await ensureContract(db, ORDER_ID);
+
+    expect(bytesAskedFor()).not.toContain(FIRM_SIGNATURE_KEY);
+    expect(generateContractPdf.mock.calls[0][2]).toEqual({ reference: ORDER_ID, signature: null, specimen: true });
+  });
+
+  it("fails before anything is written when the payment record cannot be read", async () => {
+    paidOutside(MANUAL_PAYMENT_LIVE_NOTE);
+    failures.push({ table: "user_service_events", op: "select", message: "user_service_events is down" });
+
+    await expect(ensureContract(db, ORDER_ID)).rejects.toThrow("user_service_events is down");
+
+    expect(generateContractPdf).not.toHaveBeenCalled();
+    expect(putObject).not.toHaveBeenCalled();
+    expect(tables.user_service_contracts).toHaveLength(0);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("stays off when the admin regenerates a test order's agreement", async () => {
+    tables.user_services[0].stripe_checkout_session_id = TEST_SESSION;
+    tables.user_service_contracts = [contractRow()];
+
+    const result = await regenerateContract(db, ORDER_ID);
+
+    expect(result.contract.version).toBe(2);
+    expect(bytesAskedFor()).not.toContain(FIRM_SIGNATURE_KEY);
+    expect(generateContractPdf.mock.calls[0][2]).toEqual({ reference: ORDER_ID, signature: null, specimen: true });
   });
 });
 
@@ -529,16 +853,16 @@ describe("regenerateContract", () => {
 
     expect(putObject).toHaveBeenCalledTimes(1);
     expect(putObject.mock.calls[0][0]).toMatchObject({
-      key: `contracts/${ORDER_ID}/v2.pdf`,
+      key: versionKey(2),
       contentType: "application/pdf",
     });
-    expect(buildContractValues.mock.calls[0][0].applicant.full_name).toBe("Jane Alice Doe Smith");
+    expect(buildContractValues.mock.calls[0][0].applicants[0].full_name).toBe("Jane Alice Doe Smith");
 
     const update = writes.find((w) => w.op === "update" && "version" in w.payload);
     expect(update?.payload).toMatchObject({
       template: "nif",
       version: 2,
-      storage_key: `contracts/${ORDER_ID}/v2.pdf`,
+      storage_key: putObject.mock.calls[0][0].key,
       size_bytes: PDF_BYTES.byteLength,
       emailed_at: null,
     });
@@ -585,7 +909,7 @@ describe("regenerateContract", () => {
 
     expect(result.contract.version).toBe(1);
     expect(result.emailed).toBe(true);
-    expect(putObject.mock.calls[0][0].key).toBe(`contracts/${ORDER_ID}/v1.pdf`);
+    expect(putObject.mock.calls[0][0].key).toEqual(versionKey(1));
     expect(buildContractValues.mock.calls[0][0].signingPlace).toBeNull();
   });
 
@@ -640,8 +964,40 @@ describe("regenerateContract", () => {
       message: "The client has not entered their details yet.",
     });
 
+    seed();
+    seedCouple();
+    tables.user_service_applicants = [applicant()];
+    await expect(regenerateContract(db, ORDER_ID)).rejects.toMatchObject({
+      code: "details_missing",
+      status: 409,
+      message: "The client has not entered their partner's details yet.",
+    });
+
     expect(writes).toHaveLength(0);
     expect(putObject).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("reads the firm's signature again, so a regeneration after it arrived carries it", async () => {
+    tables.user_service_contracts = [contractRow()];
+    bucket(SIGNATURE_PNG);
+
+    const result = await regenerateContract(db, ORDER_ID, { origin: ORIGIN });
+
+    expect(result.contract.version).toBe(2);
+    expect(getObjectBytes).toHaveBeenCalledWith(FIRM_SIGNATURE_KEY);
+    expect(Array.from(generateContractPdf.mock.calls[0][2].signature as Uint8Array)).toEqual(Array.from(SIGNATURE_PNG));
+  });
+
+  it("regenerates the Couple package's agreement with both people", async () => {
+    seedCouple();
+    tables.user_service_contracts = [contractRow({ template: "couple" })];
+
+    const result = await regenerateContract(db, ORDER_ID);
+
+    expect(result.contract.version).toBe(2);
+    expect(buildContractValues.mock.calls[0][0].applicants).toEqual([applicant(), partnerRow()]);
+    expect(generateContractPdf.mock.calls[0][0]).toBe("couple");
+    expect(stored()?.template).toBe("couple");
   });
 });

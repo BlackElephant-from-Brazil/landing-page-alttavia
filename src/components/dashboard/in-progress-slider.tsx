@@ -9,6 +9,7 @@ import type { ClientOrderSummary } from "@/lib/db/client-queries";
 import { Confetti } from "./confetti";
 import { formatDate, isRecentlyCompleted, nextStep } from "./order-status";
 import { PayButton } from "./pay-button";
+import { PayTermsNote } from "./pay-terms-note";
 import { Pill, PAYMENT_LABEL } from "./pills";
 import { SliderControls } from "./slider-controls";
 
@@ -30,7 +31,9 @@ import { SliderControls } from "./slider-controls";
  * Every card ends on a row aligned right: See more, an outline link to
  * `?order=<id>` on the same page which the server answers by rendering the
  * order modal, and, while the order is unpaid, Pay with its amount as the
- * primary button beside it.
+ * primary button beside it. An unpaid card then ends on the terms line the
+ * click accepts (pay-terms-note.tsx), small and muted under the whole row,
+ * rather than squeezed under the button; the button points at it by id.
  */
 
 const TRACK_ID = "in-progress-track";
@@ -108,6 +111,7 @@ function ProgressCard({ item, basePath, now }: { item: ClientOrderSummary; baseP
   const unpaid = !order.paid_at;
   const name = service.name;
   const percent = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+  const termsId = `pay-terms-${order.id}`;
   // The pill already says "Awaiting payment", which is also the first stage's
   // label, so an unpaid card carries its date here instead of the same words twice.
   const subline = unpaid
@@ -195,9 +199,11 @@ function ProgressCard({ item, basePath, now }: { item: ClientOrderSummary; baseP
             size="md"
             align="end"
             wide={false}
+            termsNoteId={termsId}
           />
         )}
       </div>
+      {unpaid && <PayTermsNote id={termsId} align="end" className="relative mt-3" />}
     </article>
   );
 }

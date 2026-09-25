@@ -14,7 +14,7 @@ import type { ApplicantInput } from "./applicant-rules";
  *   findApplicant(admin, orderId, index)         -> the row or null
  *   findPrefill(admin, userId, index, serviceId) -> the user's newest row for that index on an order of another service
  *   toPrincipal(row)                             -> what the deed builder takes
- *   poaFileName(kind, fullName)                  -> the download's file name
+ *   poaFileName(kind, fullName, secondName?)     -> the download's file name (two names on the joint bank deed)
  *
  * The rules themselves (lengths, letters the documents can print, real
  * dates, an adult, a current passport by Lisbon's calendar) live in
@@ -124,20 +124,33 @@ export function toPrincipal(row: UserServiceApplicantRow): PrincipalDetails {
 
 const SLUG_MAX_LENGTH = 60;
 
+/** A name folded to ASCII and hyphens, cut at 60 characters; empty when nothing of it survives. */
+function nameSlug(fullName: string): string {
+  return asciiLetters(fullName)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, SLUG_MAX_LENGTH)
+    .replace(/-+$/, "");
+}
+
 /**
  * `power-of-attorney-nif-jane-alice-doe.pdf` or `…-bank-…`: the name folded
  * to ASCII and hyphens, cut at 60 characters. Letters are spelled the way
  * the deed prints them (asciiLetters: "Łukasz" is "lukasz"). A name with
  * nothing to keep (not one Latin letter or digit) drops the suffix rather
  * than end in a dash.
+ *
+ * The couple's joint bank deed passes the second person too and reads
+ * `power-of-attorney-bank-<first>-and-<second>.pdf`, each name cut on its
+ * own; a name with nothing to keep is left out with its "and".
  */
-export function poaFileName(kind: PoaTemplate, fullName: string): string {
+export function poaFileName(kind: PoaTemplate, fullName: string, secondName?: string): string {
   const deed = kind === "poa_bank" ? "bank" : "nif";
-  const slug = asciiLetters(fullName)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, SLUG_MAX_LENGTH)
-    .replace(/-+$/, "");
+  const slug = [fullName, secondName]
+    .filter((name): name is string => typeof name === "string")
+    .map(nameSlug)
+    .filter(Boolean)
+    .join("-and-");
   return slug ? `power-of-attorney-${deed}-${slug}.pdf` : `power-of-attorney-${deed}.pdf`;
 }

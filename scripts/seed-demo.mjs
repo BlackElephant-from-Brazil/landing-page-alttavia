@@ -398,7 +398,8 @@ async function main() {
     const variables = await import("../src/content/contracts/variables.ts");
     contracts = {
       generate: generate.generateContractPdf,
-      values: variables.buildContractValues,
+      // The facts one by one, as this script holds them (ContractFields).
+      values: variables.buildContractValuesFromFields,
       fileName: variables.contractFileName,
     };
   } catch (error) {
@@ -623,7 +624,12 @@ async function main() {
 
     // The service agreement, as the platform would have prepared it after payment.
     let agreement = "";
-    if (spec.contract && paidAt && service.contract_template && people.length > 0) {
+    // The Couple package's one agreement names both people (0017), so it is
+    // prepared only once the partner's details are on the order too, the rule
+    // src/lib/contracts/ensure.ts applies; buildContractValuesFromFields throws without them.
+    const partnerRow = rows.user_service_applicants.find((a) => a.user_service_id === orderId && a.applicant_index === 1);
+    const everyoneNamed = service.contract_template !== "couple" || !!partnerRow;
+    if (spec.contract && paidAt && service.contract_template && people.length > 0 && everyoneNamed) {
       const template = service.contract_template;
       const applicant = rows.user_service_applicants.find((a) => a.user_service_id === orderId && a.applicant_index === 0);
       const user = USERS.find((u) => u.key === spec.user);
@@ -635,6 +641,7 @@ async function main() {
         variables = contracts.values({
           template,
           applicant,
+          partner: template === "couple" ? partnerRow : undefined,
           email: user.email,
           totalCents: service.price_cents,
           paidAt: iso(paidAt),

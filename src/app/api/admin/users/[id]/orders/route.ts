@@ -1,6 +1,7 @@
 import type { UserRow } from "@/lib/db/types";
 import { ADMIN_ORDER_NOTE, createOrder } from "@/lib/orders/create";
 import { recordManualPayment } from "@/lib/orders/manual-payment";
+import { holdsLiveKey } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/admin-user";
 
@@ -21,7 +22,10 @@ import { INVALID_BODY, audit, errorResponse, isUuid, readJson, refuse, requestOr
  * `paidOutside` is for money that did not come through Stripe, a transfer
  * say: the order is marked paid with no Stripe ids and moved to the
  * service's second stage (src/lib/orders/manual-payment.ts), and the client
- * gets the same "Payment received" email a card payment sends.
+ * gets the same "Payment received" email a card payment sends. The event
+ * notes whether this deploy holds a live Stripe key, so a payment recorded
+ * on staging never counts as real money on production, which shares the
+ * database (src/lib/orders/live-payment.ts).
  *
  * Answers `{ userServiceId, paid, emailed }`. 404 for an unknown client or
  * service, 403 for an administrator account, 400 for a body with no
@@ -58,7 +62,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     let paid = false;
     let emailed = false;
     if (paidOutside) {
-      const payment = await recordManualPayment(db, order.id, admin.id);
+      const payment = await recordManualPayment(db, order.id, admin.id, holdsLiveKey());
       paid = payment.changed;
       // The line says what happened, not what was asked for: recordManualPayment
       // answers `changed: false` when the order was already paid, and the audit
