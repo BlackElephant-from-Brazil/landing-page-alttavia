@@ -138,7 +138,7 @@
       <li><b>Cartão de teste:</b> <code>4242 4242 4242 4242</code>, qualquer validade futura, qualquer código de três dígitos.</li>
       <li><b>Três arquivos de exemplo</b> (PDF, JPG ou PNG, até 10 MB), nunca documentos de clientes reais.</li>
       <li><b>Nomes que você vai encontrar</b> no painel: Margaret Hill, Thomas Reed, Priya Nair, Daniel Okafor, Hannah Brooks, Emma Larsen, Lucas Ferreira e Oliver Grant são clientes fictícios, criados para este teste, com pedidos espalhados pelos últimos dois anos. Nenhum e-mail sai para eles.</li>
-      <li><b>Os avisos à equipe</b> (novo pedido pago, documentos prontos para revisão) vão, no ambiente de teste, para a caixa de testes do Guilherme, e não para o info@.</li>
+      <li><b>Os avisos à equipe</b> (novo pedido pago, documentos prontos para revisão, contrato assinado recebido) vão, no ambiente de teste, para a caixa de testes do Guilherme, e não para o info@.</li>
     </ul>
     <div class="warn"><b>Ficam para outro momento, com o Guilherme:</b> os módulos <b>Services</b> (catálogo) e <b>Feedback</b>. Não precisa testá-los agora.</div>
   </section>
@@ -173,7 +173,20 @@
       </div>
     </li>
 
-    <li class="item" data-id="c03"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">3</span>Pagar com o cartão de teste<span class="who c">cliente</span></span></label>
+    <li class="item" data-id="c02b"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">3</span>Ler a linha de aceitação debaixo do Pay<span class="who c">cliente</span></span></label>
+      <div class="body">
+        <p class="lbl">Como fazer</p>
+        <ol>
+          <li>No cartão <b>NIF only</b>, antes de clicar <b>Pay €149</b>, leia a linha pequena debaixo dos botões.</li>
+          <li>Clique <b>service terms</b> nessa linha e depois volte à área de cliente.</li>
+        </ol>
+        <p class="lbl">O que deve acontecer</p>
+        <p class="exp">A linha diz <b>By paying you accept the service terms and your service agreement.</b> O link <b>service terms</b> abre a página dos termos numa aba nova, e a área de cliente fica onde estava. O clique em <b>Pay</b> vale como aceitação: o sistema guarda no pedido a data e a versão dos termos (você vai vê-las no painel, no passo 15) e não abre o pagamento para um pedido que chegue sem essa aceitação. Essa recusa não se testa pela tela, porque o botão manda sempre a aceitação. A mesma linha aparece debaixo de todos os botões de pagamento; se você já pagou este pedido, confira-a no passo 10, debaixo de <b>Confirm purchase</b>.</p>
+        <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
+      </div>
+    </li>
+
+    <li class="item" data-id="c03"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">4</span>Pagar com o cartão de teste<span class="who c">cliente</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -185,7 +198,7 @@
       </div>
     </li>
 
-    <li class="item" data-id="c04"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">4</span>Confirmar os dados e receber o contrato<span class="who c">cliente</span></span></label>
+    <li class="item" data-id="c04"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">5</span>Confirmar os dados e receber o contrato<span class="who c">cliente</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -193,12 +206,12 @@
           <li>Clique <b>Confirm and open my agreement</b>. Os botões devem estar à direita: <b>Cancel</b> e, ao lado dele, o principal.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
-        <p class="exp">O contrato abre numa aba nova, em PDF, com os seus dados nos lugares certos. No pedido, o cartão <b>Your service agreement</b> passa a mostrar <b>Prepared on</b> e os botões <b>View</b> e <b>Download</b>. No e-mail chega <b>Your service agreement</b>, com o PDF em anexo.</p>
+        <p class="exp">O contrato abre numa aba nova, em PDF, com os seus dados nos lugares certos e o cabeçalho do escritório no topo da primeira página. No rodapé de cada página aparece a linha <b>Specimen from the test environment. Not a binding agreement.</b>: no ambiente de teste o contrato nunca leva a sua assinatura, e a linha de assinatura do escritório fica em branco. No pedido, o cartão <b>Your service agreement</b> passa a mostrar <b>Prepared on</b> e os botões <b>View</b> e <b>Download</b>. No e-mail chega <b>Your service agreement</b>, com o PDF em anexo.</p>
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
 
-    <li class="item" data-id="c05"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">5</span>Enviar os três documentos<span class="who c">cliente</span></span></label>
+    <li class="item" data-id="c05"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">6</span>Enviar os três documentos<span class="who c">cliente</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -206,12 +219,26 @@
           <li>Em <b>Power of attorney for the NIF</b>, clique <b>Download to sign</b>: abre a procuração já preenchida. Leia a nota sobre assinar com a mesma assinatura do passaporte. No teste, envie esse mesmo PDF em <b>Upload the signed copy</b>.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
-        <p class="exp">Cada envio passa por <b>Uploading</b> e termina em <b>Uploaded</b>; o topo diz <b>3 of 3 received</b>. O botão <b>View</b> abre o arquivo enviado. Se um arquivo não puder ser lido pelo navegador, a mensagem pede outra cópia e nada fica preso.</p>
+        <p class="exp">Cada envio passa por <b>Uploading</b> e termina em <b>Uploaded</b>; o topo diz <b>3 of 4 received</b>. O quarto quadro, <b>Signed service agreement</b>, fica para o passo seguinte. O botão <b>View</b> abre o arquivo enviado. Se um arquivo não puder ser lido pelo navegador, a mensagem pede outra cópia e nada fica preso.</p>
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
 
-    <li class="item" data-id="c06"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">6</span>Trocar e remover um arquivo antes da revisão<span class="who c">cliente</span></span></label>
+    <li class="item" data-id="c05b"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">7</span>Assinar e enviar o contrato<span class="who c">cliente</span></span></label>
+      <div class="body">
+        <p class="lbl">Como fazer</p>
+        <ol>
+          <li>Na lista de documentos do pedido <b>NIF only</b>, vá ao último quadro, <b>Signed service agreement</b>.</li>
+          <li>Clique <b>Download to sign</b>: o contrato abre numa aba nova. Leia a frase debaixo do botão.</li>
+          <li>Na vida real, a cliente imprime, assina à mão e digitaliza as páginas. No teste, guarde esse PDF no computador e envie-o em <b>Upload the signed copy</b>.</li>
+        </ol>
+        <p class="lbl">O que deve acontecer</p>
+        <p class="exp">O quadro pede a assinatura à mão, igual à do passaporte. O envio termina em <b>Uploaded</b> e o topo passa a <b>4 of 4 received</b>. Antes de os dados serem confirmados (passo 5), este quadro não aceita arquivos e diz para confirmar os dados primeiro. Ao enviar, sai o aviso <b>Signed service agreement received</b> para a equipe, que no ambiente de teste vai para a caixa de testes do Guilherme.</p>
+        <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
+      </div>
+    </li>
+
+    <li class="item" data-id="c06"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">8</span>Trocar e remover um arquivo antes da revisão<span class="who c">cliente</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -219,24 +246,24 @@
           <li>Depois clique <b>Remove</b>, confirme em <b>Yes, remove</b>, e envie de novo com <b>Choose file</b>.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
-        <p class="exp">O nome do arquivo muda na troca; a remoção volta o quadro a <b>Waiting for file</b>; o novo envio deixa tudo em <b>3 of 3 received</b>. Isto só é possível enquanto o pedido está na etapa <b>Documents</b> e o arquivo ainda não foi aprovado.</p>
+        <p class="exp">O nome do arquivo muda na troca; a remoção volta o quadro a <b>Waiting for file</b>; o novo envio deixa tudo em <b>4 of 4 received</b>. Isto só é possível enquanto o pedido está na etapa <b>Documents</b> e o arquivo ainda não foi aprovado.</p>
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
 
-    <li class="item" data-id="c07"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">7</span>Ver a página inicial depois do pagamento<span class="who c">cliente</span></span></label>
+    <li class="item" data-id="c07"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">9</span>Ver a página inicial depois do pagamento<span class="who c">cliente</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
           <li>Clique <b>Dashboard</b> no menu da esquerda.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
-        <p class="exp">O título é <b>Welcome back.</b> Em <b>In progress</b>, o cartão do pedido mostra a barra de etapas, <b>Documents received 3/3</b> e só o botão <b>See more</b> (o <b>Pay</b> sumiu). Abaixo aparece <b>Get a service</b>, com os outros serviços. <b>See more</b> abre os detalhes do pedido, sem a lista de respostas do formulário.</p>
+        <p class="exp">O título é <b>Welcome back.</b> Em <b>In progress</b>, o cartão do pedido mostra a barra de etapas, <b>Documents received 4/4</b> e só o botão <b>See more</b> (o <b>Pay</b> sumiu). Abaixo aparece <b>Get a service</b>, com os outros serviços. <b>See more</b> abre os detalhes do pedido, sem a lista de respostas do formulário.</p>
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
 
-    <li class="item" data-id="c08"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">8</span>Comprar um segundo serviço pela tela Services<span class="who c">cliente</span></span></label>
+    <li class="item" data-id="c08"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">10</span>Comprar um segundo serviço pela tela Services<span class="who c">cliente</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -244,12 +271,12 @@
           <li>Pague com o cartão de teste. Na volta, confirme os dados (devem vir preenchidos com os do primeiro pedido) e clique <b>Confirm and open my agreement</b>.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
-        <p class="exp">Um segundo pedido, <b>Bank Account only</b>, pago e na etapa <b>Documents</b>, com o seu contrato desse serviço. A lista de documentos é maior (extratos, comprovante de profissão, procuração do banco). Não precisa enviá-los agora.</p>
+        <p class="exp">Debaixo de <b>Confirm purchase</b> aparece a mesma linha de aceitação do passo 3. Depois, um segundo pedido, <b>Bank Account only</b>, pago e na etapa <b>Documents</b>, com o seu contrato desse serviço. A lista de documentos é maior (extratos, comprovante de profissão, procuração do banco e o contrato assinado). Não precisa enviá-los agora.</p>
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
 
-    <li class="item" data-id="c09"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">9</span>Minhas compras<span class="who c">cliente</span></span></label>
+    <li class="item" data-id="c09"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">11</span>Minhas compras<span class="who c">cliente</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -263,10 +290,10 @@
   </ul>
 
   <h2 id="h2"><small>Parte 2</small>Como administradora: do pedido pago ao pedido concluído</h2>
-  <p class="sub">Na janela normal. Os passos 13 a 19 tratam o pedido que você acabou de fazer como cliente; os seguintes usam os clientes fictícios.</p>
+  <p class="sub">Na janela normal. Os passos 15 a 22 tratam o pedido que você acabou de fazer como cliente; os seguintes usam os clientes fictícios.</p>
   <ul class="items" data-section="Parte 2: como administradora">
 
-    <li class="item" data-id="a10"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">10</span>Entrar no painel<span class="who">admin</span></span></label>
+    <li class="item" data-id="a10"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">12</span>Entrar no painel<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -278,7 +305,7 @@
       </div>
     </li>
 
-    <li class="item" data-id="a11"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">11</span>Overview: os períodos mudam os números<span class="who">admin</span></span></label>
+    <li class="item" data-id="a11"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">13</span>Overview: os períodos mudam os números<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -291,7 +318,7 @@
       </div>
     </li>
 
-    <li class="item" data-id="a12"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">12</span>Orders: o quadro Kanban, a tabela e os filtros<span class="who">admin</span></span></label>
+    <li class="item" data-id="a12"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">14</span>Orders: o quadro Kanban, a tabela e os filtros<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -304,25 +331,25 @@
       </div>
     </li>
 
-    <li class="item" data-id="a13"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">13</span>Abrir o seu pedido e ver os arquivos<span class="who">admin</span></span></label>
+    <li class="item" data-id="a13"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">15</span>Abrir o seu pedido e ver os arquivos<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
           <li>No <b>Overview</b>, em <b>Awaiting review</b>, clique na linha com o seu e-mail pessoal (pedido <b>NIF only</b>).</li>
-          <li>Em cada arquivo, clique <b>View</b> e depois <b>Download</b>.</li>
+          <li>Em cada um dos quatro arquivos, clique <b>View</b> e depois <b>Download</b>.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
-        <p class="exp"><b>View</b> abre o arquivo numa aba nova, sem sair do painel; <b>Download</b> guarda o arquivo no computador. A secção <b>Details for the deeds</b> mostra os dados que você digitou como cliente, e <b>Service agreement</b> mostra a versão 1 com <b>Download</b>. O botão <b>Forward</b> está desativado com a frase <b>Approve every required document to move on.</b></p>
+        <p class="exp"><b>View</b> abre o arquivo numa aba nova, sem sair do painel; <b>Download</b> guarda o arquivo no computador. No quadro <b>Signed service agreement</b> aparece também <b>Download agreement</b>, que baixa o contrato preparado. A secção <b>Details for the deeds</b> mostra os dados que você digitou como cliente, e <b>Service agreement</b> mostra a versão 1 com <b>Download</b> e a linha <b>The client accepted the service terms and the service agreement before paying</b>, com a data e a hora do seu clique em Pay e <b>(terms of 2026-09-25)</b>. O botão <b>Forward</b> está desativado com a frase <b>Approve every required document to move on.</b></p>
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
 
-    <li class="item" data-id="a14"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">14</span>Rejeitar um arquivo com motivo e aprovar os outros<span class="who">admin</span></span></label>
+    <li class="item" data-id="a14"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">16</span>Rejeitar um arquivo com motivo e aprovar os outros<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
           <li>No <b>Proof of address</b>, clique <b>Reject</b>, escreva um motivo em inglês (por exemplo "The scan is too dark to read.") e clique <b>Reject and notify</b>.</li>
-          <li>Aprove o <b>Passport</b> e a procuração com <b>Approve</b>.</li>
+          <li>Aprove o <b>Passport</b> e a procuração com <b>Approve</b>. Não mexa ainda no <b>Signed service agreement</b>: ele fica para o passo 18.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
         <p class="exp">O arquivo rejeitado fica <b>Rejected</b>, com o motivo por baixo. Na janela anónima, o pedido da cliente mostra o mesmo motivo, palavra por palavra, e no e-mail pessoal chega <b>A new file is needed: Proof of address</b>. <b>Forward</b> continua desativado.</p>
@@ -330,7 +357,7 @@
       </div>
     </li>
 
-    <li class="item" data-id="a15"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">15</span>Reenviar como cliente e ver o histórico do arquivo<span class="who c">cliente</span><span class="who">admin</span></span></label>
+    <li class="item" data-id="a15"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">17</span>Reenviar como cliente e ver o histórico do arquivo<span class="who c">cliente</span><span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -343,20 +370,33 @@
       </div>
     </li>
 
-    <li class="item" data-id="a16"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">16</span>Aprovar o último e avançar as etapas<span class="who">admin</span></span></label>
+    <li class="item" data-id="a15b"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">18</span>O contrato assinado: o aviso e a aprovação<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
-          <li>Aprove o <b>Proof of address</b> novo. Clique <b>Forward</b> (para <b>Submitted</b>) e de novo <b>Forward</b> (para <b>NIF ready</b>).</li>
-          <li>Clique <b>Back</b> uma vez e volte com <b>Jump to</b> = NIF ready e <b>Go</b>.</li>
+          <li>No seu pedido <b>NIF only</b>, aprove o <b>Proof of address</b> novo com <b>Approve</b>. Deixe o <b>Signed service agreement</b> por aprovar e veja o botão <b>Forward</b>.</li>
+          <li>No <b>Signed service agreement</b>, clique <b>View</b> para ler a cópia assinada que você enviou no passo 7, e depois <b>Approve</b>.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
-        <p class="exp">Com tudo aprovado, <b>Forward</b> ativa. A etapa atual fica destacada em dourado e <b>History</b>, no fim da janela, regista cada mudança com a hora. A cliente vê a barra de etapas avançar na área dela.</p>
+        <p class="exp">Com só o contrato assinado por aprovar, <b>Forward</b> continua desativado, com a frase <b>Approve every required document to move on.</b>: o pedido não sai da etapa <b>Documents</b> sem ele. Depois de aprovar, <b>Forward</b> ativa. Quando você enviou a cópia como cliente, o aviso <b>Signed service agreement received</b> foi para a caixa de testes do Guilherme sem o arquivo anexado, porque o pagamento foi de teste; o aviso diz para baixar o arquivo do pedido. Com pagamentos reais, a cópia assinada chega anexada ao aviso da equipe, até 8 MB. Sai um aviso por rodada: se você rejeitar a cópia, o próximo envio da cliente gera um aviso novo. Em <b>History</b>, no fim da janela, aparece a linha <b>Signed service agreement sent to the team inbox</b>.</p>
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
 
-    <li class="item" data-id="a17"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">17</span>Entregar arquivos à cliente e remover um enviado por engano<span class="who">admin</span></span></label>
+    <li class="item" data-id="a16"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">19</span>Avançar e voltar nas etapas<span class="who">admin</span></span></label>
+      <div class="body">
+        <p class="lbl">Como fazer</p>
+        <ol>
+          <li>Com os quatro arquivos aprovados, clique <b>Forward</b> (para <b>Submitted</b>) e de novo <b>Forward</b> (para <b>NIF ready</b>).</li>
+          <li>Clique <b>Back</b> uma vez e volte com <b>Jump to</b> = NIF ready e <b>Go</b>.</li>
+        </ol>
+        <p class="lbl">O que deve acontecer</p>
+        <p class="exp">Cada <b>Forward</b> avança uma etapa. A etapa atual fica destacada em dourado e <b>History</b>, no fim da janela, regista cada mudança com a hora. A cliente vê a barra de etapas avançar na área dela.</p>
+        <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
+      </div>
+    </li>
+
+    <li class="item" data-id="a17"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">20</span>Entregar arquivos à cliente e remover um enviado por engano<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -369,7 +409,7 @@
       </div>
     </li>
 
-    <li class="item" data-id="a18"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">18</span>Escrever o relatório e concluir o pedido<span class="who">admin</span></span></label>
+    <li class="item" data-id="a18"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">21</span>Escrever o relatório e concluir o pedido<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -382,7 +422,7 @@
       </div>
     </li>
 
-    <li class="item" data-id="a19"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">19</span>Concluir de novo não repete o e-mail<span class="who">admin</span></span></label>
+    <li class="item" data-id="a19"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">22</span>Concluir de novo não repete o e-mail<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -394,21 +434,21 @@
       </div>
     </li>
 
-    <li class="item" data-id="a20"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">20</span>Margaret Hill: um pedido com as duas procurações<span class="who">admin</span></span></label>
+    <li class="item" data-id="a20"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">23</span>Margaret Hill: um pedido com as duas procurações<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
-          <li>Em <b>Orders</b>, abra o cartão de <b>margaret.hill@</b> (NIF + Bank Account, etapa Documents, 7 arquivos a revisar).</li>
+          <li>Em <b>Orders</b>, abra o cartão de <b>margaret.hill@</b> (NIF + Bank Account, etapa Documents, 7 arquivos a revisar e o quadro <b>Signed service agreement</b> vazio).</li>
           <li>Em cada procuração, clique <b>Download deed</b> e confira o PDF gerado. Aprove os sete arquivos.</li>
           <li>Em <b>Service agreement</b>, clique <b>Regenerate and resend</b> e confirme.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
-        <p class="exp"><b>Download deed</b> gera a procuração na hora, com a data de hoje e sem assinatura: a assinada é a que a cliente enviou. Com os sete aprovados, <b>Forward</b> ativa. O contrato passa a <b>version 2</b>. Nenhum e-mail sai para esta cliente, que é fictícia.</p>
+        <p class="exp"><b>Download deed</b> gera a procuração na hora, com a data de hoje e sem assinatura: a assinada é a que a cliente enviou. Com os sete aprovados, <b>Forward</b> continua desativado: falta o contrato assinado, que esta cliente fictícia, de um pedido anterior ao novo quadro, nunca enviou. É assim que um pedido real fica à espera do contrato assinado. O contrato passa a <b>version 2</b>, com o cabeçalho do escritório e a linha <b>Specimen from the test environment. Not a binding agreement.</b> no rodapé, porque o pagamento dela foi de teste. Nenhum e-mail sai para esta cliente, que é fictícia.</p>
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
 
-    <li class="item" data-id="a21"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">21</span>Priya Nair: a pergunta avisa o que falta<span class="who">admin</span></span></label>
+    <li class="item" data-id="a21"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">24</span>Priya Nair: a pergunta avisa o que falta<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -421,20 +461,21 @@
       </div>
     </li>
 
-    <li class="item" data-id="a22"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">22</span>Thomas Reed e Daniel Okafor: arquivos em falta e dois requerentes<span class="who">admin</span></span></label>
+    <li class="item" data-id="a22"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">25</span>Thomas Reed e Daniel Okafor: arquivos em falta e dois requerentes<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
           <li>Abra o pedido de <b>thomas.reed@</b> (Bank Account only). Veja os quadros vazios e o <b>1 other upload</b> num deles.</li>
           <li>Abra o pedido de <b>daniel.okafor@</b> (Couple package). Veja os arquivos de <b>Applicant 1</b> e <b>Applicant 2</b> e a secção <b>Details for the deeds</b> com as duas pessoas.</li>
+          <li>No mesmo pedido, em <b>Power of attorney for the bank account</b>, clique <b>Download deed</b>.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
-        <p class="exp">Nos quadros vazios lê-se <b>Waiting</b>, e <b>Forward</b> fica desativado. No casal, cada documento aparece duas vezes, uma por requerente, e <b>Service agreement</b> diz <b>Not required</b> (o pacote de casal ainda não tem modelo de contrato).</p>
+        <p class="exp">Nos quadros vazios lê-se <b>Waiting</b>, e <b>Forward</b> fica desativado. No casal, cada documento aparece duas vezes, uma por requerente, menos a procuração do banco e o contrato assinado: cada um é um papel só, com os dois nomes, que os dois assinam. <b>Download deed</b> gera uma única procuração do banco com as duas pessoas e duas linhas de assinatura. A redação no plural é nossa e espera a sua leitura, tal como a cláusula d), que ainda fala em conta de titular único. <b>Service agreement</b> diz <b>Waiting for the client's details</b> e oferece <b>Prepare and send</b>: o contrato do casal é um só e nomeia as duas pessoas. Não precisa clicar.</p>
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
 
-    <li class="item" data-id="a23"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">23</span>Arrastar cartões no Kanban<span class="who">admin</span></span></label>
+    <li class="item" data-id="a23"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">26</span>Arrastar cartões no Kanban<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -448,7 +489,7 @@
       </div>
     </li>
 
-    <li class="item" data-id="a24"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">24</span>Users: procurar e ver os detalhes de um cliente<span class="who">admin</span></span></label>
+    <li class="item" data-id="a24"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">27</span>Users: procurar e ver os detalhes de um cliente<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -461,7 +502,7 @@
       </div>
     </li>
 
-    <li class="item" data-id="a25"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">25</span>Criar um cliente novo e atribuir uma compra<span class="who">admin</span></span></label>
+    <li class="item" data-id="a25"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">28</span>Criar um cliente novo e atribuir uma compra<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -475,7 +516,7 @@
       </div>
     </li>
 
-    <li class="item" data-id="a26"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">26</span>O cliente criado pelo painel entra e paga<span class="who c">cliente</span></span></label>
+    <li class="item" data-id="a26"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">29</span>O cliente criado pelo painel entra e paga<span class="who c">cliente</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -483,12 +524,12 @@
           <li>No cartão do <b>NIF only</b>, clique <b>Pay €149</b> e pague com o cartão de teste.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
-        <p class="exp">A área de cliente mostra os dois pedidos em <b>In progress</b>: o não pago com <b>Pay €149</b>, o pago com a barra de etapas. Depois do pagamento, o formulário de dados abre sozinho, como no passo 3. <b>Get a service</b> aparece, porque já há um pedido pago.</p>
+        <p class="exp">A área de cliente mostra os dois pedidos em <b>In progress</b>: o não pago com <b>Pay €149</b>, o pago com a barra de etapas. Depois do pagamento, o formulário de dados abre sozinho, como no passo 4. <b>Get a service</b> aparece, porque já há um pedido pago.</p>
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
 
-    <li class="item" data-id="a27"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">27</span>Editar e apagar um cliente<span class="who">admin</span></span></label>
+    <li class="item" data-id="a27"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">30</span>Editar e apagar um cliente<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -501,7 +542,7 @@
       </div>
     </li>
 
-    <li class="item" data-id="a28"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">28</span>Trocar a senha, sair e entrar de novo<span class="who">admin</span></span></label>
+    <li class="item" data-id="a28"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">31</span>Trocar a senha, sair e entrar de novo<span class="who">admin</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -513,13 +554,28 @@
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
+
+    <li class="item" data-id="a28b"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">32</span>Ativar o segundo fator de entrada<span class="who">admin</span></span></label>
+      <div class="body">
+        <div class="warn"><b>Com o Guilherme:</b> este passo é feito junto, na chamada. Não o comece sozinha.</div>
+        <p class="lbl">Como fazer</p>
+        <ol>
+          <li>Instale no telemóvel uma app de autenticação: Google Authenticator, Microsoft Authenticator, 1Password ou Authy.</li>
+          <li>No painel, clique <b>Settings</b>. Em <b>Second factor</b>, clique <b>Set up</b>. Na app, adicione uma conta e leia o código QR (ou escreva a chave que aparece por baixo dele). Escreva os 6 dígitos que a app mostra e clique <b>Turn on</b>.</li>
+          <li>Clique <b>Sign out</b>. Abra <b>/admin/login</b> e entre com o info@ e a senha.</li>
+        </ol>
+        <p class="lbl">O que deve acontecer</p>
+        <p class="exp">Depois de <b>Turn on</b>, o cartão diz <b>The second factor is on.</b> e mostra <b>On since</b> com a data de hoje; outros aparelhos onde o painel estava aberto pedem entrada de novo. Na entrada seguinte, depois da senha, a tela <b>One more step</b> pede o código de 6 dígitos da app, e só com ele o painel abre, mesmo que se digite o endereço <b>/admin</b> direto. A partir daqui, <b>Forgot your password?</b> pede também o código da app. Se perder o telemóvel, o Guilherme retira o fator e você configura o novo em <b>Settings</b>.</p>
+        <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
+      </div>
+    </li>
   </ul>
 
   <h2 id="h3"><small>Parte 3</small>De volta à cliente: o que ela recebe no fim</h2>
   <p class="sub">Na primeira janela anónima, com o e-mail pessoal do passo 2.</p>
   <ul class="items" data-section="Parte 3: de volta à cliente">
 
-    <li class="item" data-id="c29"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">29</span>O pedido concluído, visto pela cliente<span class="who c">cliente</span></span></label>
+    <li class="item" data-id="c29"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">33</span>O pedido concluído, visto pela cliente<span class="who c">cliente</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -531,19 +587,19 @@
       </div>
     </li>
 
-    <li class="item" data-id="c30"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">30</span>Conferir os e-mails que a cliente recebeu<span class="who c">cliente</span></span></label>
+    <li class="item" data-id="c30"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">34</span>Conferir os e-mails que a cliente recebeu<span class="who c">cliente</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
           <li>Abra a caixa do e-mail pessoal e procure o remetente hello@send.alttavia-relocation.com.</li>
         </ol>
         <p class="lbl">O que deve acontecer</p>
-        <p class="exp">Na ordem: o código de entrada, <b>Payment received</b> (dois, um por pedido), <b>Your service agreement</b> (dois, com PDF), <b>A new file is needed: Proof of address</b> e <b>Your NIF only order is complete</b>. Cada botão dos e-mails abre a página certa no ambiente de teste. Anote qualquer e-mail que faltou, chegou duplicado ou caiu no spam.</p>
+        <p class="exp">Na ordem: o código de entrada, <b>Payment received</b> (dois, um por pedido), <b>Your service agreement</b> (dois, com PDF), <b>A new file is needed: Proof of address</b> e <b>Your NIF only order is complete</b>. Cada botão dos e-mails abre a página certa no ambiente de teste. O aviso <b>Signed service agreement received</b> não chega aqui: é da equipe. Anote qualquer e-mail que faltou, chegou duplicado ou caiu no spam.</p>
         <textarea placeholder="O que aconteceu, se foi diferente"></textarea>
       </div>
     </li>
 
-    <li class="item" data-id="c31"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">31</span>No celular<span class="who c">cliente</span></span></label>
+    <li class="item" data-id="c31"><label class="head"><input type="checkbox"><span class="box"><svg viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="t"><span class="n">35</span>No celular<span class="who c">cliente</span></span></label>
       <div class="body">
         <p class="lbl">Como fazer</p>
         <ol>
@@ -561,12 +617,11 @@
     <h2 id="h-later"><small>Fora deste roteiro</small>O que fica para depois</h2>
     <ul class="later">
       <li><b>Services</b> e <b>Feedback</b>: testamos juntos com o Guilherme, noutro momento.</li>
-      <li><b>Segundo fator de entrada</b> (código no telemóvel): entra nesta semana e será cadastrado com você numa chamada.</li>
-      <li><b>Pagamentos reais</b>: só na sexta, com a compra de 149 euros e o estorno feitos juntos.</li>
+      <li><b>Pagamentos reais</b>: só na sexta, com a compra de 149 euros e o estorno feitos juntos. Só num pedido pago com dinheiro real o contrato leva a sua assinatura digitalizada, sem a linha de exemplo no rodapé, e a cópia assinada chega anexada ao aviso da equipe.</li>
     </ul>
   </section>
 
-  <p class="foot">Progresso e notas ficam só neste navegador (se abrir noutro computador, começa do zero). Use <b>Copiar resumo</b> para mandar tudo ao Guilherme de uma vez. Versão do roteiro: 22 de setembro de 2026.</p>
+  <p class="foot">Progresso e notas ficam só neste navegador (se abrir noutro computador, começa do zero). Use <b>Copiar resumo</b> para mandar tudo ao Guilherme de uma vez. Versão do roteiro: 25 de setembro de 2026.</p>
 </div>
 
 <script>

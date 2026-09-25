@@ -13,6 +13,8 @@ payment to delivery, the client's order gallery, and the service editor.
    in there is sent to `/en/dashboard`. Since 2026-09-21 only a session
    opened with a password counts as admin (section 2), and "Forgot your
    password?" on the same page resets it with a 6 digit code (section 7).
+   Since 2026-09-25 an admin may add a **second factor**, a code from an
+   authenticator app, asked right after the password (sections 2 and 7).
 2. **Admin area** at `/admin` (overview with KPIs, filters and charts),
    `/admin/orders` (every order, filters, search, a kanban board since
    2026-09-22 with the paginated table one parameter away, and a **centered
@@ -44,7 +46,9 @@ payment to delivery, the client's order gallery, and the service editor.
    paid order", "Documents ready to review" and "Paid amount does not match
    the order" (`src/lib/orders/notify.ts`, `docs/platform-contract.md`
    section 8, "Emails about an order"); feedback notes go to `FEEDBACK_TO`
-   (section 7).
+   (section 7). Since 2026-09-25 the team inbox also gets "Signed service
+   agreement received" with the client's signed copy (attached only for an
+   order paid with real money).
 
 ## 2. Decisions already taken
 
@@ -62,13 +66,40 @@ payment to delivery, the client's order gallery, and the service editor.
   could otherwise open `/admin` from `/en/login`. A code, a recovery code or
   a magic link session of an admin account is a client session everywhere;
   the admin pages send it to `/admin/login`, which asks for the password.
+- **A second factor** (2026-09-25): a 6 digit code from an authenticator
+  app (Supabase Auth TOTP), set up by the admin at `/admin/settings`. Two
+  rules decide when it is asked for, in `adminAccess()`
+  (`src/lib/supabase/admin-user.ts`):
+  - **Enrolled means required, always.** An admin with a verified factor is
+    admin only in a session at `aal2`; a password alone is `aal1` and reads
+    as a client (`needsPassword` and `needsCode` true), so typing `/admin`
+    in the address bar after the password step, whose cookies are already
+    written, does not skip the code. It cannot lock anyone out: an admin who
+    never set a factor up is not asked. This is stricter than the brief of
+    the round, on purpose.
+  - **`ADMIN_REQUIRE_MFA=1`** asks `aal2` of every admin, enrolled or not,
+    and leads an admin without a factor through the set up on
+    `/admin/login` right after the password. Only the exact value `1` turns
+    it on. Set it on Netlify only after every admin account (Patrícia's and
+    the support admin) has enrolled.
+
+  `0015_admin_mfa.sql` gives `is_admin()` the first rule, so RLS and the app
+  agree (section 3). The second lives in the app only, so it can be turned
+  on and off from the host's environment without a migration; with it on,
+  an admin who has not enrolled yet is refused by the app but still passes
+  `is_admin()` at `aal1`. Enrolling every admin closes that gap, and also
+  the other one: the first enrolment is allowed at `aal1`, so until an
+  account has a factor, whoever holds its password (or reads its inbox and
+  uses the recovery code) could enrol an authenticator of their own first.
 - A **support admin**, `business+admin@guyshore.com` (the developer's inbox,
   never the firm's), exists for scripts and test runs, since the admin area
   takes a password session only. `npm run admin:create -- --support` sets a
   new password on every run and writes `ADMIN_SUPPORT_EMAIL` and
   `ADMIN_SUPPORT_PASSWORD` into `.env.local` only; it never prints the
   password, the site never reads the two variables, and they are never set
-  on Netlify.
+  on Netlify. Since 2026-09-25 `npm run admin:totp` gives it a second
+  factor whose secret it writes into `.env.local` as
+  `ADMIN_SUPPORT_TOTP_SECRET` (section 4), so scripts can sign in at `aal2`.
 - Every admin write goes through a route handler under `/api/admin/*` that
   calls `requireAdmin()` first and then uses the admin client. RLS admin
   policies exist so admin **pages** can read with the user client, nothing
@@ -76,7 +107,7 @@ payment to delivery, the client's order gallery, and the service editor.
 - Patrícia's first account: `info@alttavia-relocation.com`, created by
   `scripts/create-admin.mjs` with a generated password that is printed once
   and never stored in the repo or in `.env.local`. She changes it at
-  `/admin/settings`. MFA is a follow-up item, not built now.
+  `/admin/settings`, where she also sets up the second factor (2026-09-25).
 - The order detail on the admin side is a **modal** (`<dialog>`, centered,
   focus trapped, Esc closes) driven by the URL (`?order=<id>`) so a refresh or
   a shared link reopens it.
@@ -201,13 +232,47 @@ $$;
 Supabase writes `amr` as `[{ "method": ..., "timestamp": ... }]` and keeps
 it across token refreshes; a second factor adds its own entry, so password
 plus TOTP still passes. A code, magic link or recovery session, or no JWT,
-answers false. `aal2` is not asked for (no MFA yet). Every `*_select_admin`
-policy (0005, 0007, 0009, 0010) and the `admin_order_summary` view
-(`security_invoker`) go through the function, so they all follow without
-being touched; the secret key bypasses RLS and is not affected. The grants
-are stated again: execute revoked from `public` and `anon`, granted to
-`authenticated`. Both migrations were applied to the live project on
-2026-09-21, after a `db:dump`.
+answers false. `aal2` was not asked for until 0015 (below). Every
+`*_select_admin` policy (0005, 0007, 0009, 0010) and the
+`admin_order_summary` view (`security_invoker`) go through the function, so
+they all follow without being touched; the secret key bypasses RLS and is
+not affected. The grants are stated again: execute revoked from `public` and
+`anon`, granted to `authenticated`. Both migrations were applied to the live
+project on 2026-09-21, after a `db:dump`.
+
+`0015_admin_mfa.sql` (2026-09-25) adds the second factor's rule (section 2):
+
+```sql
+create or replace function public.is_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+    and coalesce(auth.jwt() -> 'amr', '[]'::jsonb) @> '[{"method":"password"}]'::jsonb
+    and (
+      coalesce(auth.jwt() ->> 'aal', '') = 'aal2'
+      or not exists (
+        select 1 from auth.mfa_factors f
+        where f.user_id = auth.uid() and f.status = 'verified'
+      )
+    );
+$$;
+```
+
+An admin with a verified factor passes only at `aal2`; one who never set a
+factor up passes at `aal1` as before, and an unverified factor (a set up
+left halfway) does not count. The function runs as its owner (postgres),
+which may read `auth.mfa_factors`, so the caller needs no grant on the auth
+schema. It is strictly narrower than 0011, and the grants are stated again.
+`ADMIN_REQUIRE_MFA` is not read here: it is the app's alone.
+
+The other migrations of the delivery round (2026-09-25) touch the admin's
+screens without touching RLS: `0013_signed_agreement_slot.sql` (the
+`signed_agreement` slot, `service_docs.template = 'agreement'`),
+`0014_terms_acceptance.sql` (`user_services.terms_accepted_at` and
+`terms_version`, set together or not at all, read by the order modal),
+`0016_couple_joint_bank_deed.sql` (the couple's bank deed as one shared
+slot) and `0017_couple_contract.sql` (the `couple` contract model).
+`docs/documents-contract.md` section 7 and `docs/agreement-contract.md`
+describe them. 0013 to 0017 were applied to the live project on 2026-09-25.
 
 The trigger that mirrors `auth.users` needs no change; `role` defaults to
 `client`. `scripts/create-admin.mjs` then runs
@@ -224,10 +289,20 @@ src/lib/supabase/admin-user.ts   requireAdmin(): Promise<SessionUser & { role: '
                                  "password" (hasPasswordMethod); otherwise "client", with needsPassword true for
                                  an admin account; fails closed. requireAdmin() then throws 403
                                  "Sign in with your password." (PASSWORD_REQUIRED)
+                                 since 2026-09-25 also the second factor: getUserWithRole() answers
+                                 { role, needsPassword, needsCode } from adminAccess(facts), the pure decision
+                                 (storedAdmin, password, aal2 from the verified `aal` claim, enrolled from the
+                                 user's verified factors, requireForAll from mfaRequiredForAll(), true only for
+                                 ADMIN_REQUIRE_MFA=1). A password session short of the code is "client" with
+                                 needsPassword and needsCode; requireAdmin() throws 403 "Sign in with your
+                                 password and your code." (SECOND_FACTOR_REQUIRED); requireAdminPage() turns
+                                 either 403 into a redirect to /admin/login
 src/lib/db/admin-queries.ts      see section 5
 src/lib/db/types.ts              add role to UserRow; extend UserServiceDeliverableRow; since 0007 PoaTemplate,
                                  ServiceDocRow.template and UserServiceApplicantRow; since 0009 ContractTemplate,
-                                 ServiceRow.contract_template, UserServiceContractRow and AdminOrderDetail.contract
+                                 ServiceRow.contract_template, UserServiceContractRow and AdminOrderDetail.contract;
+                                 since 2026-09-25 DocTemplate (the deeds plus 'agreement'), ContractTemplate with
+                                 'couple', and UserServiceRow.terms_accepted_at / terms_version (optional, 0014)
 src/lib/email/send.ts            sendEmail({ to, subject, html, text, attachments? }) via POST https://api.resend.com/emails
                                  with EMAIL_API_KEY, from EMAIL_FROM, reply_to EMAIL_REPLY_TO; returns { ok, id? }; never
                                  throws; attachments are { filename, content: Uint8Array }[], sent as base64 (2026-09-21)
@@ -236,14 +311,25 @@ src/lib/email/templates.ts       documentRejected({ docLabel, reason, dashboardU
                                  serviceAgreement({ serviceName, dashboardUrl }) -> { subject, html, text }; house rules; same
                                  visual language as the Supabase code email (Georgia, navy, gold eyebrow); since
                                  2026-09-21 also paymentReceived (client) and newPaidOrder, documentsReady,
-                                 paymentMismatch (team inbox), docs/platform-contract.md section 8
+                                 paymentMismatch (team inbox), docs/platform-contract.md section 8; since
+                                 2026-09-25 signedAgreement (team inbox, "Signed service agreement received")
 src/lib/email/send.ts            since 2026-09-21 skips any `.invalid` recipient (isReservedAddress) and answers { ok: true }
 src/lib/orders/notify.ts         2026-09-21: the payment and documents emails, docs/platform-contract.md section 8
 src/lib/email/feedback.ts        2026-09-21: FEEDBACK_PRIORITIES / _STATUSES and their labels (the only copy; the client
                                  components get them as props), AdminFeedbackRow, isSitePath, sendFeedbackEmail (to
                                  FEEDBACK_TO, best effort, never throws; unset, the note is still saved)
 src/lib/contracts/ensure.ts      regenerateContract(admin, orderId, { origin? }) -> { contract, emailed }; throws
-                                 ContractError(404|409) with a line the admin may read (2026-09-21, section 6)
+                                 ContractError(404|409) with a line the admin may read (2026-09-21, section 6).
+                                 Since 2026-09-25 it waits for both persons on the Couple package and draws the
+                                 firm's signature (firm/signature.png) on orders paid with real money only
+                                 (docs/agreement-contract.md section 5)
+src/lib/orders/live-payment.ts   2026-09-25: isLiveOrder(order, notes), paidWithRealMoney(db, order): a cs_live_
+                                 session, or a payment the admin recorded outside the platform on a deploy with a
+                                 live Stripe key (MANUAL_PAYMENT_LIVE_NOTE on the order's events)
+src/components/admin/settings/mfa-enrol.tsx   2026-09-25: the second factor card (set up with a QR code and the
+                                 key typed by hand, the first code turns it on; turn off asks the current code),
+                                 used by /admin/settings and, with `required`, by /admin/login. Copy and pure
+                                 helpers in mfa-helpers.ts (tested); the 6 digit field in code-field.tsx
 src/lib/orders/lifecycle.ts      advanceStage(orderId, actorId, { direction: 'forward'|'back' } | { stageKey })
                                  -> { stageKey, completed, firstCompletion }
                                  (uses service_stages positions, writes user_service_events, sets/clears completed_at).
@@ -275,11 +361,14 @@ src/lib/orders/create.ts         2026-09-22: createOrder(db, { userId, serviceSl
                                  -> { order, service }, CLIENT_ORDER_NOTE / ADMIN_ORDER_NOTE,
                                  CreateOrderError(400|404). One place builds an order from a slug: the client's
                                  POST /api/orders and the admin's assign, which differ only in note and actor
-src/lib/orders/manual-payment.ts 2026-09-22: recordManualPayment(admin, orderId, actorId) -> { changed, stageKey },
-                                 secondStageKey(stages), MANUAL_PAYMENT_NOTE. Payment that did not come through
+src/lib/orders/manual-payment.ts 2026-09-22: recordManualPayment(admin, orderId, actorId, live) -> { changed, stageKey },
+                                 secondStageKey(stages). Payment that did not come through
                                  Stripe: conditional on `paid_at is null` (so `changed` keeps the emails to one
                                  per order), moves to the second stage, writes the event, never touches the
-                                 Stripe columns
+                                 Stripe columns. Since 2026-09-25 the event's note says where it was recorded:
+                                 MANUAL_PAYMENT_LIVE_NOTE when the route's deploy holds a live Stripe key
+                                 (holdsLiveKey(), production), MANUAL_PAYMENT_TEST_NOTE anywhere else; the
+                                 2026-09-22 MANUAL_PAYMENT_NOTE is gone and rows carrying it read as not live
 src/lib/users/accounts.ts        2026-09-22: createClientAccount, updateClientAccount, deleteClientAccount,
                                  AccountError(403|404|409); the validation is src/lib/users/account-input.ts
                                  (validateNewAccount, validateAccountPatch). Never touches an admin account
@@ -301,7 +390,11 @@ src/app/(admin-login)/admin/login/page.tsx   a route group, so the layout's guar
                                  router.push(next) + refresh; signed-in admin visiting it -> next (default /admin);
                                  signed-in client -> /en/dashboard; an admin account in a code session stays, the
                                  form opens with "Sign in with your password." and the email filled in. Since
-                                 2026-09-21 also "Forgot your password?" (section 7)
+                                 2026-09-21 also "Forgot your password?" (section 7). Since 2026-09-25 an admin
+                                 whose password session still needs the code stays here too, with "Sign in with
+                                 your password and your code."; the page passes requireSecondFactor
+                                 (mfaRequiredForAll()) to the form, which then has a code step and an enrol step
+                                 (section 7)
 scripts/create-admin.mjs         creates the auth user (email_confirm: true) with a 20 character random password, sets the
                                  role, prints the password ONCE; refuses to run if the user already exists (prints how to
                                  reset instead: `--reset-password`; a reset on a client account also needs `--promote`).
@@ -314,7 +407,30 @@ scripts/auth-config.mjs          2026-09-21, `npm run auth:config`: dry run by d
                                  from the project's magic link template, with `{{ .Token }}`, so the reset email carries
                                  the 6 digit code; the expiry in the copy comes from mailer_otp_exp. PATCHes those two
                                  keys only through the Management API (SUPABASE_ACCESS_TOKEN), reads the config back,
-                                 prints only those two keys. A second run finds nothing to change
+                                 prints only those two keys. A second run finds nothing to change.
+                                 Since 2026-09-25 it also owns password_min_length (12, a stricter value kept),
+                                 mfa_totp_enroll_enabled and mfa_totp_verify_enabled (true), site_url (the
+                                 production site) and uri_allow_list (every entry kept, the production site's
+                                 `/**` added). A key the project's config does not return is never sent. Still a
+                                 dry run by default; `-- --apply` PATCHes only the keys that differ
+scripts/admin-totp.mjs           2026-09-25, `npm run admin:totp`: the support admin's second factor. Signs in as
+                                 ADMIN_SUPPORT_EMAIL with its password, checks the account is an admin, removes
+                                 TOTP factors left unverified, enrols one (issuer "Alttavia Admin"), writes its
+                                 secret into .env.local as ADMIN_SUPPORT_TOTP_SECRET BEFORE verifying it, then
+                                 verifies it with a code computed by scripts/lib/totp.mjs. Already enrolled: says
+                                 so, and proves the stored secret still matches. `-- --unenrol` removes the support
+                                 admin's factor (and the .env.local line) through the admin API; `-- --unenrol
+                                 --email <admin>` lists another admin's factors, `--apply` removes them (a lost
+                                 phone; Supabase then signs that account out everywhere and the person sets up
+                                 the new phone at /admin/settings). A client account is refused. Verifying a
+                                 factor signs the account's other sessions out, so run it before authz:matrix,
+                                 never during. Prints no secret, code, password or token
+scripts/firm-signature.mjs       2026-09-25, `npm run firm:signature -- <file.png>` (`--dry-run` checks only): puts
+                                 Patrícia's digitised signature at firm/signature.png in the bucket. A PNG under
+                                 2 MB that pdf-lib embeds; a transparent background is best (the script warns about
+                                 a white one); an 8 bit PNG larger than 600 x 300 pixels is shrunk by a whole
+                                 factor, any other larger one refused. Uploading again replaces it. Agreements
+                                 prepared before stay unsigned until "Regenerate and resend"
 ```
 
 ## 5. Admin queries (`src/lib/db/admin-queries.ts`)
@@ -358,7 +474,8 @@ getServiceForAdmin(db, id): Promise<ServiceWithConfig | null>
 | `POST /api/admin/documents/[id]/review` | `{ decision: 'approve'\|'reject', reason?: string }` | status, reviewed_at, reviewed_by; reason required on reject (422 otherwise); event row; on reject email the client |
 | `POST /api/admin/orders/[id]/stage` | `{ direction: 'forward'\|'back' }` or `{ stageKey }` | `advanceStage`; on terminal set completed_at. Answers `{ stageKey, completed, emailed? }`. Since 2026-09-22 there is no `warning` key: a move from `documents` to a later stage while a required slot has no approved file is refused, 409 "Approve every required document before moving on." (`StageError` code `documents_pending`), which is the line the modal and the board show as it is. Since 2026-09-21 the client gets the "all done" email only when `advanceStage` says `firstCompletion`; back to an earlier stage and forward again, or a later jump to the terminal stage, completes the order without a second email. `emailed` is present only when that email was due: `true` when Resend accepted it, `false` when it did not go out (lookup failed, no address, send failed; the move stands and nothing after it can turn the answer into a 500). Its absence tells the modal to say nothing about an email |
 | `PATCH /api/admin/orders/[id]` | `{ report?: string }` | update report (markdown allowed, rendered with the existing RichText) |
-| `POST /api/admin/orders/[id]/contract` | none | "Regenerate and resend" (2026-09-21, `docs/agreement-contract.md` sections 5 and 7). `regenerateContract` prepares the service agreement again from the client's details as they are now, as a new version under a new R2 key (`contracts/{orderId}/v{n}.pdf`; the file of the version before stays in the bucket), updates the row (`emailed_at` back to null) and emails the client again. The place printed in Annex I is carried over from the row's `variables`. The template is the service's, or the row's own when the service lost its template. An order with no agreement yet gets its first version. 200 `{ contract, emailed }`; 404 `Order not found.` or `This service has no contract.`; 409 `Payment first.`, `The client has not entered their details yet.`, or, when two regenerations race (the update names the version it replaces, so one wins), `This agreement was regenerated a moment ago. Refresh and try again.` Audit line `contract.regenerate` |
+| `POST /api/admin/orders/[id]/contract` | none | "Regenerate and resend" (2026-09-21, `docs/agreement-contract.md` sections 5 and 7). `regenerateContract` prepares the service agreement again from the client's details as they are now, as a new version under a new R2 key (`contracts/{orderId}/v{n}-{nonce}.pdf` since 2026-09-25, `v{n}.pdf` before; the file of the version before stays in the bucket), updates the row (`emailed_at` back to null) and emails the client again. The place printed in Annex I is carried over from the row's `variables`. The template is the service's, or the row's own when the service lost its template. An order with no agreement yet gets its first version. Since 2026-09-25 it reads `firm/signature.png` on every call and draws it on an order paid with real money, so regenerating an agreement prepared before the signature arrived is how it gets signed; a test order's version carries the specimen line instead. 200 `{ contract, emailed }`; 404 `Order not found.` or `This service has no contract.`; 409 `Payment first.`, `The client has not entered their details yet.`, on the Couple package `The client has not entered their partner's details yet.` (2026-09-25), or, when two regenerations race (the update names the version it replaces, so one wins), `This agreement was regenerated a moment ago. Refresh and try again.` Audit line `contract.regenerate` |
+| `POST /api/admin/mfa-event` | `{ action: 'enrol'\|'unenrol', factorId }` | 2026-09-25: the audit line of a change to the admin's own second factor. The set up and the removal run in the browser against Supabase Auth and never pass through `/api/admin/*`, so the second factor card posts here once the change is done (best effort, `keepalive`). The route reads the account's factors with the admin's own session and writes `mfa.enrol` only when that factor is on the account and verified, `mfa.unenrol` only when it is gone, so the log cannot say what did not happen. Writes nothing but the log line. 200 `{ ok: true }`; 400 unknown action or a factor id that is not a uuid; 401 signed out; 403 a client or a session short of the password or the code; 409 "This change is not on your account." Supabase keeps its own record as well (`auth.audit_log_entries`) |
 | `POST /api/admin/deliverables/upload-url` | `{ userServiceId, label, serviceDeliverableId?, fileName, mimeType, sizeBytes }` | pending row + presigned PUT (key `deliverables/{orderId}/{uuid}.{ext}`), same mime and 20 MB limit rules as documents |
 | `POST /api/admin/deliverables/confirm` | `{ deliverableId }` | HeadObject, status ready |
 | `POST /api/admin/deliverables/upload?deliverableId=` | the file's bytes, raw, the row's own type as `Content-Type` | 2026-09-22: the same origin fallback, for the PUT to the bucket that does not arrive (a 526 KB image, that morning). Checks in `src/lib/deliverables/receive.ts`: the row is `pending` with a key under `deliverables/{orderId}/`, the declared type and length match it, the row fits `DIRECT_UPLOAD_MAX_BYTES` (4.5 MB, Netlify's payload limit), the request declares a length at all (411 otherwise), and the bytes read are the bytes promised. Then `putObject` and `confirmDeliverable`, so the row is finished exactly as the confirm route finishes it. Answers `{ deliverable }`; a row already `ready` answers 200 and writes nothing |
@@ -374,7 +491,7 @@ getServiceForAdmin(db, id): Promise<ServiceWithConfig | null>
 | `GET /api/admin/users/[id]` | | 2026-09-22: `{ user, counts }`, the profile and what would go with it (`getUserDeletionCounts`), which the delete dialog shows before the email is typed. 404 for an id nothing holds |
 | `PATCH /api/admin/users/[id]` | `{ fullName?, phone?, email? }` | 2026-09-22: changes a client. A new email is set in Auth as well, since that is where the sign in code goes. 200 `{ user }`; 403 for an administrator account (only its own session changes it, in Settings); 409 an address already in use; 422 the first field that is wrong. Audit line `user.update` |
 | `DELETE /api/admin/users/[id]` | `{ email }` | 2026-09-22: removes the client and everything under them, in the order `src/lib/users/accounts.ts` documents: the R2 objects under `orders/`, `deliverables/` and `contracts/` of each order first (a bucket that cannot be reached throws before a row is touched), then the child rows, the orders, the answers, the profile and the auth user. The typed email has to match the account (409 otherwise); an administrator and the caller's own account are refused 403. 200 `{ deleted: true, counts }`, and the audit line `user.delete` (email, orders, files removed, agreements) is the only record left of what went. The body is read after the account checks, so a stale link answers 404 rather than 400 |
-| `POST /api/admin/users/[id]/orders` | `{ serviceSlug, paidOutside? }` | 2026-09-22: an order the admin places for a client, built by `createOrder` exactly as the client's own purchase, with the note "Order created by the admin" and the admin as actor; the client then sees it with a Pay button. `paidOutside` records money that did not come through Stripe (`recordManualPayment`): `paid_at`, the second stage, the event, and the payment emails a card payment sends (the client's "Payment received", the team's "New paid order"), through a lazily imported `notifyOrderPaid`; `emailed` reports the client's one. The Stripe columns are never touched, and a second call finds the order paid and writes nothing. Answers `{ userServiceId, paid, emailed }`; 404 an unknown client or service; 403 an administrator account. Audit lines `user.order.create` and, when asked for, `user.order.paid_outside`, which says "recorded" or "already paid" |
+| `POST /api/admin/users/[id]/orders` | `{ serviceSlug, paidOutside? }` | 2026-09-22: an order the admin places for a client, built by `createOrder` exactly as the client's own purchase, with the note "Order created by the admin" and the admin as actor; the client then sees it with a Pay button. `paidOutside` records money that did not come through Stripe (`recordManualPayment`): `paid_at`, the second stage, the event, and the payment emails a card payment sends (the client's "Payment received", the team's "New paid order"), through a lazily imported `notifyOrderPaid`; `emailed` reports the client's one. The Stripe columns are never touched, and a second call finds the order paid and writes nothing. Since 2026-09-25 the event says whether the payment was recorded on a deploy with a live Stripe key (production) or not (staging, development), and only the first counts as real money for the firm's signature and the signed copy's attachment (`src/lib/orders/live-payment.ts`), since staging and production share the database. Answers `{ userServiceId, paid, emailed }`; 404 an unknown client or service; 403 an administrator account. Audit lines `user.order.create` and, when asked for, `user.order.paid_outside`, which says "recorded" or "already paid" |
 
 Client routes added:
 
@@ -383,8 +500,10 @@ Client routes added:
 | `POST /api/orders` | `{ serviceSlug }` | one unit of that service for the signed-in user, `answers_snapshot = {}`, `applicants = 2` and `joint` only for `couple`, `total_cents = price_cents`, events row; a `quantity` key is ignored; returns `{ userServiceId }` |
 | `GET /api/deliverables/[id]` | | presigned download of a `ready` deliverable on an own order |
 | `POST /api/documents/upload?documentId=`, `DELETE /api/documents/[id]` | the file's bytes, raw / none | 2026-09-22: the client's same origin upload fallback and the Remove button; both hold to the documents stage rule (`docs/platform-contract.md` section 10, "Sending a file") |
-| `GET`/`PUT /api/orders/[id]/applicants/[index]`, `GET /api/orders/[id]/poa/[docId]?applicant=` | | the applicant details and the generated deed (2026-09-14); admins may `GET` both; payloads in `docs/platform-contract.md` section 8 |
+| `GET`/`PUT /api/orders/[id]/applicants/[index]`, `GET /api/orders/[id]/poa/[docId]?applicant=` | | the applicant details and the generated deed (2026-09-14); admins may `GET` both; since 2026-09-25 the couple's joint bank deed ignores `?applicant` and needs both persons' details, and a `details_missing` 409 names the `applicant`; payloads in `docs/platform-contract.md` section 8 |
 | `POST`/`GET /api/orders/[id]/contract` | | the service agreement (2026-09-21); the `POST` is the client's alone (an admin gets 403 "Use the order's admin page to prepare the agreement."), the `GET` is the download an admin may open too (the PDF streamed through the route, `?download=1` for `attachment`, one `contract.download` line in the server log); payloads in `docs/platform-contract.md` section 8 |
+| `POST /api/checkout` | `{ userServiceId, acceptTerms: true }` | since 2026-09-25 refuses a body without `acceptTerms: true` (422 "Accept the terms to continue.") and records `terms_accepted_at` and `terms_version` on the order, which the order modal shows (section 7); `docs/platform-contract.md` section 8 |
+| `GET /api/health` | | 2026-09-25, public: one database read with a 5 s timeout, 200 or 503, never cached (`docs/platform-contract.md` section 13) |
 
 Validation and error shape as in the platform contract: JSON `{ error }`, one
 line, house rules, no provider internals.
@@ -487,6 +606,22 @@ below it, a read-only block with the applicant's nine fields from
 `AdminOrderDetail.applicants`, or the line "The client has not entered their
 details yet." when there is no row.
 
+Since 2026-09-25 (`docs/documents-contract.md` section 7):
+
+- The **signed agreement slot** (`template = 'agreement'`) carries
+  **Download agreement** instead, the prepared agreement from
+  `GET /api/orders/[id]/contract?download=1`, once it exists. The client's
+  signed copy is the slot's file: View, Download, Approve and Reject like
+  any other. It is required, so the documents stage holds the order until
+  it is approved; an order that reached the documents stage before 0013 and
+  never had the slot (the training orders on staging among them) waits for
+  it too.
+- The couple's **joint bank deed** is one slot, not one per applicant. Its
+  **Download deed** asks the route without `?applicant` and shows only once
+  both persons have details, since the route answers 409 until then. "Details
+  for the deeds" lists both persons for it, and for the Couple package's
+  signed agreement slot.
+
 Since 2026-09-22 the documents stage **holds** the order
 (`order/required-docs.ts`, `order/stage-controls.tsx`): while a required
 slot has no approved file, Forward is disabled, every later stage in the
@@ -541,6 +676,20 @@ but the email did not go out. Try again in a moment.", or the route's own
 404 or 409 line. The first version is normally the client's doing: they
 confirm their details after paying.
 
+Since 2026-09-25 the section also:
+
+- waits for both persons on the Couple package (`couple`, 0017): the action
+  shows only once applicant 0 and applicant 1 have details
+  (`missingContractApplicant`), the body reads "The agreement names the
+  client and their partner. It can be prepared once the partner's details
+  are entered too." while only the partner's are missing, the amber drift
+  line compares both people, and the confirmation says "prepared from the
+  details of the client and their partner";
+- shows the acceptance recorded at checkout, read only, when the order has
+  one (0014): "The client accepted the service terms and the service
+  agreement before paying, on {date and time} (terms of {version})."
+  Orders paid before 0014, and the seeded training orders, show nothing.
+
 ### `/admin/services` (admin-services agent)
 List (name, slug, price, active, orders count) with New service. Editor page
 `/admin/services/[id]` and `/admin/services/new`: fields per `services`
@@ -552,8 +701,13 @@ of scope, use position inputs), documents (key, label, note, accepted types
 as checkboxes, max size, per applicant, required, and since 2026-09-14 a
 **Generated deed** select: None, Power of attorney (NIF), Power of attorney
 (bank account), written to `service_docs.template`; `validateServiceInput`
-accepts `null` or one of `poa_nif`, `poa_bank`), deliverables (key, label,
-kind). No quantity flag: the "Can be ordered twice on one order" checkbox
+accepts `null` or one of `poa_nif`, `poa_bank`; since 2026-09-25 the select
+reads **Document to sign**, with the hint "The client downloads it, signs it
+by hand and uploads the signed copy into this slot. A power of attorney is
+filled with their passport details. The service agreement is the order's
+own.", and also offers Signed service agreement, `agreement`; its refusal
+reads "Choose a document to sign or none."; the services table counts only
+the two deeds as deeds), deliverables (key, label, kind). No quantity flag: the "Can be ordered twice on one order" checkbox
 and the table's `x1 or x2` hint went with `supports_quantity`. Save posts
 the whole thing. Deactivating hides the service from the client gallery and
 the wizard but keeps history. The four wizard slugs keep slug and price
@@ -573,7 +727,21 @@ The editor always sends the key. A service set to
 None generates nothing and asks the client nothing; an agreement already
 prepared for an order stays viewable. On 2026-09-21 NIF only holds `nif`,
 Bank Account only `bank`, NIF + Bank Account `package` and the Couple
-package none, because the firm has no model for two parties.
+package none, because the firm had no model for two parties.
+
+Since 2026-09-25 the select also offers **Couple package** (`couple`, 0017,
+which sets it on the Couple package), and the hint adds "The Couple package
+agreement names both people, so it waits for the partner's details too."
+The lists come from one place, `CONTRACT_TEMPLATES` in
+`src/lib/contracts/templates.ts` and `DOC_TEMPLATES` in
+`src/lib/documents/templates.ts`, so the editor never offers what the route
+refuses. A service with a **Signed service agreement** slot needs a
+contract: without one no agreement is prepared, the slot never opens and,
+being required, would hold every order on the documents stage. The editor
+marks the contract field with "Choose a service contract, or remove the
+signed service agreement from the documents.", and the route answers the
+same line with 422, reading the stored contract when the body leaves the
+key out.
 
 Since 2026-09-21 every line of the services screens reads without
 developer words (Patrícia edits the catalogue herself). The copy lives in
@@ -591,24 +759,26 @@ catalog" in each mode, and the price id and payment link fields gained a
 hint each (the links are an optional backup used only when the price id
 is empty). Only copy and hints changed; no field or validation rule did.
 
-What the four services hold on 2026-09-14 (Patrícia's edits to NIF only and
-Bank Account only, `0007_one_unit_poa.sql` for the other two; the 2026-09-11
-seed in `docs/platform-contract.md` is history):
+What the four services hold on 2026-09-25 (Patrícia's edits to NIF only and
+Bank Account only, `0007_one_unit_poa.sql` for the other two, then 0013 and
+0016; the 2026-09-11 seed in `docs/platform-contract.md` is history), read
+from the live project:
 
-| service | stages | documents | deliverables |
-|---|---|---|---|
-| NIF only | 5 | 3: 2 uploads + NIF deed | 2 |
-| Bank Account only | 5 | 7: 6 uploads + bank deed | 0 |
-| NIF + Bank Account | 8 | 7: 5 uploads + NIF deed + bank deed | 3 |
-| Couple package | 8 | 7: 5 uploads + NIF deed + bank deed, all per applicant | 3 |
+| service | contract | stages | documents | deliverables |
+|---|---|---|---|---|
+| NIF only | `nif` | 5 | 4: 2 uploads + NIF deed + signed agreement | 2 |
+| Bank Account only | `bank` | 5 | 8: 6 uploads + bank deed + signed agreement | 0 |
+| NIF + Bank Account | `package` | 8 | 8: 5 uploads + NIF deed + bank deed + signed agreement | 3 |
+| Couple package | `couple` | 8 | 8: 5 uploads + NIF deed, per applicant; the joint bank deed and the signed agreement once, for both | 3 |
 
 Bank Account only having no deliverable template, and the bank deed's
 clause d) naming a single holder account while the couple package sells a
-joint one, are open points for Patrícia (`docs/documents-contract.md`
-section 4).
+joint one (since 2026-09-25 in one deed both people sign), are open points
+for Patrícia (`docs/documents-contract.md` sections 4 and 7).
 
 ### `/admin/settings`
-Change password, and a short note recommending MFA. Since 2026-09-21 the
+Change password, and a short note recommending MFA (until 2026-09-25; the
+second factor card below replaced it). Since 2026-09-21 the
 form asks for the current password first, then the new one (12 to 72
 characters, different from the current one) typed twice, and posts to
 `POST /api/admin/password` (section 6) instead of calling
@@ -617,6 +787,34 @@ shared screen is not enough to take the account over. The route's lines
 show as they are; a wrong current password empties that field. A hidden
 `username` field carries the email so a password manager files the new
 password under the right account.
+
+**Second factor** (2026-09-25, `components/admin/settings/mfa-enrol.tsx`).
+The page reads the account's verified TOTP factors with the admin's own
+session (`listFactors()`); when that read fails the card says "We could not
+check this right now. Refresh the page to try again." rather than offering a
+second set up.
+
+- Without a factor: "Add a code from an authenticator app on your phone to
+  every sign in. With it, a password alone no longer opens the admin area.",
+  the apps it works with (Google Authenticator, Microsoft Authenticator,
+  1Password, Authy) and **Set up**. Set up drops any TOTP factor left
+  unverified by an earlier try, enrols one (issuer "Alttavia Admin") and
+  shows its QR code and the key to type by hand, neither stored nor logged;
+  the first 6 digit code (**Turn on**) goes through `challengeAndVerify`,
+  which verifies the factor and raises this session to `aal2`. Supabase
+  signs the account's other sessions out at that moment, and the card says
+  so ("Other devices where you were signed in need to sign in again.").
+  Cancel removes the unverified factor.
+- With one: "On since {date}.", "Every sign in asks for your password and
+  then for the code from your app." and **Turn off**, which asks for the
+  code the app shows now (the `aal2` Supabase wants before removing a
+  verified factor) and then removes every verified TOTP factor of the
+  account.
+- After either change the card posts `POST /api/admin/mfa-event` (section
+  6) for the audit line and refreshes the page.
+- A lost phone: `npm run admin:totp -- --unenrol --email <admin> --apply`
+  removes the account's factors with the secret key; the person then signs
+  in with the password and sets up the new phone here.
 
 ### `/admin/login`: forgot password (2026-09-21)
 "Forgot your password?" switches the form, at the same URL (so
@@ -636,6 +834,38 @@ cookie client: Supabase refuses a recovery code verified in the PKCE flow
 the cookie client uses (tested 2026-09-21: `otp_expired` on a fresh code),
 and the recovery session never reaches the cookies. A recovery session is
 not a password session, so it never opens the admin area by itself.
+
+Since 2026-09-25 an account with a second factor needs one more field here.
+A recovery session is `aal1`, and Supabase refuses a new password from an
+`aal1` session when the account has a verified factor. So once the emailed
+code is accepted, if the recovery session answers `nextLevel: "aal2"`, the
+form says "Code accepted. Your account has a second factor, so enter the 6
+digit code from your authenticator app too." and runs `challengeAndVerify`
+on the recovery client before `updateUser`. An account without a factor
+sees the form as before. This departs from the brief of the round ("the
+forgot password flow is unchanged") because the reset cannot work without
+it.
+
+### `/admin/login`: the second factor (2026-09-25)
+Two more modes of the same form (`components/admin/login-form.tsx`), at the
+same URL:
+
+- **Code.** After `signInWithPassword` the form asks
+  `getAuthenticatorAssuranceLevel()` what comes next. An account with a
+  factor (`nextLevel` `aal2`, `currentLevel` `aal1`) gets "One more step":
+  "Enter the 6 digit code from your authenticator app.", then
+  `challengeAndVerify` with the account's TOTP factor, which raises the
+  session to `aal2` in the cookies; only then does the form go on. A wrong
+  code shows one line and empties the field. Until the code is right the
+  admin area refuses the session, so leaving halfway opens nothing; "Use
+  another account" signs that session out. An admin who reaches
+  `/admin/login` from a guard in that state reads "Sign in with your
+  password and your code." with the email filled in.
+- **Enrol.** With `ADMIN_REQUIRE_MFA=1` an admin without a factor gets the
+  settings card in its `required` variant, "Set up your second factor", "The
+  admin area now asks for a code from an authenticator app at every sign
+  in. Set it up once to continue. It takes a minute.", and goes on once the
+  first code is accepted.
 
 ### `/admin/feedback` and the Feedback button (2026-09-21)
 `AdminShell` renders a **Feedback** button fixed in the bottom right corner
@@ -661,8 +891,11 @@ and reach the client components as props.
 service (name, tagline, price, first three includes, timeline) with a Buy
 button, one unit each. Buy posts `/api/orders`, then `/api/checkout`, then
 `window.location.assign(url)`. The purchase drawer that replaced the cards
-on 2026-09-12 says "By purchasing you accept the Terms", linking to
-`/en/service-terms` (`docs/platform-contract.md` section 12).
+on 2026-09-12 said "By purchasing you accept the Terms", linking to
+`/en/service-terms`; since 2026-09-25 it carries the line every Pay button
+carries, "By paying you accept the service terms and your service
+agreement.", and its checkout call sends `acceptTerms: true`
+(`docs/platform-contract.md` section 12).
 
 ### Client order view
 Extract the current dashboard body into `src/components/dashboard/order-view.tsx`
@@ -704,6 +937,9 @@ build against them even if the other side is not there yet.
 - Admin means `role = 'admin'` **and** a session opened with a password, in
   the app (`requireAdmin()`, `amr` claim) and in the database (`is_admin()`
   since 0011). Never widen either check to another authentication method.
+- Since 2026-09-25, for an account with a verified second factor, admin
+  also means a session at `aal2`, in the app and in the database (0015).
+  `ADMIN_REQUIRE_MFA=1` extends that to every admin in the app only.
 - Admin pages read with the **user** client (RLS `is_admin()`), writes only through routes.
 - `/api/admin/documents/[id]` and deliverable downloads: presigned URLs of 120 s.
 - A client hitting `/admin/*` gets `/en/dashboard`; a client hitting `/api/admin/*` gets 403 with no detail.
@@ -711,6 +947,13 @@ build against them even if the other side is not there yet.
 - Client emails go only to the order owner's `public.users.email`; team
   notices only to `EMAIL_TEAM_INBOX` and feedback notes only to
   `FEEDBACK_TO` (2026-09-21). No address comes from a request body.
+- The one client file an email carries is the signed agreement (2026-09-25),
+  and only for an order paid with real money, up to 8 MB, when its first
+  bytes match its declared type, under the server's own file name; staging,
+  where anyone can pay with a test card, never attaches it.
+- The firm's signature is read from `firm/signature.png` in the bucket, which
+  no route serves, and drawn only on agreements of orders paid with real
+  money; every other agreement carries the specimen line.
 - A deliverable is deleted only under its own order's `deliverables/{orderId}/`
   prefix, so a damaged row can never take a client's document with it. The
   same holds for a client's own file (`isOrderFile`, under
@@ -732,4 +975,8 @@ Same as the platform contract section 11, plus: for routes, a table of
 2026-09-21 `npm run authz:matrix` builds that table for every route, with
 the admin code session as a fifth column and PostgREST probes after it
 (`docs/platform-contract.md` section 13); it needs `npm run demo:seed` and
-the support admin.
+the support admin. Since 2026-09-25, with `ADMIN_SUPPORT_TOTP_SECRET` in
+`.env.local` (`npm run admin:totp`), the admin column signs in at `aal2` with
+a computed code and an **admin-aal1** column (a second password session of
+the same account that never gave the code) must be treated as a client,
+routes and PostgREST alike.

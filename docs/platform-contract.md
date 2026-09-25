@@ -40,7 +40,16 @@ Read before writing any code:
   test mode. `line_items` is one price at `quantity: 1`: every service sells
   one unit per purchase (0007), so a second NIF is a second purchase. The
   Payment Link URLs stay in `services` as a fallback for a mode that has no
-  price id yet (live has none until `stripe:setup --live`).
+  price id yet (live has none until `stripe:setup --live`). Since
+  2026-09-25 every session is created with Adaptive Pricing off, so the
+  buyer always pays the euros the site quotes (section 8).
+- **Terms accepted before paying** (2026-09-25, Patrícia's answer of
+  2026-09-24, `0014_terms_acceptance.sql`). Every Pay button, and the
+  purchase drawer, carries "By paying you accept the service terms and your
+  service agreement."; the click is the acceptance, `POST /api/checkout`
+  refuses a body without `acceptTerms: true` and records
+  `terms_accepted_at` and `terms_version` on the order before any Stripe URL
+  (section 8, section 12).
 - **One unit per purchase** (2026-09-14, `0007_one_unit_poa.sql`,
   `docs/documents-contract.md` section 1). `services.supports_quantity` and
   `user_services.quantity` are gone; `total_cents = price_cents`;
@@ -56,23 +65,40 @@ Read before writing any code:
   `user_services.report` stay.
 - **Service agreement after payment** (2026-09-21,
   `0009_service_contracts.sql`, `docs/agreement-contract.md`). A service
-  names one of the firm's three contract models in
-  `services.contract_template` (`nif`, `bank`, `package`; null for none, as
-  the couple package has today). On a paid order the client confirms their
-  details, the server generates the PDF once, stores it in R2, records it in
-  `user_service_contracts` and emails it. Nothing on the payment path
-  (`markOrderPaid`, `confirmCheckoutSession`, the webhook) calls the
-  contract module: a contract hook must not be able to turn a payment into
-  a 500. In client facing copy the feature is the "service agreement".
+  names one of the firm's contract models in `services.contract_template`
+  (`nif`, `bank`, `package` and, since `0017_couple_contract.sql` of
+  2026-09-25, `couple`, one agreement naming both persons; null for none).
+  On a paid order the client confirms their details, the server generates
+  the PDF once, stores it in R2, records it in `user_service_contracts` and
+  emails it. Nothing on the payment path (`markOrderPaid`,
+  `confirmCheckoutSession`, the webhook) calls the contract module: a
+  contract hook must not be able to turn a payment into a 500. In client
+  facing copy the feature is the "service agreement".
+- **The signed agreement comes back as a document** (2026-09-25,
+  `0013_signed_agreement_slot.sql`). Every service with a contract has a
+  required slot `signed_agreement` (`service_docs.template = 'agreement'`,
+  once per order): the client downloads the agreement, signs it by hand and
+  uploads the signed copy, the team inbox hears of it, and the documents
+  stage holds the order until it is approved (section 10).
+- **Only real money gets the firm's signature** (2026-09-25). Agreements
+  carry Patrícia's digitised signature, from `firm/signature.png` in the
+  bucket, only on orders paid with real money (a `cs_live_` session, or a
+  payment the admin recorded outside the platform on production); every
+  other agreement prints "Specimen from the test environment. Not a binding
+  agreement." on every page, and the team email about a signed copy carries
+  the file only for a real order. Production, staging and development share
+  the bucket and the database, and anyone can pay on staging with a test
+  card (`docs/agreement-contract.md` section 5).
 - **Emails when an order moves** (2026-09-21, `src/lib/orders/notify.ts`,
   section 8 "Emails about an order"). The first payment sends "Payment
   received" to the client and "New paid order" to the team inbox
   (`EMAIL_TEAM_INBOX`); the upload that fills the last required slot sends
   "Documents ready to review" to the team; a paid session for the wrong
-  amount sends "Paid amount does not match the order" to the team. Best
-  effort: nothing in `notify.ts` throws, so an email can never undo a
-  payment or an upload, and `notify.ts` imports nothing from the contract
-  code.
+  amount sends "Paid amount does not match the order" to the team; since
+  2026-09-25 a signed agreement sends "Signed service agreement received"
+  to the team, once per review round. Best effort: nothing in `notify.ts`
+  throws, so an email can never undo a payment or an upload, and
+  `notify.ts` imports nothing from the contract code.
 - **A client changes a file while the order sits on the documents stage,
   and only there** (2026-09-22, section 10 "Sending a file"). A file waiting
   for review can be replaced or removed there; an approved one cannot; once
@@ -128,14 +154,19 @@ EMAIL_API_KEY / EMAIL_FROM / EMAIL_REPLY_TO  # Resend
 EMAIL_TEAM_INBOX=                            # 2026-09-21: team notices, one address; locally the test inbox
 FEEDBACK_TO=                                 # 2026-09-21: admin feedback notes; locally the test inbox
 ADMIN_SUPPORT_EMAIL / ADMIN_SUPPORT_PASSWORD # 2026-09-21: .env.local only, written by admin:create -- --support
+ADMIN_SUPPORT_TOTP_SECRET=                   # 2026-09-25: .env.local only, written by admin:totp
+ADMIN_REQUIRE_MFA=                           # 2026-09-25: "1" asks every admin for the second factor
 NEXT_PUBLIC_SITE_URL=                        # empty locally: use request origin; REQUIRED on Netlify production
 ```
 
 `EMAIL_TEAM_INBOX` unset skips the team emails with one log line (the
 client email still goes); `FEEDBACK_TO` unset skips the feedback email (the
-note is still saved). The site never reads `ADMIN_SUPPORT_EMAIL` and
-`ADMIN_SUPPORT_PASSWORD`: they are for scripts and test runs
-(`docs/admin-contract.md` section 4) and are never set on Netlify.
+note is still saved). The site never reads `ADMIN_SUPPORT_EMAIL`,
+`ADMIN_SUPPORT_PASSWORD` and `ADMIN_SUPPORT_TOTP_SECRET`: they are for
+scripts and test runs (`docs/admin-contract.md` section 4) and are never set
+on Netlify. `ADMIN_REQUIRE_MFA` is read by the site: only the exact value
+`1` asks every admin for the second factor, and it goes on Netlify only
+after every admin account has enrolled (`docs/admin-contract.md` section 2).
 `CONTEXT` is set by Netlify on every build and function (`production`,
 `deploy-preview`, `branch-deploy`, `dev`), never by hand and never in
 `.env.local`; only `production` changes behaviour, by making
@@ -227,7 +258,8 @@ create table public.services (
   timeline                  text,
   -- supports_quantity was here until 0007: one unit per purchase, no flag.
   -- 0009: the firm's contract model the service uses; null for a service
-  -- with no contract (nothing is generated, nothing is asked).
+  -- with no contract (nothing is generated, nothing is asked). 0017 adds
+  -- 'couple' to the check and sets it on the couple service.
   contract_template         text check (contract_template in ('nif','bank','package')),
   stripe_price_id_test      text,
   stripe_price_id_live      text,
@@ -267,6 +299,7 @@ create table public.service_docs (
   position       integer not null default 0,
   -- 0007: the deed this slot generates for the client to sign; null for an
   -- ordinary upload. A deed slot is still an upload slot for the signed copy.
+  -- 0013 adds 'agreement': the slot the signed service agreement comes back in.
   template       text check (template in ('poa_nif','poa_bank')),
   unique (service_id, key)
 );
@@ -301,6 +334,11 @@ create table public.user_services (
   paid_at                     timestamptz,
   completed_at                timestamptz,
   report                      text,                    -- final report, written by staff
+  -- 0014: the acceptance of the service terms and the service agreement at
+  -- the Pay click that paid; set together or not at all (check
+  -- user_services_terms_pair), null on orders paid before 0014.
+  terms_accepted_at           timestamptz,
+  terms_version               text,                    -- TERMS_VERSION, src/content/terms-version.ts
   created_at                  timestamptz not null default now(),
   updated_at                  timestamptz not null default now()
 );
@@ -373,9 +411,9 @@ create table public.user_service_applicants (
 create table public.user_service_contracts (
   id               uuid primary key default gen_random_uuid(),
   user_service_id  uuid not null unique references public.user_services(id) on delete cascade,
-  template         text not null check (template in ('nif','bank','package')),
+  template         text not null check (template in ('nif','bank','package')),   -- 'couple' since 0017
   version          integer not null default 1 check (version >= 1),
-  storage_key      text not null unique,        -- contracts/{orderId}/v{version}.pdf
+  storage_key      text not null unique,        -- contracts/{orderId}/v{version}-{nonce}.pdf (v{version}.pdf before 2026-09-25)
   file_name        text not null,               -- service-agreement-<template>-<name>.pdf
   size_bytes       integer not null check (size_bytes > 0),
   variables        jsonb not null,              -- token -> value, exactly what was printed
@@ -412,18 +450,33 @@ only, and appends a deed slot to every service (section "Seeds" below).
 `0009_service_contracts.sql` (2026-09-21, `docs/agreement-contract.md`
 section 4) is additive: the nullable `services.contract_template`, set to
 `nif` on `nif-only`, `bank` on `bank-only` and `package` on `bundle`
-(`couple` stays null, the firm has no model for two parties), and the table
+(`couple` stayed null, the firm had no model for two parties, until 0017
+set `couple` on 2026-09-25), and the table
 `user_service_contracts` with its `set_updated_at` trigger, RLS and the
 write grants revoked as in 0006. `0010_admin_feedback.sql` and
 `0011_admin_password_session.sql` (2026-09-21, applied to the live project
 the same day, after a `db:dump`) belong to the admin side: the
 `admin_feedback` table, and an `is_admin()` that also wants a session
 opened with a password (`docs/admin-contract.md` section 3).
-`0012_deed_signature_note.sql` (written 2026-09-22) changes no schema at
-all: it rewrites `service_docs.note` on every deed slot so it asks for the
-passport signature (section 10, "Deed slots"). It is the one migration in
-the folder that the live project has not run yet. The migrations run from
-`0001` to `0012`.
+`0012_deed_signature_note.sql` (2026-09-22, applied to the live project the
+same day) changes no schema at all: it rewrites `service_docs.note` on every
+deed slot so it asks for the passport signature (section 10, "Deed slots").
+
+The delivery round (2026-09-25, applied to the live project the same day):
+`0013_signed_agreement_slot.sql` widens the check on `service_docs.template`
+to `('poa_nif','poa_bank','agreement')` and appends the required
+`signed_agreement` slot to every service with a contract (section 10,
+"The signed agreement slot"); `0014_terms_acceptance.sql` adds
+`user_services.terms_accepted_at` and `terms_version` with a check that they
+are set together (section 8); `0015_admin_mfa.sql` gives `is_admin()` the
+second factor's rule (`docs/admin-contract.md` section 3);
+`0016_couple_joint_bank_deed.sql` makes the couple's `poa_bank` slot shared,
+one joint deed for both persons (section 10, "Deed slots"); and
+`0017_couple_contract.sql` adds `couple` to the checks on
+`services.contract_template` and `user_service_contracts.template` and sets
+it on the couple service. None changes a grant or an RLS policy except
+0015's function. The migrations run from `0001` to `0017`, and the live
+project has run all of them.
 
 ### Row level security
 
@@ -496,7 +549,9 @@ live deliverable still points at it). The same migration appends the deed
 slots at the end of every document list, `per_applicant`, `required`,
 default mime list and size: `poa_nif` "Power of attorney for the NIF" on
 nif-only, bundle and couple; `poa_bank` "Power of attorney for the bank
-account" on bank-only, bundle and couple. Current counts per service are in
+account" on bank-only, bundle and couple. Since 2026-09-25 every one of the
+four services also ends on the `signed_agreement` slot (0013), and the
+couple's `poa_bank` slot is shared (0016). Current counts per service are in
 `docs/admin-contract.md` section 7. `npm run db:migrate -- --seed` would put
 the 2026-09-11 rows back, so never run it against the live project.
 
@@ -690,6 +745,56 @@ complete set), `src/app/[locale]/dashboard/page.tsx`,
 `src/lib/apply/documents.ts` (`DEED_SIGNATURE_NOTE`), `src/content/apply.ts`
 and `src/content/bank-nif.ts` (section 2, the nationality lines).
 
+Delivery round (2026-09-25, Patrícia's answers of 2026-09-24; the admin side
+of it is in `docs/admin-contract.md`, the agreement in
+`docs/agreement-contract.md`, the documents in `docs/documents-contract.md`
+section 7):
+
+```
+supabase/migrations/0013_signed_agreement_slot.sql ... 0017_couple_contract.sql   section 4
+docs/terms/originais-2026-09-21/*.docx      the firm's models as sent, never edited
+docs/terms/*.docx                           written by contracts:edit, the Couple package model included
+scripts/edit-contract-models.mjs            npm run contracts:edit (-- --check, -- --dry-run)
+scripts/firm-signature.mjs                  npm run firm:signature -- <png> (-- --dry-run)
+scripts/admin-totp.mjs                      npm run admin:totp (-- --unenrol [--email <admin> --apply])
+scripts/lib/{zip,png,totp,allow-list}.mjs   plain node helpers, tested by npm run test:scripts
+src/content/contracts/letterhead.generated.ts   GENERATED by contracts:generate: the letterhead logo
+src/content/terms-version.ts                TERMS_VERSION, TERMS_ACCEPTANCE_LINE, TERMS_REQUIRED, acceptanceLineParts
+src/components/dashboard/pay-terms-note.tsx the line under every Pay button
+src/lib/contracts/templates.ts              CONTRACT_TEMPLATES, isContractTemplate, contractPersons
+src/lib/documents/templates.ts              DOC_TEMPLATES, isDeedTemplate, isAgreementTemplate
+src/lib/documents/file-signature.ts         matchesDeclaredType, signedCopyFileName (the signed copy's attachment)
+src/lib/orders/live-payment.ts              isLiveOrder, paidWithRealMoney
+src/lib/orders/signed-copy.ts               signedCopyDue, signedCopyClaimWins, SIGNED_COPY_SENT_NOTE
+src/lib/poa/joint.ts                        isJointDeed, jointDeedMissing, JOINT_DEED_APPLICANTS
+src/components/dashboard/contract/prepare-agreement.ts   the tab and POST of the Couple package's open button
+src/components/dashboard/documents/slot-controls.ts      which controls a document slot shows
+src/components/admin/settings/{mfa-enrol,code-field}.tsx, mfa-helpers.ts   the second factor card
+src/app/api/admin/mfa-event/route.ts        POST, the second factor's audit line
+src/app/api/health/route.ts                 GET, section 13
+```
+
+The same round changed: `src/app/api/checkout/route.ts` and
+`src/lib/stripe/checkout.ts` (`acceptTerms`, `recordTermsAcceptance`,
+Adaptive Pricing off), `src/lib/stripe/client.ts` (`holdsLiveKey`),
+`pay-button.tsx`, `purchase-drawer.tsx` and `in-progress-slider.tsx` (the
+terms line), `src/lib/contracts/{ensure,state,generate}.ts` and
+`src/content/contracts/{variables,models.generated}.ts` (the couple, the
+letterhead, the signature, the specimen), `src/content/power-of-attorney.ts`,
+`src/lib/poa/generate.ts`, `api/orders/[id]/poa/[docId]/route.ts` and
+`src/lib/orders/applicants.ts` (the joint bank deed), `contract-gate.tsx`,
+`applicant-details-form.tsx`, `document-slot.tsx`, `document-list.tsx` and
+`order-view.tsx` (the couple's two dialogs, the signed agreement slot, the
+joint deed), `api/documents/upload-url/route.ts` and
+`src/lib/documents/confirm.ts` (the slot waits for the agreement; the team
+email), `src/lib/orders/notify.ts` and `src/lib/email/templates.ts`
+(`notifySignedAgreement`, `signedAgreement`), `src/lib/orders/manual-payment.ts`
+and `api/admin/users/[id]/orders/route.ts` (the live or test note),
+`src/lib/orders/services-admin.ts` and the services editor, the admin order
+modal, `admin-user.ts`, the login and settings pages, and the scripts
+`auth-config`, `authz-matrix`, `contract-preview`, `generate-contracts`,
+`poa-preview`, `seed-demo` and `seed-history`.
+
 Nobody edits another agent's files. Shared files that more than one stage
 touches (`package.json`, `.env.example`, `CLAUDE.md`) are edited only by the
 foundation agent and by the orchestrator.
@@ -776,10 +881,15 @@ callers decide whether to fall back).
    `(null -> awaiting_payment)`.
 5. Return `{ userServiceId }`. The client then navigates to `/en/dashboard`.
 
-`POST /api/checkout` (stripe agent), body `{ userServiceId }`:
+`POST /api/checkout` (stripe agent), body `{ userServiceId, acceptTerms: true }`
+(`acceptTerms` since 2026-09-25):
 
-1. Require a session; load the order with the admin client and check
-   `user_id` matches and `paid_at is null`, else 403/409.
+1. Require a session (401), then a readable body with a UUID order id
+   (400). Since 2026-09-25, anything but the literal `acceptTerms: true` is
+   refused with 422 "Accept the terms to continue." (`TERMS_REQUIRED`)
+   before the order is read or Stripe is touched. Load the order with the
+   admin client and check `user_id` matches and `paid_at is null`, else
+   403/404/409.
 2. Mode from the key prefix. If the service has a price id for this mode:
    `stripe.checkout.sessions.create({ mode: "payment", line_items: [{ price, quantity: 1 }],
    client_reference_id: order.id, customer_email, success_url:
@@ -798,6 +908,23 @@ callers decide whether to fall back).
    that costs something else would take the money and leave the order
    unpaid with the Pay button still there. The Payment Link fallback is not
    checked this way.
+   Since 2026-09-25, once every check of ours has passed and before the
+   buyer gets any URL (a reused session, a new one or a Payment Link),
+   `recordTermsAcceptance` writes `terms_accepted_at` (now) and
+   `terms_version` (`TERMS_VERSION` from `src/content/terms-version.ts`,
+   "2026-09-25" for the first wording) with a conditional update on
+   `paid_at is null` and the owner. It is rewritten on **every Pay click
+   while the order is unpaid**, so the record is the click that led to the
+   payment, and frozen once the order is paid; a database error throws, so
+   no buyer reaches Stripe without the record. Bump `TERMS_VERSION` on the
+   day `/en/service-terms` or the agreement models change. The dashboard
+   return and the webhook do not read it.
+   Every session is created with `adaptive_pricing: { enabled: false }`:
+   the prices are euros with VAT included, and a buyer paying in another
+   currency would pay a converted amount the firm never quoted. An open
+   session made earlier with Adaptive Pricing on is expired, not reused. The
+   Payment Link fallback cannot carry the setting; there the Stripe
+   dashboard setting applies, so it has to be off in the live dashboard too.
 3. The success and cancel URLs are built on `siteOrigin(request)`
    (`src/lib/site-url.ts`, section 13, since 2026-09-21):
    `NEXT_PUBLIC_SITE_URL` when set, else the origin the browser used, never
@@ -838,18 +965,22 @@ webhook sends it, once per Stripe event, never the dashboard return.
 | `POST /api/orders` | `{ serviceSlug }` | one unit of that service for the signed-in user, without the questions: `answers_snapshot = {}`, `joint` and `applicants = 2` only for `couple`, `total_cents = price_cents`, events row; a `quantity` key is ignored; returns `{ userServiceId }` |
 | `GET /api/orders/[id]/applicants/[index]` | | owner or admin; `index` 0 or 1 and below `applicants`; 200 `{ applicant }`, or 404 `{ error: "No details yet.", prefill }` where `prefill` is the owner's newest row for the same index on another of their orders (null for an admin) |
 | `PUT /api/orders/[id]/applicants/[index]` | the nine fields, camelCase or column names | owner only (an admin gets 403 and corrects through the client); `validateApplicantInput` (lengths and the gender set as in the SQL checks, `YYYY-MM-DD` dates, 18 or older, issue date not in the future, expiry after issue and today or later by Lisbon's calendar); upsert on `(user_service_id, applicant_index)`; 200 `{ applicant }` or 422 with the first message |
-| `GET /api/orders/[id]/poa/[docId]?applicant=0\|1` | | owner or admin; `docId` must be a `service_docs` row of the order's service with a `template` (404 otherwise), `applicant` below `applicants` (422), the order paid (409 `Payment first.`), a row present (409 `details_missing`, the code the slot reacts to by opening the form). Returns `application/pdf`, `Content-Disposition: attachment; filename="power-of-attorney-nif-<name>.pdf"` (or `-bank-`), `Cache-Control: no-store`, dated today in Europe/Lisbon; nothing is stored, a new download gets a fresh date. No session redirects to `/en/login` because the URL is opened by a click |
-| `POST /api/orders/[id]/contract` | optional `{ signingPlace?: string }` (no body at all is fine) | owner only, 2026-09-21; calls `ensureContract` (`src/lib/contracts/ensure.ts`), which prepares the order's service agreement once and is safe to call again. `signingPlace` is the city and country printed in Annex I: line breaks become a space, control characters are dropped, at most 120 characters (422 with a line for the form; 400 when it is not text; 413 for a body over 4 KB). 200 `{ status: "ready" }`; 409 `{ error: "details_missing" }` while applicant 0 has no row, the code the form reacts to; 409 `Payment first.`; 404 `This order has no service agreement.` when the service has no `contract_template`; 401 signed out; 403 `This order is not yours.` for a stranger's or a missing order; an admin gets 403 here (404 for a missing order) and regenerates through `POST /api/admin/orders/[id]/contract` |
+| `GET /api/orders/[id]/poa/[docId]?applicant=0\|1` | | owner or admin; `docId` must be a `service_docs` row of the order's service with a deed template, `poa_nif` or `poa_bank` (404 otherwise, the `agreement` slot included), `applicant` below `applicants` (422), the order paid (409 `Payment first.`), a row present (409 `{ error: "details_missing", applicant }`, the code the slot reacts to by opening the form for that person; `applicant` since 2026-09-25). Returns `application/pdf`, `Content-Disposition: attachment; filename="power-of-attorney-nif-<name>.pdf"` (or `-bank-`), `Cache-Control: no-store`, dated today in Europe/Lisbon; nothing is stored, a new download gets a fresh date. No session redirects to `/en/login` because the URL is opened by a click. Since 2026-09-25 the couple's **joint bank deed** (`isJointDeed`: `poa_bank`, not per applicant, two applicants) ignores `?applicant`, needs both rows (409 naming the first missing) and answers `power-of-attorney-bank-<first>-and-<second>.pdf` (section 10) |
+| `POST /api/orders/[id]/contract` | optional `{ signingPlace?: string }` (no body at all is fine) | owner only, 2026-09-21; calls `ensureContract` (`src/lib/contracts/ensure.ts`), which prepares the order's service agreement once and is safe to call again. `signingPlace` is the city and country printed in Annex I: line breaks become a space, control characters are dropped, at most 120 characters (422 with a line for the form; 400 when it is not text; 413 for a body over 4 KB). 200 `{ status: "ready" }`; 409 `{ error: "details_missing", applicant: 0 \| 1 }` while a person the agreement names has no row, `applicant` the first one missing (1 being the Couple package's partner, since 2026-09-25), the code the form reacts to; 409 `Payment first.`; 404 `This order has no service agreement.` when the service has no `contract_template`; 401 signed out; 403 `This order is not yours.` for a stranger's or a missing order; an admin gets 403 here (404 for a missing order) and regenerates through `POST /api/admin/orders/[id]/contract` |
 | `GET /api/orders/[id]/contract` | | owner or admin; streams the stored PDF from R2 through the route (200 `application/pdf`, `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`), so the tab stays on our URL and a refresh keeps working. `inline` by default so the browser tab shows it, `?download=1` answers `attachment`. 404 `{ error: "No agreement yet." }` when none was prepared. It generates and sends nothing. No session redirects to `/en/login?next=/en/dashboard/orders/{id}` (to `/en/dashboard` when the id is not a UUID) because the URL is opened by a click |
 
 `ensureContract(admin, orderId, { signingPlace?, origin? })`, in order: the
 order (`off`, reason `order_not_found`); an existing row (`ready`, and when
 `emailed_at` is null the stored file is read back from R2 and the email is
 tried again, generating nothing); the service's template and the payment
-(`off`, reasons `no_template` and `unpaid`); applicant 0's details
-(`needs_details`). Only then anything is written: values from
-`buildContractValues`, the PDF from `generateContractPdf`, `putObject` under
-`contracts/{orderId}/v1.pdf`, then the insert. `unique (user_service_id)`
+(`off`, reasons `no_template` and `unpaid`); the details of every person the
+model names, applicant 0 and, for `couple` since 2026-09-25, applicant 1
+(`needs_details` with the index of the first one missing). Only then
+anything is written: values from `buildContractValues`, the PDF from
+`generateContractPdf` (with the firm's signature on an order paid with real
+money, as a specimen otherwise; `docs/agreement-contract.md` section 5),
+`putObject` under `contracts/{orderId}/v1-{nonce}.pdf` (`v1.pdf` before
+2026-09-25), then the insert. `unique (user_service_id)`
 settles a race: the loser's insert fails on the duplicate key, it reads the
 winner's row and sends nothing. The email (`serviceAgreement`, subject "Your
 service agreement", the PDF attached, a button to
@@ -871,6 +1002,7 @@ agreement in section 8 above.
 | "New paid order: {service}, {amount}" (`newPaidOrder`) | `EMAIL_TEAM_INBOX` | the same moment | the same call |
 | "Documents ready to review: {service}, {client email}" (`documentsReady`) | `EMAIL_TEAM_INBOX` | a confirmed upload fills the last required slot and the set was not complete already | `notifyDocumentsReady`, from the shared confirm step (`src/lib/documents/confirm.ts`), whichever upload route finished the file |
 | "Paid amount does not match the order: {service}, {client email}" (`paymentMismatch`) | `EMAIL_TEAM_INBOX` | Stripe reports a paid session for a known order with another amount or currency | `notifyPaymentMismatch`, from the webhook only |
+| "Signed service agreement received: {service}, {client email}" (`signedAgreement`, 2026-09-25) | `EMAIL_TEAM_INBOX` | a confirmed upload in the `signed_agreement` slot, once per review round | `notifySignedAgreement`, from the shared confirm step, whichever upload route finished the file |
 
 - **Best effort.** Nothing in `notify.ts` throws: a failed lookup, a missing
   address or a failed send is one log line, and the payment or the upload
@@ -910,6 +1042,40 @@ agreement in section 8 above.
   before and the firm already has the set in its queue. Without that rule a
   client repeating upload, remove and upload would post the firm an email
   each time.
+- **Signed service agreement** (2026-09-25, Patrícia keeps a copy signed by
+  both parties). `confirmDocumentUpload` calls `notifySignedAgreement` when
+  the confirmed file sits in the slot whose `service_docs.template` is
+  `agreement`, independently of "Documents ready to review" (one upload can
+  send both). The rules:
+  - **Once per review round** (`src/lib/orders/signed-copy.ts`): the first
+    signed copy the order confirms is sent; after that, another only when
+    the firm has rejected a signed copy of this order since the last one
+    went out. A copy that replaces one still waiting for review, or follows
+    one the client removed, sends nothing, so a client cannot loop uploads
+    into the firm's inbox; the firm decides how often, never the client.
+  - **Claimed before it is sent.** Each call that finds the round open
+    writes a `user_service_events` row first (on the order's current stage,
+    from and to the same, note "Signed service agreement sent to the team
+    inbox"), reads the order's rows again and sends only when its own row is
+    the earliest of the round; a call that lost, or whose send failed, takes
+    its row back. The row stays as the record of the send and shows in the
+    admin order modal's history.
+  - **The file rides along only for an order paid with real money**
+    (`paidWithRealMoney`, `src/lib/orders/live-payment.ts`), only when it is
+    8 MB or smaller (`SIGNED_COPY_ATTACHMENT_MAX_BYTES`; a slot takes up to
+    10 MB), only when its first bytes are what its declared type starts with
+    (`matchesDeclaredType`, `src/lib/documents/file-signature.ts`), and under
+    a name the server gives it, `signed-agreement-<order>.<ext>`; the name
+    the client chose appears as escaped text in the facts table only.
+    Otherwise the email says why it carries no file ("This order was paid in
+    test mode, so the file is not attached. Download it from the order.",
+    "The file is larger than 8 MB, so it is not attached…", "The file could
+    not be attached…"). Staging stays up with Stripe in test mode, so
+    without this rule anyone could post a file of their choice into the
+    firm's inbox from the platform's own sending domain.
+  - The file is read from the bucket with a lazy `import()` of the R2
+    client, so `notify.ts`'s static graph, which the payment path loads,
+    never reaches the S3 SDK.
 - **Team inbox.** `EMAIL_TEAM_INBOX` is one address. Unset, every team email
   is skipped with one warn line and the client email still goes. Locally it
   points at the test inbox so development mail never reaches the firm.
@@ -952,7 +1118,10 @@ agreement in section 8 above.
    list was removed on 2026-09-22 (below, "The home page").
 4. The payment step description under the Pay button says the same thing the
    result screen says today: secure payment through Stripe, documents come
-   right after.
+   right after. Since 2026-09-25 the button also carries, right under it,
+   the line "By paying you accept the service terms and your service
+   agreement." (`pay-terms-note.tsx`, section 12); the button points
+   `aria-describedby` at it, since the click is the acceptance.
 
 Design: reuse the landing's tokens and fonts (navy, gold, paper; Spectral for
 headings, Inter for body) and the existing `ui/` primitives (`Button`,
@@ -976,7 +1145,9 @@ three services to get.
   instead of repeating the stage label, and a row aligned right with **See
   more** (outline) and **Pay {price}** (primary). `pay-button.tsx` takes
   `size`, `align` and `wide` for that second shape; the refusal line follows
-  the alignment.
+  the alignment. Since 2026-09-25 the unpaid card ends on the terms line,
+  small and aligned right under the whole row, the button pointing at it by
+  id (`termsNoteId`).
 - "Add a service" is now **Get a service**, on the home page and as the
   purchase drawer's eyebrow. It is hidden while the account's only orders
   are awaiting payment (`showGetAService`): the first order is chosen before
@@ -1036,9 +1207,23 @@ it stays downloadable on the order.
    prepared before the service lost its template still shows, on a
    completed order too. Only the date and whether the email went out cross
    to the client component, never the row with its printed variables.
-6. A service with no template (`couple` today, any custom service) and an
-   unpaid order answer `off`: nothing is shown, nothing is asked. The deed
-   slots work as before and find the details already there.
+6. A service with no template (any custom service; the couple package had
+   none until 2026-09-25) and an unpaid order answer `off`: nothing is
+   shown, nothing is asked. The deed slots work as before and find the
+   details already there.
+7. **The Couple package** (2026-09-25, `couple`): the agreement names both
+   persons, so the card asks for the account holder's details, then the
+   partner's, in two save only dialogs ("Your details for the service
+   agreement", "Your partner's details for the service agreement", each
+   with "Continue"), and once both are on the order offers the optional
+   place and **Open your agreement**, which opens the tab inside the click,
+   POSTs and points the tab at the agreement. Details typed earlier for a
+   deed count; "Check the details" walks the two dialogs again. Right after
+   payment only the first dialog opens by itself.
+8. **Then the signed copy** (2026-09-25): once the agreement exists, the
+   `signed_agreement` slot in the documents list offers **Download to
+   sign**, which opens the same `GET /api/orders/[id]/contract`, and
+   **Upload the signed copy** (section 10).
 
 ## 10. Upload rules
 
@@ -1186,7 +1371,8 @@ number, Issuing authority, Date of issue, Expiry date, Tax residence address.
 It opens prefilled from the user's newest row on another order; Save `PUT`s
 the row, the page refreshes and the download starts. The couple package has
 one form per applicant, the second card reads "Your partner" like the other
-slots. `nextStep` in `order-status.ts` still counts a missing deed as
+slots; since 2026-09-25 its bank deed is the exception (below, "The joint
+bank deed"). `nextStep` in `order-status.ts` still counts a missing deed as
 "Upload N documents" (the contract says "Sign and upload N document(s)" when
 only deeds are missing).
 
@@ -1199,9 +1385,51 @@ photo of the signed pages." The client reads it from `service_docs`, so
 idempotent update of every row with `template in ('poa_nif', 'poa_bank')`,
 whatever the service. `DEED_SIGNATURE_NOTE` in `src/lib/apply/documents.ts`
 is the seed source and `documents.test.ts` pins the two to each other by
-reading the migration. **Written 2026-09-22 and not applied yet**: the six
-deed rows on the live project still carry 0007's older line, so run
-`npm run db:migrate` before telling anyone the slot says it.
+reading the migration. Applied to the live project on 2026-09-22.
+
+### The joint bank deed (2026-09-25)
+
+The couple package opens one joint account, and Patrícia asked for one bank
+power of attorney with the data of both persons, signed by both, clause d)
+unchanged. `0016_couple_joint_bank_deed.sql` makes the couple's `poa_bank`
+slot shared (`per_applicant = false`) and appends "Both of you sign the same
+document." to its note; the couple's NIF deed stays per applicant.
+`isJointDeed(doc, applicants)` (`src/lib/poa/joint.ts`: `poa_bank`, not per
+applicant, two applicants) is the rule every reader applies. The slot sits
+under "For both of you"; **Download to sign** calls the deed route without
+`?applicant`, and when details are missing opens the dialog for the account
+holder, then for the partner, then downloads (a 409 naming `applicant` opens
+that person's dialog). It offers "Edit your details" and "Edit your
+partner's details", and reads "Both of you sign it, each exactly as you
+signed your own passport." The deed names both persons and has two
+signature lines; its plural wording is ours, for the firm to approve
+(`docs/documents-contract.md` section 7).
+
+### The signed agreement slot (2026-09-25)
+
+`0013_signed_agreement_slot.sql` gives every service with a contract a
+required slot `signed_agreement`, "Signed service agreement",
+`template = 'agreement'`, once per order (`per_applicant = false`, under "For
+both of you" on a couple order), default types and size, at the end of the
+list. What it shows is decided by `slotControls`
+(`src/components/dashboard/documents/slot-controls.ts`) from `contractReady`,
+a boolean `order-view.tsx` derives from the contract row:
+
+- no agreement yet: no file input, the line "Confirm your details first,
+  above, and your agreement appears here.";
+- agreement ready: **Download to sign**, a link opening
+  `GET /api/orders/[id]/contract` in a new tab, the line "Sign exactly as you
+  signed your passport." ("Both of you sign it, each exactly as you signed
+  your own passport." on a couple order), and **Upload the signed copy**;
+- otherwise the rules of any slot (above, "Sending a file").
+
+`POST /api/documents/upload-url` holds the first rule on the server: 409
+"Your agreement is not ready yet. Confirm your details first." while the
+order has no agreement, so a request made by hand meets it too. A confirmed
+upload in the slot, by either upload route, sends "Signed service agreement
+received" to the team (section 8). The slot is required, so the documents
+stage holds the order until it is approved; orders already past that stage
+when 0013 ran keep the new slot closed and empty.
 
 ## 11. Verification each agent runs before finishing
 
@@ -1219,14 +1447,35 @@ Since 2026-09-21, a change to a route or to RLS also runs
 `npm run authz:matrix` against a running dev server with the demo data
 seeded (section 13); it exits 1 on any LEAK.
 
+Since 2026-09-25, a change under `scripts/lib` also runs
+`npm run test:scripts` (node's own test runner over `scripts/lib/*.test.mjs`),
+and a change to the contract models or their scripts runs
+`npm run contracts:edit -- --check` and `npm run contracts:generate -- --check`.
+
 ## 12. Terms
 
-The purchase drawer says "By purchasing you accept the Terms"; "Terms" links
-to `/en/service-terms` (`src/app/[locale]/service-terms/page.tsx`, what is
-delivered and on what timeline, noindex, also in the landing footer as
-"Service terms"). The firm's contract models arrived on 2026-09-21
-(`docs/terms/`, three contracts and Annex I) and the post-payment contract
-was built on them the same day: `docs/agreement-contract.md`, and section 9
+Until 2026-09-25 the purchase drawer said "By purchasing you accept the
+Terms"; "Terms" linked to `/en/service-terms`
+(`src/app/[locale]/service-terms/page.tsx`, what is delivered and on what
+timeline, noindex, also in the landing footer as "Service terms").
+
+Since 2026-09-25 (Patrícia: the terms are accepted before paying) every Pay
+button (the order view's, the "In progress" card's) and the purchase
+drawer's Confirm carry one line, "By paying you accept the service terms
+and your service agreement.", with "service terms" opening
+`/en/service-terms` in a new tab (`src/components/dashboard/pay-terms-note.tsx`;
+the words, `TERMS_VERSION` and `acceptanceLineParts` in
+`src/content/terms-version.ts`, held to the house rules by
+`terms-version.test.ts`). "your service agreement" is not a link: the
+agreement is prepared after payment and arrives by email. The click is the
+acceptance, sent as `acceptTerms: true` and recorded on the order by
+`POST /api/checkout` (section 8); the admin order modal shows the record
+(`docs/admin-contract.md` section 7).
+
+The firm's contract models arrived on 2026-09-21 (`docs/terms/`, three
+contracts and Annex I; a fourth contract, the Couple package, derived from
+the package model on 2026-09-25) and the post-payment contract was built on
+them the same day: `docs/agreement-contract.md`, and section 9
 above for the flow. The `/en/service-terms` page itself is unchanged;
 `docs/legal/service-terms-changes.md` (2026-09-21, section 13) lists the
 sentences on it that are no longer true and proposes new ones, for the firm
@@ -1255,7 +1504,13 @@ to approve.
   deploys" only, so none of them reaches production. There `CONTEXT` is
   `branch-deploy`: `site-url.ts` keeps the request fallback, and email links
   go to the production site unless `NEXT_PUBLIC_SITE_URL` is set to the
-  staging URL in that context (section 8, "Links").
+  staging URL in that context (section 8, "Links"). Since 2026-09-25 every
+  agreement prepared on staging is a specimen (no firm signature, the
+  specimen line on every page), and the team email about a signed copy
+  carries no file there, because every staging order is paid with a test
+  card or recorded as paid on a deploy without a live Stripe key
+  (`docs/agreement-contract.md` section 5). The shared bucket also holds the
+  firm's signature, `firm/signature.png`, which staging never draws.
 - **Backup.** The code as it stood before the Monday round is the branch
   `backup/platform-2026-09-21` on `origin`, at `f126e38` (the agreement
   round).
@@ -1291,7 +1546,19 @@ to approve.
   production may hold) are live, anything else is test
   (`src/lib/stripe/client.ts`). `scripts/stripe-setup.mjs` still recognises
   `sk_live_` only.
-- **Price check** at checkout, section 8.
+- **Price check** at checkout, section 8. Since 2026-09-25 the Checkout
+  Sessions also carry Adaptive Pricing off and the terms acceptance
+  (section 8).
+- **Health check** (2026-09-25). `GET /api/health`, public, no session:
+  one read of one id from `services` with the admin client (so RLS cannot
+  turn an empty answer into a false "up"), with a 5 second timeout. 200
+  `{ ok: true, db: "ok", at }`, or 503 `{ ok: false, db: "down" }` when the
+  read fails, throws or times out; the reason goes to the server log only.
+  `Cache-Control: no-store` and a dynamic handler, so a monitor never reads
+  an old answer. It reads nothing from the request and writes nothing. It is
+  meant for an uptime monitor calling it every few minutes, which also sees
+  at once when the Supabase project has paused, as its current plan does
+  after seven idle days.
 - **Error pages.** `src/app/error.tsx`, for anything below the root layout
   (landing, wizard, client area and admin alike): the logo, "Something did
   not load.", a line with the contact email, **Try again** (`unstable_retry`
@@ -1364,9 +1631,24 @@ never print a secret, a key or a row.
   Needs `demo:seed`, and `ADMIN_SUPPORT_EMAIL` / `ADMIN_SUPPORT_PASSWORD`
   for the admin columns (skipped with a warning without them). Probes only
   read, stop on a check before any write, or write to the demo accounts'
-  own rows. Prints a route by role table and exits 1 on any LEAK.
+  own rows. Prints a route by role table and exits 1 on any LEAK. Since
+  2026-09-25, with `ADMIN_SUPPORT_TOTP_SECRET` set (`npm run admin:totp`),
+  the admin column answers the second factor with a computed code and runs
+  at `aal2`, and a sixth caller, **admin-aal1** (a password session of the
+  same account that never gave the code), must be treated as a client by
+  the routes and by PostgREST; without the secret the admin column runs at
+  `aal1` and the run says so. The checkout probes send `acceptTerms: true`,
+  the deed probe picks a deed slot only (never the agreement slot), and
+  `GET /api/health` is probed as a public route.
 - Also added the same day, on the admin side: `npm run auth:config` and
   `npm run admin:create -- --support` (`docs/admin-contract.md` section 4).
+- Added on 2026-09-25: `npm run contracts:edit` (the firm's models from the
+  originals, `docs/agreement-contract.md` section 1), `npm run firm:signature`
+  (Patrícia's signature into the bucket), `npm run admin:totp` (the support
+  admin's second factor; a lost phone of another admin) and
+  `npm run test:scripts`; `auth:config` now also sets the password minimum,
+  the TOTP flags, `site_url` and the redirect allow list, still a dry run
+  unless `-- --apply` (`docs/admin-contract.md` section 4).
 
 ### Drafts for the firm
 
@@ -1385,3 +1667,10 @@ Written 2026-09-21 from the code, for Patrícia to approve by Thursday
 - `docs/treinamento/roteiro-sessao-1.md`: the script of the first training
   session (Tuesday 22 September 2026, 09:00 to 10:30 Lisbon, recorded, on
   staging with Stripe in test mode), in Portuguese.
+
+Beside them, `docs/treinamento/testes-ponta-a-ponta.html` is Patrícia's end
+to end test checklist on staging, in Portuguese, its progress kept in the
+browser under `alttavia-teste-completo-v1` and keyed by each step's
+`data-id`, so a step added later never moves a tick already saved. It was
+updated on 2026-09-25 with the terms line, the signed agreement, its
+approval and the admin's second factor (35 steps).
