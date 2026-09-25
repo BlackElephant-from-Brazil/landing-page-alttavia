@@ -1,0 +1,99 @@
+<h2>Pedidos: Orders</h2>
+
+<p class="lead">A página <b>Orders</b> mostra todos os pedidos. Abre sempre como quadro (<b>Kanban</b>), com uma coluna por etapa, e também se lê como tabela (<b>Table</b>). Os filtros servem às duas.</p>
+
+<h3>O quadro Kanban</h3>
+<p>Cada coluna é uma etapa e cada cartão é um pedido. As colunas juntam as etapas dos quatro serviços, pela ordem do caminho: <b>Awaiting payment</b>, <b>Documents</b>, <b>Submitted</b>, <b>NIF ready</b>, <b>Finanças access ready</b>, <b>With the bank</b>, <b>Issued documents delivery</b> e <b>Account open</b>. O número ao lado do nome da coluna diz quantos pedidos estão nela.</p>
+<figure data-scene="admin-orders-kanban">
+  <img src="prints/admin-orders-kanban.png" alt="Página Orders em quadro Kanban, com uma coluna por etapa" loading="lazy">
+  <figcaption>O quadro. <span class="circulo-vermelho">1</span> <b>Kanban</b> e <b>Table</b> trocam a forma de ver. <span class="circulo-vermelho">2</span> Um cartão: um clique abre o pedido. Para ver as colunas da direita, deslize o quadro para o lado.</figcaption>
+</figure>
+<p>O que cada cartão mostra, de cima para baixo:</p>
+<ul>
+  <li>o e-mail e o nome do cliente;</li>
+  <li>o serviço e o valor;</li>
+  <li>uma etiqueta verde com a data do pagamento, ou <b>Not yet</b>, a âmbar, se ainda não pagou;</li>
+  <li><b>2 to review</b>, a dourado, quando há arquivos à espera da sua decisão;</li>
+  <li>os documentos obrigatórios aprovados, por exemplo 5/7;</li>
+  <li><b>Completed</b>, a azul escuro, quando o pedido está concluído;</li>
+  <li>a data do pagamento (<b>Paid</b>) ou, antes dele, a data em que o pedido foi criado (<b>Created</b>).</li>
+</ul>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>A coluna <b>Finanças access ready</b> junta duas situações. Uma são os pedidos <b>NIF only</b> já concluídos: é a última etapa deles, e o cartão diz <b>Completed</b>. A outra são os pedidos com conta bancária, que ainda vão seguir para o banco. A etiqueta <b>Completed</b> distingue-os.</p></aside>
+<p>O quadro mostra no máximo os 300 pedidos mais recentes. Se houver mais, aparece a frase <b>Showing the newest 300. Use the filters to narrow the list.</b>: use os filtros para ver os outros.</p>
+
+<h3>Os filtros</h3>
+<ol class="passos">
+  <li><b>Status</b>: <b>All</b> (todos), <b>Open, unpaid</b> (não pagos), <b>Paid, in progress</b> (pagos, em curso) ou <b>Completed</b> (concluídos).</li>
+  <li><b>Service</b>: <b>Any service</b> ou um serviço. Um serviço fora de venda aparece com <b>(inactive)</b>.</li>
+  <li><b>Email</b>: uma parte do e-mail do cliente basta, por exemplo <em>hill</em>.</li>
+  <li><b>Range</b>: <b>Any time</b> ou um dos períodos. Ou preencha <b>From</b> e <b>To</b>.</li>
+  <li>Clique <b>Apply filters</b>. À direita, a contagem diz quantos pedidos correspondem. <b>Clear</b> tira todos os filtros.</li>
+</ol>
+<p>Com <b>Status</b> em <b>All</b> ou <b>Open, unpaid</b>, o período conta pela data em que cada pedido foi criado, também nos pedidos já pagos. Com <b>Paid, in progress</b> ou <b>Completed</b>, conta pela data do pagamento. Sem período escolhido, a página mostra todas as datas (ao contrário do <b>Overview</b>, que começa nos últimos 30 dias).</p>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>Os filtros ficam no endereço da página. Pode guardar um endereço filtrado nos favoritos, ou enviá-lo ao Guilherme para mostrar exatamente o que está a ver.</p></aside>
+
+<h3>Mover um pedido arrastando o cartão</h3>
+<ol class="passos">
+  <li>Carregue no cartão com o rato e, sem largar, leve-o para outra coluna. A coluna de destino ganha um contorno dourado.</li>
+  <li>Largue. Por baixo do quadro aparece <b>Moved to</b> com o nome da etapa, e o cartão fica na coluna nova.</li>
+  <li>Se largar na última etapa de um serviço, o quadro pergunta antes: <b>This marks the order complete. Continue?</b> Clique <b>Confirm</b> para concluir ou <b>Cancel</b> para desistir.</li>
+</ol>
+<figure data-scene="admin-orders-kanban-confirm">
+  <img src="prints/admin-orders-kanban-confirm.png" alt="Pergunta do quadro antes de concluir um pedido, com Confirm e Cancel" loading="lazy">
+  <figcaption>Concluir pelo quadro. <span class="circulo-vermelho">2</span> A coluna da última etapa, onde se larga o cartão. <span class="circulo-vermelho">3</span> A pergunta que aparece por baixo do quadro, com <b>Confirm</b> e <b>Cancel</b>.</figcaption>
+</figure>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>A pergunta aparece também quando larga um pedido com conta bancária em <b>Finanças access ready</b>, porque essa coluna é a última do <b>NIF only</b>. Para esses pedidos, <b>Confirm</b> só muda a etapa: o pedido não fica concluído e o cliente não recebe e-mail.</p></aside>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>Para concluir, prefira a janela do pedido (capítulo 5). Lá, a pergunta diz se o cliente vai receber o e-mail de conclusão, <b>Your</b> [serviço] <b>order is complete</b>, e avisa se falta enviar algum arquivo ou o relatório. No quadro, a pergunta é mais curta e não diz isso.</p></aside>
+
+<h3>O que o quadro recusa, e porquê</h3>
+<table>
+  <thead>
+    <tr><th>O que tentou</th><th>O que acontece</th><th>Porquê</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Arrastar um pedido não pago.</td>
+      <td>O cartão não se mexe.</td>
+      <td>Só o pagamento tira um pedido de <b>Awaiting payment</b>.</td>
+    </tr>
+    <tr>
+      <td>Tirar um pedido de <b>Documents</b> para a frente com algum documento obrigatório por aprovar.</td>
+      <td>O cartão fica onde estava e aparece <b>Approve every required document before moving on.</b></td>
+      <td>A etapa <b>Documents</b> segura o pedido até todos os documentos obrigatórios estarem aprovados. Para trás, pode sempre.</td>
+    </tr>
+    <tr>
+      <td>Levar um pedido para uma etapa que o serviço dele não tem, por exemplo um <b>NIF only</b> para <b>With the bank</b>.</td>
+      <td>O cartão fica onde estava e aparece <b>That stage does not exist for this service.</b></td>
+      <td>O quadro mostra as etapas de todos os serviços juntas, mas cada pedido só anda pelas do seu serviço.</td>
+    </tr>
+    <tr>
+      <td>Mover um pedido que outra pessoa mudou no mesmo instante.</td>
+      <td>Aparece <b>This order changed a moment ago. Refresh and try again.</b></td>
+      <td>A página estava desatualizada. Recarregue-a e tente de novo.</td>
+    </tr>
+  </tbody>
+</table>
+<p>Tirar um pedido concluído da última coluna reabre-o: deixa de estar <b>Completed</b>. Se o voltar a pôr lá, o cliente não recebe um segundo e-mail de conclusão. Cada mudança fica registada no histórico do pedido.</p>
+
+<h3>A tabela</h3>
+<p>Clique <b>Table</b>, no canto superior direito, para ver os mesmos pedidos em linhas. <b>Kanban</b> volta ao quadro. Ao sair e voltar à página, ela abre sempre no quadro.</p>
+<figure data-scene="admin-orders-table">
+  <img src="prints/admin-orders-table.png" alt="Página Orders em tabela, com os filtros por cima" loading="lazy">
+  <figcaption>A tabela. <span class="circulo-vermelho">1</span> Os filtros. <span class="circulo-vermelho">2</span> <b>Kanban</b> e <b>Table</b>. No fundo da tabela, <b>Previous</b> e <b>Next</b> mudam de página.</figcaption>
+</figure>
+<table>
+  <thead>
+    <tr><th>Coluna</th><th>O que mostra</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Client</b></td><td>O e-mail do cliente.</td></tr>
+    <tr><td><b>Service</b></td><td>O serviço.</td></tr>
+    <tr><td><b>Amount</b></td><td>O valor do pedido.</td></tr>
+    <tr><td><b>Status</b></td><td><b>Open</b> (não pago), <b>Paid</b> (pago, em curso) ou <b>Completed</b> (concluído).</td></tr>
+    <tr><td><b>Created</b></td><td>A data em que o pedido foi criado.</td></tr>
+    <tr><td><b>Paid on</b></td><td>A data do pagamento, ou <b>Not yet</b>.</td></tr>
+    <tr><td><b>Stage</b></td><td>A etapa atual.</td></tr>
+    <tr><td><b>Documents</b></td><td>Os obrigatórios aprovados, e quantos esperam revisão.</td></tr>
+  </tbody>
+</table>
+<p>A tabela mostra 25 pedidos por página. Não se arrasta nada na tabela: para mudar a etapa, abra o pedido com um clique na linha.</p>

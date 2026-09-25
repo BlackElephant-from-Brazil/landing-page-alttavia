@@ -1,0 +1,78 @@
+<!--
+  Capítulo de exemplo: mostra a estrutura que os outros capítulos seguem.
+  Um h2 por arquivo (entra no índice), parágrafos curtos, passos numerados
+  em <ol class="passos">, prints em <figure>, caixas Dica, Atenção e Nota.
+  Cada <figure> leva data-scene="<id>": o id da cena em
+  scripts/guide/scenes.mjs que tira o print, igual ao nome de
+  prints/<id>.png. Os números dos passos batem com os círculos vermelhos do
+  print (o label de cada marca, em scenes.mjs); quando não batem, a legenda
+  diz o que cada círculo mostra.
+  <strong> fica para avisos em português (sai a vermelho); <b> só para
+  rótulos do ecrã, em inglês. Endereços de sites e de e-mail vão em texto
+  simples; um valor a escrever ou um exemplo (o cartão de teste, um texto
+  de busca) vai em <em>. As caixas são só três, cada uma com o seu nome
+  como título: Dica, Atenção e Nota.
+  Uma verificação que é só do desenvolvedor vai num comentário HTML que
+  começa por VERIFICAR, que não aparece no PDF; o [A CONFIRMAR] visível
+  fica para o que o leitor ainda não pode tomar como certo.
+-->
+<h2>Como usar este guia</h2>
+
+<p class="lead">Este guia mostra, página a página, como a plataforma funciona: o que o cliente vê do lado dele e o que você faz no painel da equipa.</p>
+
+<p>O capítulo 1 mostra a plataforma inteira. Os capítulos 2 a 8 são o painel da firma, na ordem em que o usa: entrar, <b>Overview</b>, <b>Orders</b>, um pedido por dentro, <b>Users</b>, <b>Services</b>, <b>Feedback</b> e <b>Settings</b>. O capítulo 9 mostra o que o cliente vê, o 10 os e-mails e o 11 o que fazer quando algo não bate certo. O 12 é o glossário.</p>
+
+<h3>Como ler as imagens</h3>
+
+<p>Cada imagem é uma cópia do ecrã tal como ele aparece. As marcas a vermelho foram acrescentadas para este guia e não existem na plataforma:</p>
+
+<ul>
+  <li><span class="marca-vermelha"></span> um retângulo vermelho mostra onde acontece a ação explicada no texto;</li>
+  <li>uma seta vermelha aponta para o botão ou o campo a usar;</li>
+  <li><span class="circulo-vermelho">1</span> um círculo numerado corresponde ao passo com o mesmo número; quando a legenda diz outra coisa, vale a legenda.</li>
+</ul>
+
+<p>Os clientes que aparecem nas imagens são fictícios, criados para testes, todos com endereços terminados em demo.alttavia.invalid. O e-mail de qualquer cliente real aparece desfocado. Os endereços da firma, como info@alttavia-relocation.com, ficam legíveis.</p>
+
+<h3>Os nomes dos botões</h3>
+
+<p>A plataforma está em inglês, porque os clientes escrevem em inglês. Por isso, neste guia, o nome de cada botão, campo ou menu aparece em inglês e a negrito, exatamente como está no ecrã. Por exemplo: <b>Sign in</b>, <b>Forgot your password?</b>, <b>Orders</b>. Um aviso importante em português aparece a vermelho, por exemplo: <strong>Não se desfaz.</strong></p>
+
+<h3>Um exemplo: entrar no painel</h3>
+
+<p>Abra o endereço do painel, bank-nif-portugal.alttavia-relocation.com/admin/login. Depois:</p>
+
+<ol class="passos">
+  <li>Em <b>Email address</b>, escreva o seu e-mail.</li>
+  <li>Em <b>Password</b>, escreva a sua senha.</li>
+  <li>Clique <b>Sign in</b>. Com o segundo fator ativo, abre-se a seguir <b>One more step</b>: escreva o código do app autenticador e clique <b>Continue</b> (capítulo 2).</li>
+  <li>Se não se lembrar da senha, clique <b>Forgot your password?</b>. Chega ao seu e-mail um código de 6 dígitos para escolher uma senha nova.</li>
+</ol>
+
+<figure data-scene="admin-login">
+  <img src="prints/admin-login.png" alt="A página de entrada do painel, com os campos Email address e Password e o botão Sign in marcados a vermelho.">
+  <figcaption>A entrada no painel. Os círculos vermelhos correspondem aos passos acima.</figcaption>
+</figure>
+
+<aside class="dica">
+  <p class="caixa-titulo">Dica</p>
+  <p>Guarde o endereço do painel nos favoritos do navegador. Os clientes nunca entram por aqui: eles entram na área do cliente com um código enviado por e-mail, sem senha.</p>
+</aside>
+
+<h3>Experimentar sem risco</h3>
+
+<p>Existe um ambiente de teste, igual ao site real, para experimentar à vontade: staging--bank-and-nif-in-portugal.netlify.app. Nele, os pagamentos são de teste e usam o cartão <em>4242 4242 4242 4242</em>, com qualquer validade futura e qualquer código de três dígitos.</p>
+
+<aside class="atencao">
+  <p class="caixa-titulo">Atenção</p>
+  <p>O ambiente de teste usa a mesma base de dados do site real. Um cliente ou um pedido criado no teste aparece também no painel real. Use sempre um e-mail seu para testar, nunca o de um cliente.</p>
+</aside>
+
+<h3>Quando algo não corresponde ao guia</h3>
+
+<p>Em qualquer página do painel, no canto inferior direito, há o botão <b>Feedback</b>. Clique nele, diga o que esperava e o que aconteceu, e envie. A nota fica guardada em <b>Feedback</b>, no menu do painel, e chega ao Guilherme por e-mail <span class="a-confirmar">[A CONFIRMAR]</span>.</p>
+
+<aside class="nota">
+  <p class="caixa-titulo">Nota</p>
+  <p>Contacto do suporte, para dúvidas e para qualquer coisa que não funcione: <span class="a-confirmar">[A CONFIRMAR]</span> Falta definir: qual é o e-mail ou o WhatsApp do suporte, e a que horas responde?</p>
+</aside>

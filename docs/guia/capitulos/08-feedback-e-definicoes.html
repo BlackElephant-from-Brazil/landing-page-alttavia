@@ -1,0 +1,77 @@
+<h2>Feedback e Settings</h2>
+
+<p class="lead">O botão <b>Feedback</b> é a forma mais rápida de dizer ao Guilherme que algo não correu como esperava, sem sair da página onde está. Em <b>Settings</b> você muda a senha e gere o segundo fator.</p>
+
+<h3>Enviar uma nota com o botão Feedback</h3>
+<p>O botão <b>Feedback</b> fica fixo no canto inferior direito de todas as páginas do painel.</p>
+<figure data-scene="admin-feedback-button">
+  <img src="prints/admin-feedback-button.png" alt="Botão Feedback no canto inferior direito do painel" loading="lazy">
+  <figcaption><span class="circulo-vermelho">1</span> O botão <b>Feedback</b>, no canto de todas as páginas do painel.</figcaption>
+</figure>
+<ol class="passos">
+  <li>Na página sobre a qual quer falar, clique <b>Feedback</b>. Abre-se a janela <b>Send feedback</b>.</li>
+  <li><b>Which screen</b> já vem preenchido com o endereço da página. Se a nota for sobre outra página, por exemplo uma página do cliente, cole aqui o endereço dela.</li>
+  <li>Em <b>What did you expect</b>, escreva o que esperava que acontecesse. Em <b>What happened</b>, o que aconteceu. Basta preencher um dos dois.</li>
+  <li>Em <b>How much does it matter</b>, escolha a prioridade: <b>Blocks my work</b>, <b>Should change</b> ou <b>Nice to have</b>.</li>
+  <li>Clique <b>Send</b>. Aparece <b>Thanks. We read every note.</b> Para escrever outra, <b>Send another note</b>.</li>
+</ol>
+<figure data-scene="admin-feedback-dialog">
+  <img src="prints/admin-feedback-dialog.png" alt="Janela Send feedback com os campos e a prioridade" loading="lazy">
+  <figcaption><span class="circulo-vermelho">1</span> A janela <b>Send feedback</b>: a página, o que esperava, o que aconteceu e a prioridade.</figcaption>
+</figure>
+<table>
+  <thead>
+    <tr><th>Prioridade</th><th>Quando usar</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Blocks my work</b></td><td>O trabalho ou as vendas param: um cliente não consegue pagar, o painel não abre, um documento não chega.</td></tr>
+    <tr><td><b>Should change</b></td><td>Funciona, mas está errado ou atrapalha o dia a dia.</td></tr>
+    <tr><td><b>Nice to have</b></td><td>Uma melhoria que seria boa.</td></tr>
+  </tbody>
+</table>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>Com a janela de um pedido aberta, o botão <b>Feedback</b> não responde. Copie o endereço da barra do navegador, feche o pedido, clique <b>Feedback</b> e cole o endereço em <b>Which screen</b>. Uma nota por assunto ajuda o Guilherme a responder mais depressa.</p></aside>
+<p>Cada nota fica guardada no painel e chega também por e-mail ao Guilherme <span class="a-confirmar">[A CONFIRMAR]</span>. Nunca escreva numa nota senhas, códigos de entrada ou dados de documentos de clientes: o endereço da página basta para ele encontrar o pedido.</p>
+
+<h3>A página Feedback</h3>
+<p>No menu, <b>Feedback</b> lista as notas enviadas, as mais recentes primeiro. Cada nota mostra a data, quem a enviou, a página (<b>Screen</b>), <b>Expected</b>, <b>What happened</b>, a prioridade e o estado.</p>
+<ol class="passos">
+  <li>Para ver só um estado, clique no filtro por cima da lista: <b>All</b>, <b>Open</b>, <b>Planned</b>, <b>Done</b> ou <b>Won't do</b>. Cada um mostra quantas notas tem.</li>
+  <li>Para mudar o estado de uma nota, escolha outro na caixa de seleção da nota.</li>
+</ol>
+<figure data-scene="admin-feedback-list">
+  <img src="prints/admin-feedback-list.png" alt="Página Feedback com os filtros de estado e as notas" loading="lazy">
+  <figcaption>As notas enviadas. <span class="circulo-vermelho">1</span> Os filtros por estado. <span class="circulo-vermelho">2</span> Uma nota, com a caixa do estado.</figcaption>
+</figure>
+<table>
+  <thead>
+    <tr><th>Estado</th><th>O que quer dizer</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Open</b></td><td>A nota chegou e ainda não tem resposta.</td></tr>
+    <tr><td><b>Planned</b></td><td>Vai ser feita, com data.</td></tr>
+    <tr><td><b>Done</b></td><td>Está feita e publicada.</td></tr>
+    <tr><td><b>Won't do</b></td><td>Não vai ser feita. O Guilherme explica porquê.</td></tr>
+  </tbody>
+</table>
+
+<h3>Settings: mudar a senha</h3>
+<p>No menu, clique <b>Settings</b>. Na secção <b>Change password</b>:</p>
+<ol class="passos">
+  <li>Escreva a senha atual em <b>Current password</b>, a senha nova em <b>New password</b> e repita-a em <b>Type it again</b>. A senha nova tem entre 12 e 72 caracteres.</li>
+  <li>Clique <b>Change password</b>. Aparece <b>Password changed. Use it next time you sign in.</b></li>
+</ol>
+<!-- VERIFICAR: FEEDBACK_TO no contexto Production da Netlify (sem ela, a nota fica guardada e não segue por e-mail, src/lib/email/feedback.ts). Confirmado, tirar a marca aqui, no capítulo 00 e no capítulo 10. -->
+<figure data-scene="admin-settings-password">
+  <img src="prints/admin-settings-password.png" alt="Secção Change password em Settings" loading="lazy">
+  <figcaption>Mudar a senha. Os círculos correspondem aos passos acima.</figcaption>
+</figure>
+<p>Você continua com a sessão aberta neste computador. Nos outros aparelhos, a próxima entrada já pede a senha nova.</p>
+<p>Respostas possíveis: <b>Your current password is not right.</b>, <b>The two entries do not match.</b> e <b>Choose a password different from the current one.</b></p>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>Um gestor de senhas (o do navegador, ou um como o 1Password) guarda a senha por você e preenche-a na entrada. Assim pode usar uma senha longa sem a decorar.</p></aside>
+
+<h3>Settings: o segundo fator</h3>
+<p>A secção <b>Second factor</b> mostra se o segundo fator está ativo. Ativo, diz <b>On since</b> com a data e tem o botão <b>Turn off</b>. Como ativar, desativar e trocar de telemóvel está no capítulo 2.</p>
+<figure data-scene="admin-settings-second-factor-on">
+  <img src="prints/admin-settings-second-factor-on.png" alt="Secção Second factor em Settings, com o segundo fator ativo, a data e o botão Turn off" loading="lazy">
+  <figcaption>O segundo fator ativo. <span class="circulo-vermelho">1</span> <b>On since</b>, com a data. <span class="circulo-vermelho">2</span> <b>Turn off</b>. Antes de ativar, a secção mostra <b>Set up</b> (capítulo 2).</figcaption>
+</figure>

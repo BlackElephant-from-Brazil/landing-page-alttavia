@@ -1,0 +1,120 @@
+<h2>Clientes: Users</h2>
+
+<p class="lead">A página <b>Users</b> lista todas as contas da plataforma, com os pedidos de cada uma. Daqui você procura um cliente, vê os pedidos dele, corrige o nome ou o e-mail, cria uma conta à mão, atribui uma compra e, quando for preciso, apaga uma conta.</p>
+
+<h3>A lista e a busca</h3>
+<p>A lista mostra todas as contas, com a atividade mais recente primeiro, 25 por página.</p>
+<table>
+  <thead>
+    <tr><th>Coluna</th><th>O que mostra</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Email</b></td><td>O e-mail da conta. As contas de administração têm a etiqueta <b>Admin</b>.</td></tr>
+    <tr><td><b>Name</b></td><td>O nome, ou <b>Not given</b>.</td></tr>
+    <tr><td><b>Joined on</b></td><td>A data em que a conta foi criada.</td></tr>
+    <tr><td><b>Orders</b></td><td>Quantos pedidos a conta tem.</td></tr>
+    <tr><td><b>Paid</b></td><td>Quantos desses estão pagos.</td></tr>
+    <tr><td><b>Last order</b></td><td>A data do pedido mais recente, ou <b>None</b>.</td></tr>
+    <tr><td><b>Actions</b></td><td>Os quatro botões de cada conta (abaixo).</td></tr>
+  </tbody>
+</table>
+<ol class="passos">
+  <li>Para procurar, escreva no campo <b>Email</b> o e-mail ou uma parte dele, por exemplo <em>hill</em>.</li>
+  <li>Clique <b>Search</b>. <b>Clear</b> volta à lista completa.</li>
+</ol>
+
+<h3>Os quatro botões de cada conta</h3>
+<p>Na coluna <b>Actions</b>, cada conta tem quatro ícones. O nome de cada um aparece quando passa o rato por cima.</p>
+<ul>
+  <li>O olho: <b>View details</b>.</li>
+  <li>O lápis: <b>Edit</b>.</li>
+  <li>A caixa com um sinal de mais: <b>Assign a purchase</b>.</li>
+  <li>O caixote do lixo, a vermelho: <b>Delete</b>.</li>
+</ul>
+<figure data-scene="admin-users">
+  <img src="prints/admin-users.png" alt="Página Users com a busca, o botão New user e a coluna Actions" loading="lazy">
+  <figcaption><b>Users</b>. <span class="circulo-vermelho">1</span> <b>New user</b> cria uma conta (mais abaixo). <span class="circulo-vermelho">2</span> A coluna <b>Actions</b>, com os quatro botões de cada conta.</figcaption>
+</figure>
+<p>As contas de administração só têm <b>View details</b> e a frase <b>Admin account</b>. Elas mudam-se em <b>Settings</b>, por quem entra com elas.</p>
+
+<h3>Ver os detalhes: View details</h3>
+<ol class="passos">
+  <li>Clique o olho, ou em qualquer ponto da linha. Abre-se a janela <b>User</b>, com o e-mail, <b>Full name</b>, <b>Phone</b>, <b>Joined</b> e <b>Role</b> (<b>Client</b> ou <b>Admin</b>).</li>
+  <li>Por baixo, os pedidos da conta: <b>Service</b>, <b>Ordered on</b>, <b>Amount</b>, <b>Paid on</b>, <b>Stage</b> e <b>Documents</b>. Um clique num pedido leva a <b>Orders</b> com esse pedido aberto (capítulo 5).</li>
+</ol>
+<figure data-scene="admin-user-details">
+  <img src="prints/admin-user-details.png" alt="Janela User com os dados da conta, os pedidos e Assign a purchase" loading="lazy">
+  <figcaption>Os detalhes de uma conta, com os pedidos. <span class="circulo-vermelho">1</span> <b>Assign a purchase</b> também está aqui.</figcaption>
+</figure>
+
+<h3>Corrigir os dados: Edit</h3>
+<p>Clique o lápis. Abre-se a janela <b>Edit user</b>. Depois:</p>
+<ol class="passos">
+  <li>Mude <b>Email</b>, <b>Full name</b> ou <b>Phone</b> (o telefone é opcional).</li>
+  <li>Clique <b>Save changes</b>. A linha mostra os dados novos.</li>
+</ol>
+<figure data-scene="admin-user-edit">
+  <img src="prints/admin-user-edit.png" alt="Janela Edit user com os campos e o botão Save changes" loading="lazy">
+  <figcaption>Corrigir os dados de um cliente. Os círculos correspondem aos passos acima.</figcaption>
+</figure>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>O e-mail é o endereço para onde vai o código de entrada. Se mudar o e-mail, o cliente passa a entrar com o novo, e todos os e-mails seguintes vão para lá. Avise-o antes.</p></aside>
+<p>Respostas possíveis: <b>Change something first.</b> (nada mudou) e <b>An account with this email already exists.</b> (o e-mail novo já tem conta).</p>
+
+<h3>Criar uma conta: New user</h3>
+<p>Use quando um cliente chega por outro caminho (WhatsApp, e-mail, recomendação) e você quer abrir-lhe a conta. Clique <b>New user</b>, no canto superior direito da página. Depois:</p>
+<ol class="passos">
+  <li>Preencha <b>Email</b>, <b>Full name</b> e, se tiver, <b>Phone</b>.</li>
+  <li>Clique <b>Create the account</b>.</li>
+</ol>
+<figure data-scene="admin-user-new">
+  <img src="prints/admin-user-new.png" alt="Janela New user com e-mail, nome e telefone" loading="lazy">
+  <figcaption>Criar uma conta à mão. Os círculos correspondem aos passos acima.</figcaption>
+</figure>
+<p>A conta fica pronta na hora. Nenhum e-mail sai neste momento. Diga ao cliente para entrar em bank-nif-portugal.alttavia-relocation.com/en/login com esse e-mail: ele recebe o código de 6 dígitos e entra.</p>
+
+<h3>Atribuir uma compra: Assign a purchase</h3>
+<p>Cria um pedido na conta do cliente, como se ele o tivesse comprado. O pedido aparece logo na área dele. Clique a caixa com o sinal de mais (ou <b>Assign a purchase</b> na janela de detalhes). Depois:</p>
+<ol class="passos">
+  <li>Em <b>Service</b>, escolha o serviço.</li>
+  <li>Se o cliente já pagou por outro meio (uma transferência, por exemplo), marque <b>Already paid outside the platform</b>.</li>
+  <li>Clique <b>Assign</b>.</li>
+</ol>
+<figure data-scene="admin-user-assign">
+  <img src="prints/admin-user-assign.png" alt="Janela Assign a purchase com o serviço e a opção Already paid outside the platform" loading="lazy">
+  <figcaption>Atribuir uma compra. Os círculos correspondem aos passos acima.</figcaption>
+</figure>
+<table>
+  <thead>
+    <tr><th></th><th>Sem marcar</th><th>Com <b>Already paid outside the platform</b></th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Onde fica o pedido</td><td>Em <b>Awaiting payment</b>.</td><td>Em <b>Documents</b>, já pago, com a data de hoje.</td></tr>
+    <tr><td>O que o cliente vê</td><td>O pedido com o botão para pagar com cartão.</td><td>O pedido pago, com os dados a confirmar e os documentos a enviar.</td></tr>
+    <tr><td>E-mails</td><td>Nenhum.</td><td>O cliente recebe <b>Payment received</b>; a equipa recebe <b>New paid order</b>.</td></tr>
+  </tbody>
+</table>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Um pedido pago fora da plataforma não aparece no Stripe, mas conta no <b>Revenue</b> do <b>Overview</b>. E como o cliente não clicou no botão de pagar, a plataforma não regista nesse pedido a aceitação dos termos e do contrato.</p></aside>
+<p><span class="a-confirmar">[A CONFIRMAR]</span> Falta decidir: como é que a firma regista a aceitação dos termos e do contrato num pagamento feito fora da plataforma?</p>
+
+<h3>Apagar uma conta: Delete</h3>
+<p>Apagar remove a conta e tudo o que está guardado nela: os pedidos, os documentos enviados, os contratos, os arquivos entregues e as respostas do formulário. <strong>Não se desfaz.</strong></p>
+<p>Clique o caixote do lixo. Abre-se a janela <b>Delete this client</b>, com o aviso e a contagem do que vai junto, por exemplo <b>2 orders, 9 files and 1 agreement go with it.</b> Leia com atenção. Depois:</p>
+<ol class="passos">
+  <li>Em <b>Type the email to confirm</b>, escreva o e-mail da conta.</li>
+  <li>O botão <b>Delete this client</b> só fica ativo quando o e-mail escrito é igual ao da conta. Clique.</li>
+</ol>
+<figure data-scene="admin-user-delete">
+  <img src="prints/admin-user-delete.png" alt="Janela Delete this client com o campo para escrever o e-mail" loading="lazy">
+  <figcaption>Apagar uma conta. Os círculos correspondem aos passos acima.</figcaption>
+</figure>
+<p>O painel recusa apagar uma conta de administração (<b>This is an administrator account. Change it in Settings.</b>) e a conta com que você entrou (<b>You cannot delete the account you are signed in with.</b>).</p>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Apague apenas contas de teste, ou quando um cliente pedir que os dados dele sejam apagados. Antes de apagar um cliente real, confirme o que a firma tem de guardar por obrigação legal: depois do clique, nada se recupera.</p></aside>
+
+<h3>Contas que você vai ver na lista</h3>
+<ul>
+  <li>info@alttavia-relocation.com: a sua conta de administração.</li>
+  <li>business+admin@guyshore.com: a conta de suporte do Guilherme, também de administração. Serve para ele ver o que você vê quando pede ajuda.</li>
+  <li>Contas terminadas em @demo.alttavia.invalid: os clientes de demonstração (capítulo 1).</li>
+  <li>Outras contas business+ em @guyshore.com: contas de teste do Guilherme.</li>
+</ul>
+<p><span class="a-confirmar">[A CONFIRMAR]</span> Falta decidir: a conta de suporte business+admin@guyshore.com continua a ser de administração depois da entrega?</p>

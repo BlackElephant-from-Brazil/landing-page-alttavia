@@ -1,0 +1,71 @@
+<h2>Visão geral: Overview</h2>
+
+<p class="lead">O <b>Overview</b> é a primeira página depois de entrar. Diz, num relance, quanto se vendeu, o que está em curso e o que espera por você. É por aqui que o dia começa.</p>
+
+<figure data-scene="admin-overview">
+  <img src="prints/admin-overview.png" alt="Página Overview com os seis números e os gráficos marcados a vermelho" loading="lazy">
+  <figcaption>O <b>Overview</b>. <span class="circulo-vermelho">1</span> Os seis números. <span class="circulo-vermelho">2</span> Os quatro gráficos. Mais abaixo ficam as duas listas de trabalho.</figcaption>
+</figure>
+
+<h3>Escolher o período</h3>
+<p>Por baixo do título, uma linha diz o período em uso, por exemplo <b>Last 30 days</b> seguido das datas de início e de fim. É o período que a página usa quando você entra.</p>
+<ol class="passos">
+  <li>Para mudar, clique num dos atalhos: <b>Last 7 days</b>, <b>Last 30 days</b>, <b>Last 3 months</b>, <b>Last 6 months</b> ou <b>Last 12 months</b>. O escolhido fica azul escuro.</li>
+  <li>Para um período à sua escolha, preencha <b>From</b> e <b>To</b> e clique <b>Apply</b>. O dia de <b>To</b> conta por inteiro.</li>
+</ol>
+<figure data-scene="admin-overview-range">
+  <img src="prints/admin-overview-range.png" alt="Atalhos de período e os campos From e To" loading="lazy">
+  <figcaption>Os círculos correspondem aos passos acima: os atalhos e as datas.</figcaption>
+</figure>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>O período muda quatro dos seis números e o gráfico <b>Orders by service</b>. Não muda <b>In progress</b>, <b>Documents to review</b>, os outros três gráficos nem as duas listas de baixo. Um pedido pago há dois meses e ainda aberto continua a ser trabalho de hoje.</p></aside>
+
+<h3>Os seis números</h3>
+<table>
+  <thead>
+    <tr><th>Na página</th><th>O que conta</th><th>Segue o período?</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Open orders</b></td><td>Pedidos criados no período e ainda não pagos.</td><td>Sim</td></tr>
+    <tr><td><b>Paid</b></td><td>Pedidos pagos no período, em qualquer etapa.</td><td>Sim</td></tr>
+    <tr><td><b>In progress</b></td><td>Pedidos pagos e ainda não concluídos, de qualquer data.</td><td>Não</td></tr>
+    <tr><td><b>Completed</b></td><td>Pedidos pagos no período e já concluídos.</td><td>Sim</td></tr>
+    <tr><td><b>Revenue</b></td><td>A soma, em euros, dos pedidos pagos no período.</td><td>Sim</td></tr>
+    <tr><td><b>Documents to review</b></td><td>Arquivos enviados pelos clientes que esperam a sua decisão.</td><td>Não</td></tr>
+  </tbody>
+</table>
+<p>Cada número tem por baixo uma frase curta, em inglês, que diz o que conta.</p>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Os números leem a base de dados, que é a mesma no staging e na produção. Por isso incluem os pedidos de teste e os clientes de demonstração (@demo.alttavia.invalid), e também os pedidos marcados como pagos fora da plataforma (capítulo 6). Para comparar com o Stripe, lembre-se destas três diferenças.</p></aside>
+
+<h3>Os quatro gráficos</h3>
+<p>Passe o rato por cima de uma coluna, de um ponto ou de uma fatia para ver o número exato.</p>
+<ul>
+  <li><b>Orders by month</b>: os últimos seis meses, este incluído. Cada coluna separa os pedidos pagos (<b>Paid</b>, pela data do pagamento) dos não pagos (<b>Not paid</b>, pela data em que foram criados).</li>
+  <li><b>Revenue by month</b>: uma linha com os euros recebidos em cada um dos últimos seis meses.</li>
+  <li><b>Orders by stage</b>: todos os pedidos ainda não concluídos, na etapa em que estão hoje. Os não pagos contam na primeira etapa.</li>
+  <li><b>Orders by service</b>: os pedidos pagos no período, por serviço. É o único gráfico que segue o período.</li>
+</ul>
+
+<h3>In progress</h3>
+<p>A lista dos pedidos pagos e ainda não concluídos, os mais recentes primeiro (até 50). A linha por cima diz quantos são no total, e <b>All orders</b> leva à página <b>Orders</b> já filtrada em <b>Paid, in progress</b>.</p>
+<table>
+  <thead>
+    <tr><th>Coluna</th><th>O que mostra</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Client</b></td><td>O e-mail da conta do cliente.</td></tr>
+    <tr><td><b>Service</b></td><td>O serviço comprado.</td></tr>
+    <tr><td><b>Paid on</b></td><td>A data do pagamento, a verde.</td></tr>
+    <tr><td><b>Stage</b></td><td>A etapa atual.</td></tr>
+    <tr><td><b>Documents</b></td><td>Quantos documentos obrigatórios estão aprovados, por exemplo 5/7. Antes disso, uma etiqueta dourada <b>2 to review</b> quando há arquivos à espera, e uma vermelha <b>1 rejected</b> quando há arquivos rejeitados ainda não substituídos.</td></tr>
+  </tbody>
+</table>
+<p>Um clique numa linha abre o pedido por cima da página (capítulo 5). Ao fechá-lo, você volta ao <b>Overview</b> no mesmo sítio.</p>
+
+<h3>Awaiting review</h3>
+<p>Todos os arquivos que esperam a sua decisão, os mais antigos primeiro. Colunas: <b>Client</b>, <b>Service</b>, <b>Document</b> (com <b>applicant 2</b> quando o arquivo é do parceiro, num pedido de duas pessoas: <b>Couple package</b> ou conta conjunta), <b>File</b> (o nome do arquivo) e <b>Uploaded</b> (quando chegou). Com a lista vazia, a página diz <b>Nothing waiting.</b></p>
+<figure data-scene="admin-overview-review">
+  <img src="prints/admin-overview-review.png" alt="As listas In progress e Awaiting review" loading="lazy">
+  <figcaption>As duas listas de trabalho. <span class="circulo-vermelho">1</span> <b>In progress</b>. <span class="circulo-vermelho">2</span> <b>Awaiting review</b>. Um clique numa linha abre o pedido.</figcaption>
+</figure>
+
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>Uma rotina simples para cada manhã. Abra o <b>Overview</b> e comece por <b>Awaiting review</b>, de cima para baixo: quem espera há mais tempo vem primeiro. Depois percorra <b>In progress</b> à procura de pedidos que podem avançar.</p></aside>

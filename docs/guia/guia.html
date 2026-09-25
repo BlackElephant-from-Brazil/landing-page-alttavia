@@ -1,0 +1,453 @@
+<!doctype html>
+<!--
+  Guia da plataforma: a moldura do guia (capa, índice, estilos de impressão).
+
+  Os capítulos não se escrevem aqui. Cada um é um arquivo em
+  docs/guia/capitulos/, com um número à frente (00-, 01-, 02-, ...), e o
+  comando abaixo junta-os por ordem no marcador CAPITULOS, grava
+  docs/guia/guia.build.html e imprime docs/guia/Guia-Alttavia.pdf:
+
+    node scripts/guide/pdf.mjs
+
+  Um capítulo é um fragmento de HTML, sem <html> nem <body>:
+    <h2>Título do capítulo</h2>          um só h2 por arquivo; entra no índice
+    <h3>Secção</h3>
+    <p>Parágrafos curtos, na segunda pessoa ("você").</p>
+    <ol class="passos"><li>...</li></ol>  passos numerados
+    <b>Start my application</b>           rótulos do ecrã, em inglês, tal como aparecem (só eles)
+    <em>4242 4242 4242 4242</em>          um valor a escrever ou um exemplo; endereços de
+                                          sites e de e-mail vão em texto simples
+    <figure data-scene="<id>"><img src="prints/<id>.png" alt="..."><figcaption>...</figcaption></figure>
+                                          data-scene é o id da cena em scripts/guide/scenes.mjs
+                                          que tira o print; o mesmo id dá o nome ao PNG
+    <figure class="telemovel">...</figure> prints de telemóvel, mais estreitos
+    <figure class="telemovel lado-a-lado" data-scene="<id> <id>">
+                                          vários prints de telemóvel lado a lado,
+                                          com os ids separados por espaço
+    <strong>Não se desfaz.</strong>       ênfase em português, só em avisos (sai a vermelho)
+    <aside class="dica"><p class="caixa-titulo">Dica</p><p>...</p></aside>
+    <aside class="atencao"><p class="caixa-titulo">Atenção</p><p>...</p></aside>
+    <aside class="nota"><p class="caixa-titulo">Nota</p><p>...</p></aside>
+                                          o título de cada caixa é sempre o nome dela
+    <span class="a-confirmar">[A CONFIRMAR]</span>  o que o leitor ainda não pode tomar como certo
+    comentário HTML começado por VERIFICAR  o que só o desenvolvedor confere; não sai no PDF
+
+  Os prints vêm de node scripts/guide/capture.mjs (lista: --list). Um print
+  que ainda não existe aparece como um quadro tracejado com uma frase simples
+  ("Imagem a acrescentar na próxima versão do guia"), para o PDF nunca sair
+  com uma imagem partida sem aviso. O comando que o cria fica no atributo
+  data-print do quadro e na lista que scripts/guide/pdf.mjs imprime.
+
+  Para reutilizar noutro cliente, troque os campos marcados com data-campo
+  na capa e os capítulos; os estilos ficam.
+-->
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guia da plataforma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0E2A47;
+    --navy-soft: #2D4B72;
+    --navy-muted: #5B7199;
+    --gold: #D0A12B;
+    --gold-text: #8A6A14;
+    --gold-bg: rgba(208, 161, 43, 0.10);
+    --paper: #FAFAF7;
+    --line: rgba(14, 42, 71, 0.14);
+    --red: #D0302B;
+    --red-bg: rgba(208, 48, 43, 0.07);
+    --serif: "Spectral", Georgia, "Times New Roman", serif;
+    --sans: "Inter", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  }
+
+  @page { size: A4; margin: 18mm; }
+  @page capa { size: A4; margin: 0; }
+
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    background: #FFFFFF;
+    color: var(--navy);
+    font-family: var(--sans);
+    font-size: 10.5pt;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    /* Uma linha comprida (um endereço, uma nota) nunca alarga a página: o Chrome encolheria o PDF inteiro. */
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------- Capa ---------- */
+  .capa {
+    page: capa;
+    position: relative;
+    width: 210mm;
+    height: 296.5mm;
+    overflow: hidden;
+    background: var(--navy);
+    color: #FFFFFF;
+    padding: 34mm 24mm 26mm;
+    display: flex;
+    flex-direction: column;
+    break-after: page;
+  }
+  .capa::after {
+    content: "";
+    position: absolute;
+    right: -40mm;
+    top: -40mm;
+    width: 150mm;
+    height: 150mm;
+    border-radius: 50%;
+    border: 1px solid rgba(208, 161, 43, 0.35);
+  }
+  .capa .marca {
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 0;
+  }
+  .capa .regua { width: 22mm; height: 2px; background: var(--gold); margin: 14mm 0 10mm; }
+  .capa h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 40pt;
+    line-height: 1.08;
+    margin: 0;
+    max-width: 150mm;
+  }
+  .capa .subtitulo {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 15pt;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.82);
+    margin: 8mm 0 0;
+    max-width: 140mm;
+  }
+  .capa .ficha {
+    margin-top: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7mm 12mm;
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    padding-top: 9mm;
+  }
+  .capa .ficha dt {
+    font-size: 7.5pt;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .capa .ficha dd { margin: 1.5mm 0 0; font-size: 10.5pt; color: #FFFFFF; }
+
+  /* ---------- Índice ---------- */
+  .indice { break-after: page; }
+  .indice .eyebrow, .capitulo-num {
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--gold-text);
+    margin: 0 0 3mm;
+  }
+  .indice h2 { margin-top: 0; }
+  .indice ol { list-style: none; margin: 8mm 0 0; padding: 0; border-top: 1px solid var(--line); }
+  .indice li { border-bottom: 1px solid var(--line); }
+  .indice a {
+    display: grid;
+    grid-template-columns: 14mm 1fr;
+    align-items: baseline;
+    padding: 3.2mm 0;
+    color: var(--navy);
+    text-decoration: none;
+  }
+  .indice .n { font-family: var(--serif); font-size: 13pt; color: var(--gold-text); }
+  .indice .t { font-family: var(--serif); font-size: 13pt; }
+  .indice .vazio { color: var(--navy-muted); font-style: italic; }
+
+  /* ---------- Capítulos ---------- */
+  section.capitulo { break-before: page; }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 24pt;
+    line-height: 1.15;
+    margin: 0 0 6mm;
+    color: var(--navy);
+    break-after: avoid;
+  }
+  h3 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 14pt;
+    line-height: 1.3;
+    margin: 9mm 0 2.5mm;
+    break-after: avoid;
+  }
+  h4 {
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--navy-soft);
+    margin: 6mm 0 2mm;
+    break-after: avoid;
+  }
+  p { margin: 0 0 3mm; orphans: 3; widows: 3; }
+  p.lead { font-family: var(--serif); font-size: 13pt; line-height: 1.5; color: var(--navy-soft); }
+  /* <b> é um rótulo do ecrã, em inglês. <strong> é um aviso em português: outra cor, para não se confundirem. */
+  b { font-weight: 600; color: var(--navy); }
+  strong { font-weight: 600; color: var(--red); }
+  a { color: var(--navy-soft); }
+  ul, ol { margin: 0 0 4mm; padding-left: 6mm; }
+  li { margin: 0 0 1.5mm; }
+
+  ol.passos { list-style: none; counter-reset: passo; padding-left: 0; }
+  ol.passos > li {
+    counter-increment: passo;
+    position: relative;
+    padding-left: 10mm;
+    margin-bottom: 2.5mm;
+    break-inside: avoid;
+  }
+  ol.passos > li::before {
+    content: counter(passo);
+    position: absolute;
+    left: 0;
+    top: 0.2mm;
+    width: 6mm;
+    height: 6mm;
+    border-radius: 50%;
+    background: var(--navy);
+    color: #FFFFFF;
+    font-size: 8pt;
+    font-weight: 600;
+    line-height: 6mm;
+    text-align: center;
+  }
+
+  /* ---------- Figuras ---------- */
+  body { counter-reset: figura; }
+  figure {
+    margin: 5mm 0 6mm;
+    break-inside: avoid;
+    counter-increment: figura;
+  }
+  figure img {
+    display: block;
+    max-width: 100%;
+    max-height: 190mm;
+    height: auto;
+    margin: 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 2mm;
+  }
+  figure.telemovel img { max-width: 62mm; border-radius: 4mm; }
+  figure.lado-a-lado { display: flex; flex-wrap: wrap; gap: 6mm; justify-content: center; align-items: flex-start; }
+  figure.lado-a-lado img { max-width: 62mm; margin: 0; }
+  figure.lado-a-lado figcaption { flex-basis: 100%; margin-top: 0; }
+  figure.lado-a-lado .print-em-falta { width: 55mm; }
+  figcaption {
+    margin-top: 2.2mm;
+    font-size: 8.8pt;
+    line-height: 1.45;
+    color: var(--navy-muted);
+    text-align: center;
+  }
+  figcaption::before { content: "Figura " counter(figura) ". "; font-weight: 600; color: var(--navy-soft); }
+  .print-em-falta {
+    border: 1.5px dashed var(--navy-muted);
+    border-radius: 2mm;
+    padding: 10mm 8mm;
+    text-align: center;
+    color: var(--navy-muted);
+    font-size: 9pt;
+    background: var(--paper);
+  }
+  .print-em-falta code { font-size: 8.5pt; color: var(--navy); }
+
+  /* ---------- Caixas ---------- */
+  aside.dica, aside.atencao, aside.nota {
+    margin: 5mm 0;
+    padding: 4mm 5mm;
+    border-left: 3px solid var(--gold);
+    background: var(--gold-bg);
+    border-radius: 0 2mm 2mm 0;
+    break-inside: avoid;
+  }
+  aside.atencao { border-left-color: var(--red); background: var(--red-bg); }
+  aside.nota { border-left-color: var(--navy-muted); background: var(--paper); }
+  .caixa-titulo {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold-text);
+    margin: 0 0 1.5mm;
+  }
+  aside.atencao .caixa-titulo { color: var(--red); }
+  aside.nota .caixa-titulo { color: var(--navy-soft); }
+  aside > p:last-child { margin-bottom: 0; }
+
+  .a-confirmar {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--red);
+    background: var(--red-bg);
+    padding: 0.3mm 1.2mm;
+    border-radius: 1mm;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  .marca-vermelha {
+    display: inline-block;
+    width: 7mm;
+    height: 4.2mm;
+    border: 2px solid var(--red);
+    border-radius: 1.2mm;
+    vertical-align: -0.8mm;
+  }
+  .circulo-vermelho {
+    display: inline-block;
+    width: 4.8mm;
+    height: 4.8mm;
+    border-radius: 50%;
+    background: var(--red);
+    color: #FFFFFF;
+    font-size: 7.5pt;
+    font-weight: 700;
+    line-height: 4.8mm;
+    text-align: center;
+    vertical-align: 0.2mm;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 4mm 0 6mm; font-size: 9.5pt; break-inside: avoid; }
+  th, td { text-align: left; vertical-align: top; padding: 2mm 2.5mm; border-bottom: 1px solid var(--line); }
+  th { font-size: 7.5pt; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--navy-soft); }
+
+  /* ---------- No ecrã (antes de imprimir) ---------- */
+  @media screen {
+    body { background: #ECEAE4; padding: 12mm 0; }
+    .capa, .indice, section.capitulo, .sem-capitulos {
+      margin: 0 auto 10mm;
+      box-shadow: 0 2px 18px rgba(14, 42, 71, 0.12);
+    }
+    .indice, section.capitulo, .sem-capitulos { width: 210mm; background: #FFFFFF; padding: 18mm; }
+  }
+</style>
+</head>
+<body>
+
+<section class="capa" aria-label="Capa">
+  <p class="marca" data-campo="marca">Alttavia Relocation</p>
+  <div class="regua"></div>
+  <h1 data-campo="titulo">Guia da plataforma</h1>
+  <p class="subtitulo" data-campo="subtitulo">NIF e conta bancária em Portugal: a área do cliente e o painel da equipa, passo a passo.</p>
+  <dl class="ficha">
+    <div><dt>Para</dt><dd data-campo="cliente">Patrícia Viana e a equipa da Alttavia</dd></div>
+    <div><dt>Versão</dt><dd data-campo="versao">1, 25 de setembro de 2026</dd></div>
+    <div><dt>Plataforma</dt><dd data-campo="endereco">bank-nif-portugal.alttavia-relocation.com</dd></div>
+    <div><dt>Preparado por</dt><dd data-campo="autor">guyshore.com</dd></div>
+  </dl>
+</section>
+
+<nav class="indice" aria-labelledby="indice-titulo">
+  <p class="eyebrow">Neste guia</p>
+  <h2 id="indice-titulo">Índice</h2>
+  <ol id="indice"></ol>
+</nav>
+
+<main id="capitulos">
+<!-- CAPITULOS -->
+<!-- VAZIO -->
+<div class="sem-capitulos">
+  <p>Esta é a moldura do guia. Os capítulos estão em <code>docs/guia/capitulos/</code> e entram aqui com <code>node scripts/guide/pdf.mjs</code>, que grava <code>docs/guia/guia.build.html</code> e o PDF.</p>
+</div>
+<!-- /VAZIO -->
+</main>
+
+<script>
+  (function () {
+    function slug(text) {
+      return String(text)
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 60);
+    }
+
+    // Índice e números de capítulo, a partir do h2 de cada capítulo.
+    // Um arquivo começado por 00- é a introdução: entra no índice sem número.
+    var list = document.getElementById("indice");
+    var sections = Array.prototype.slice.call(document.querySelectorAll("section.capitulo"));
+    var number = 0;
+    sections.forEach(function (section, index) {
+      var h2 = section.querySelector("h2");
+      if (!h2) return;
+      var intro = /^00-/.test(section.getAttribute("data-arquivo") || "");
+      if (!intro) number += 1;
+      if (!h2.id) h2.id = "capitulo-" + (index + 1) + "-" + slug(h2.textContent);
+      var eyebrow = document.createElement("p");
+      eyebrow.className = "capitulo-num";
+      eyebrow.textContent = intro ? "Antes de começar" : "Capítulo " + number;
+      h2.parentNode.insertBefore(eyebrow, h2);
+
+      var item = document.createElement("li");
+      var link = document.createElement("a");
+      link.href = "#" + h2.id;
+      var n = document.createElement("span");
+      n.className = "n";
+      n.textContent = intro ? "" : String(number);
+      var t = document.createElement("span");
+      t.className = "t";
+      t.textContent = h2.textContent;
+      link.appendChild(n);
+      link.appendChild(t);
+      item.appendChild(link);
+      list.appendChild(item);
+    });
+    if (!sections.length) {
+      var empty = document.createElement("li");
+      empty.className = "vazio";
+      empty.textContent = "Ainda sem capítulos.";
+      list.appendChild(empty);
+    }
+
+    // Um print que não existe vira um quadro tracejado com uma frase simples,
+    // para quem lê. O arquivo e o comando que o cria ficam nos atributos
+    // data-print e data-comando, que scripts/guide/pdf.mjs lista na consola.
+    function missing(img) {
+      if (img.getAttribute("data-em-falta")) return;
+      img.setAttribute("data-em-falta", "1");
+      var src = img.getAttribute("src") || "";
+      var id = (src.match(/prints\/([^/]+)\.png$/) || [])[1];
+      var box = document.createElement("div");
+      box.className = "print-em-falta";
+      box.setAttribute("data-print", src);
+      box.setAttribute("data-comando", id ? "node scripts/guide/capture.mjs --only " + id : "node scripts/guide/capture.mjs");
+      box.textContent = "Imagem a acrescentar na próxima versão do guia.";
+      img.parentNode.replaceChild(box, img);
+    }
+    // Uma cópia: document.images muda enquanto os quadros substituem as imagens.
+    Array.prototype.slice.call(document.images).forEach(function (img) {
+      // Impresso, tudo carrega já: uma imagem "lazy" fora do ecrã nunca chegaria ao PDF.
+      if (img.loading === "lazy") img.loading = "eager";
+      if (img.complete && img.naturalWidth === 0 && img.getAttribute("src")) missing(img);
+      else img.addEventListener("error", function () { missing(img); });
+    });
+  })();
+</script>
+</body>
+</html>

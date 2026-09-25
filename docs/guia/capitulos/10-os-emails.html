@@ -1,0 +1,130 @@
+<h2>Os e-mails</h2>
+
+<p class="lead">A plataforma envia sozinha alguns e-mails ao cliente e à equipa. Saber quais saem, e quando, evita enviar o mesmo aviso duas vezes, ou esperar por um aviso que não existe.</p>
+
+<h3>Quem envia e para onde vão os botões</h3>
+<ul>
+  <li>Todos os e-mails saem de hello@send.alttavia-relocation.com. Se um cliente disser que não recebeu, peça-lhe para procurar este remetente, também no spam.</li>
+  <li>Os e-mails ao cliente terminam com um convite para responder.</li>
+  <li>Os botões dos e-mails da produção abrem a produção. Os dos e-mails enviados pelo staging também abrem a produção, salvo se o Guilherme tiver configurado o staging para os abrir no staging <span class="a-confirmar">[A CONFIRMAR]</span>.</li>
+  <li>Na produção, os e-mails da equipa vão para o info@ <span class="a-confirmar">[A CONFIRMAR]</span>. No staging, vão para a caixa de testes do Guilherme.</li>
+</ul>
+<p><span class="a-confirmar">[A CONFIRMAR]</span> Falta decidir: para que caixa vão as respostas dos clientes? A plataforma manda-as para a caixa que o Guilherme definir; sem essa definição, vão para hello@send.alttavia-relocation.com. O ideal é o info@.</p>
+<!-- VERIFICAR na Netlify, contexto Production (e Branch deploys para o staging): EMAIL_TEAM_INBOX (avisos à equipa, src/lib/orders/notify.ts), EMAIL_REPLY_TO (respostas dos clientes, src/lib/email/send.ts; sem ela vão para o remetente, EMAIL_FROM), NEXT_PUBLIC_SITE_URL no Branch deploys (links dos e-mails do staging, dashboardUrl() em src/lib/email/templates.ts) e FEEDBACK_TO (notas do botão Feedback). Confirmados, tirar as marcas aqui, nos capítulos 00, 01, 05, 08 e 11, e no documento de entrega, nos critérios de aceite e no runbook, tudo de uma vez. -->
+
+<h3>O que o cliente recebe</h3>
+<table>
+  <thead>
+    <tr><th>E-mail (assunto)</th><th>Quando sai</th><th>O botão e o que abre</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>O código de entrada, com 6 dígitos</td>
+      <td>Cada vez que o cliente pede um código, no formulário ou em /en/login. Vale 10 minutos.</td>
+      <td>Sem botão: o cliente escreve o código na página.</td>
+    </tr>
+    <tr>
+      <td><b>Payment received for your</b> [serviço] <b>order</b></td>
+      <td>Uma vez por pedido, quando o pagamento fica registado: pelo Stripe, ou quando você marca <b>Already paid outside the platform</b> (capítulo 6).</td>
+      <td><b>Open your order</b>: o pedido na área de cliente.</td>
+    </tr>
+    <tr>
+      <td><b>Your service agreement</b></td>
+      <td>Quando o cliente confirma os dados e o contrato é preparado. De novo a cada <b>Regenerate and resend</b>.</td>
+      <td>O contrato vai em anexo, em PDF. <b>See your order</b>: o pedido.</td>
+    </tr>
+    <tr>
+      <td><b>A new file is needed:</b> [documento]</td>
+      <td>A cada <b>Reject and notify</b>. Traz o seu motivo, palavra por palavra.</td>
+      <td><b>Upload a new file</b>: o pedido, onde o cliente envia o arquivo novo.</td>
+    </tr>
+    <tr>
+      <td><b>Your</b> [serviço] <b>order is complete</b>, com o título <b>All done</b></td>
+      <td>Na primeira vez que o pedido chega à última etapa. Nunca uma segunda vez.</td>
+      <td><b>See your documents</b>: o pedido, com os arquivos e o relatório.</td>
+    </tr>
+  </tbody>
+</table>
+<!-- VERIFICAR: o assunto do e-mail com o código de entrada vem do modelo "magic link" do Supabase Auth, fora do código; se se quiser citar na tabela, ler no painel da Supabase. -->
+<figure data-scene="email-payment-received">
+  <img src="prints/email-payment-received.png" alt="E-mail Payment received com o botão Open your order" loading="lazy">
+  <figcaption>O e-mail que o cliente recebe depois de pagar. <span class="circulo-vermelho">1</span> <b>Open your order</b> abre o pedido na área do cliente.</figcaption>
+</figure>
+<figure data-scene="email-service-agreement">
+  <img src="prints/email-service-agreement.png" alt="E-mail Your service agreement com o contrato em PDF anexado" loading="lazy">
+  <figcaption>O e-mail do contrato. <span class="circulo-vermelho">1</span> O contrato, em anexo, em PDF.</figcaption>
+</figure>
+<figure data-scene="email-document-rejected">
+  <img src="prints/email-document-rejected.png" alt="E-mail A new file is needed com o motivo e o botão Upload a new file" loading="lazy">
+  <figcaption>O e-mail que o cliente recebe quando você rejeita um documento. <span class="circulo-vermelho">1</span> O motivo, tal como você o escreveu. <span class="circulo-vermelho">2</span> <b>Upload a new file</b>.</figcaption>
+</figure>
+<figure data-scene="email-order-completed">
+  <img src="prints/email-order-completed.png" alt="E-mail Your order is complete, com o título All done e o botão See your documents" loading="lazy">
+  <figcaption>O e-mail da conclusão. <span class="circulo-vermelho">1</span> <b>See your documents</b> abre o pedido concluído.</figcaption>
+</figure>
+
+<h3>O que a equipa recebe</h3>
+<table>
+  <thead>
+    <tr><th>E-mail (assunto)</th><th>Quando sai</th><th>O botão e o que abre</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>New paid order:</b> [serviço], [valor]</td>
+      <td>Uma vez por pedido pago.</td>
+      <td><b>Open the order</b>: a janela do pedido no painel.</td>
+    </tr>
+    <tr>
+      <td><b>Documents ready to review:</b> [serviço], [cliente]</td>
+      <td>Quando chega o último documento obrigatório que faltava. Sai outra vez se um documento rejeitado for substituído e o conjunto ficar de novo completo. Trocar um arquivo que ainda esperava revisão não envia nada.</td>
+      <td><b>Review the documents</b>: a janela do pedido.</td>
+    </tr>
+    <tr>
+      <td><b>Signed service agreement received:</b> [serviço], [cliente]</td>
+      <td>Quando o cliente envia a primeira cópia assinada, e depois só quando você rejeitou a cópia anterior. Trocar ou voltar a enviar uma cópia que ainda espera revisão não envia nada: a mais recente está sempre no pedido. Cada envio fica em <b>History</b> como <b>Signed service agreement sent to the team inbox</b>.</td>
+      <td>A cópia assinada vai em anexo quando tem até 8 MB; acima disso, o e-mail diz para a descarregar do pedido. <b>Open the order</b>: a janela do pedido.</td>
+    </tr>
+    <tr>
+      <td><b>Paid amount does not match the order:</b> [serviço], [cliente]</td>
+      <td>Raro. O Stripe cobrou um valor ou uma moeda diferente do pedido. O pedido fica por pagar e o cliente continua a ver o botão de pagar.</td>
+      <td><b>Open the order</b>. Veja o pagamento no Stripe antes de o cliente pagar de novo, e avise o Guilherme.</td>
+    </tr>
+  </tbody>
+</table>
+<figure data-scene="email-team-new-paid-order">
+  <img src="prints/email-team-new-paid-order.png" alt="E-mail New paid order com os dados do pedido e o botão Open the order" loading="lazy">
+  <figcaption>O aviso de pedido pago. <span class="circulo-vermelho">1</span> Os dados do pedido. <span class="circulo-vermelho">2</span> <b>Open the order</b> abre a janela do pedido no painel.</figcaption>
+</figure>
+<figure data-scene="email-team-documents-ready">
+  <img src="prints/email-team-documents-ready.png" alt="E-mail Documents ready to review com o número de arquivos a rever e o botão Review the documents" loading="lazy">
+  <figcaption>O aviso de documentos prontos. <span class="circulo-vermelho">1</span> Os dados do pedido, com quantos arquivos esperam revisão. <span class="circulo-vermelho">2</span> <b>Review the documents</b> abre a janela do pedido.</figcaption>
+</figure>
+<figure data-scene="email-team-signed-agreement">
+  <img src="prints/email-team-signed-agreement.png" alt="E-mail Signed service agreement received com a cópia em anexo e o botão Open the order" loading="lazy">
+  <figcaption>O aviso de contrato assinado. <span class="circulo-vermelho">1</span> A cópia assinada, em anexo. <span class="circulo-vermelho">2</span> <b>Open the order</b>.</figcaption>
+</figure>
+
+<h3>Os seus e-mails</h3>
+<ul>
+  <li>O código para mudar a senha, quando usa <b>Forgot your password?</b> (capítulo 2). Chega ao info@.</li>
+  <li>As notas do botão <b>Feedback</b> não vêm para si: vão para o Guilherme, com o assunto <b>Admin feedback:</b> e a prioridade <span class="a-confirmar">[A CONFIRMAR]</span>.</li>
+</ul>
+
+<h3>O que não envia e-mail</h3>
+<p>Nestes casos, o cliente vê a mudança na área dele, mas não recebe aviso. Se achar que deve saber, escreva-lhe você.</p>
+<ul>
+  <li>Aprovar um documento.</li>
+  <li>Mudar a etapa de um pedido, salvo a primeira conclusão.</li>
+  <li>Enviar um arquivo ao cliente em <b>Deliverables</b>, ou removê-lo.</li>
+  <li>Gravar o relatório.</li>
+  <li>Criar uma conta em <b>Users</b>.</li>
+  <li>Atribuir uma compra sem marcar <b>Already paid outside the platform</b>.</li>
+  <li>Mudar os dados de um cliente, ou apagar uma conta.</li>
+</ul>
+
+<h3>A regra do .invalid</h3>
+<p>Os endereços que terminam em .invalid não existem, por definição. A plataforma nunca envia para eles e faz de conta que enviou. É assim que os clientes de demonstração (@demo.alttavia.invalid) podem ser usados para treinar sem que saia nenhum e-mail. Por isso, num pedido de demonstração, o contrato pode dizer <b>Emailed</b> sem que nada tenha saído.</p>
+
+<h3>O limite diário</h3>
+<p>O serviço de envio tem um limite de e-mails por dia, que conta também os códigos de entrada. Se num dia de muito movimento os e-mails deixarem de chegar, avise o Guilherme com <b>Blocks my work</b>.</p>
+<p>No plano em uso a 25/09/2026, o limite é de 100 e-mails por dia e 3 000 por mês. <span class="a-confirmar">[A CONFIRMAR]</span> Falta decidir se a firma passa ao plano pago, que não tem limite diário.</p>

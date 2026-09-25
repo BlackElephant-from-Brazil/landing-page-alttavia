@@ -1,0 +1,114 @@
+<h2>Serviços: Services</h2>
+
+<p class="lead">A página <b>Services</b> é o catálogo: o que a área de cliente vende e como cada pedido corre. Em cada serviço você define as etapas, os documentos pedidos ao cliente, as notas que ele lê e os arquivos que a firma devolve.</p>
+
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>O que você grava aqui vale na hora, para todos os clientes, também nos pedidos que já estão em curso. E vale na produção mesmo que o grave no staging, porque a base de dados é a mesma. Antes de clicar <b>Save service</b>, releia o que mudou.</p></aside>
+
+<h3>A lista de serviços</h3>
+<p>Cada linha é um serviço: <b>Service</b> (o nome e, por baixo, <b>Agreement:</b> com o modelo de contrato), <b>Code</b>, <b>Price</b>, <b>Status</b> (<b>Active</b> ou <b>Inactive</b>), <b>Orders</b>, <b>Stages</b> e <b>Documents</b>. <b>New service</b> cria um serviço novo.</p>
+<figure data-scene="admin-services">
+  <img src="prints/admin-services.png" alt="Página Services com a lista dos quatro serviços" loading="lazy">
+  <figcaption>O catálogo. <span class="circulo-vermelho">1</span> A lista dos serviços. <span class="circulo-vermelho">2</span> <b>Edit</b> abre o editor de um serviço.</figcaption>
+</figure>
+
+<h3>O editor, parte a parte</h3>
+<p>O editor tem seis partes, de cima para baixo. <b>All services</b>, no topo, volta à lista sem gravar.</p>
+<figure data-scene="admin-service-editor">
+  <img src="prints/admin-service-editor.png" alt="Editor de um serviço com Service contract e o botão Save service" loading="lazy">
+  <figcaption>O editor de um serviço. <span class="circulo-vermelho">1</span> <b>Service contract</b>, o modelo de contrato. <span class="circulo-vermelho">2</span> <b>Save service</b> grava tudo.</figcaption>
+</figure>
+
+<h4>1. Service: o que o cliente vê</h4>
+<table>
+  <thead>
+    <tr><th>Campo</th><th>O que é</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Name</b></td><td>O nome que o cliente vê.</td></tr>
+    <tr><td><b>Short code</b></td><td>O código fixo do serviço. Nos quatro serviços do site está travado.</td></tr>
+    <tr><td><b>Tagline</b></td><td>Uma frase curta por baixo do nome.</td></tr>
+    <tr><td><b>Description</b></td><td>Só para a equipa. O cliente não a vê.</td></tr>
+    <tr><td><b>Price (euros)</b></td><td>O preço. Nos quatro serviços do site está travado.</td></tr>
+    <tr><td><b>Position</b></td><td>A ordem na página <b>Services</b> do cliente: o número mais baixo aparece primeiro.</td></tr>
+    <tr><td><b>Timeline</b></td><td>Uma linha com o prazo, por exemplo <em>NIF in 3 to 5 business days</em>.</td></tr>
+    <tr><td><b>Service contract</b></td><td>O modelo de contrato: <b>None</b>, <b>NIF</b>, <b>Bank account</b>, <b>NIF + Bank account package</b> ou <b>Couple package</b>. Com <b>None</b>, não se prepara nem se pede contrato.</td></tr>
+    <tr><td><b>Includes</b></td><td>O que o serviço inclui, um item por linha. Para negrito, dois asteriscos de cada lado: **included**.</td></tr>
+  </tbody>
+</table>
+<aside class="nota"><p class="caixa-titulo">Nota</p><p>Porque estão travados: o site e o formulário de candidatura mostram o preço e usam o código de cada um dos quatro serviços. Mudar o preço só aqui deixaria o site a dizer uma coisa e o Stripe a cobrar outra. Um preço novo muda numa atualização do site, com o Guilherme.</p></aside>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Não mude o <b>Service contract</b> dos quatro serviços sem falar com o Guilherme: é o contrato que cada cliente recebe logo depois de pagar.</p></aside>
+
+<h4>2. Stripe</h4>
+<p>Os códigos de preço e os links de pagamento do Stripe, em modo de teste e em modo real. <strong>Não mexa nesta parte.</strong> Fica com o Guilherme.</p>
+
+<h4>3. Active e Deactivate: pôr e tirar de venda</h4>
+<ol class="passos">
+  <li>Para tirar um serviço de venda, clique <b>Deactivate</b>.</li>
+  <li>A pergunta <b>Deactivate this service?</b> avisa três coisas. O serviço sai na hora da página <b>Services</b> do cliente e do formulário de candidatura. Os pedidos existentes guardam o histórico. As alterações ainda não gravadas nesta página perdem-se.</li>
+  <li>Clique <b>Yes, deactivate</b>, ou <b>Keep it active</b> para desistir. Para voltar a vender, <b>Reactivate</b>.</li>
+</ol>
+
+<h4>4. Lifecycle stages: as etapas</h4>
+<p>Cada etapa tem:</p>
+<ul>
+  <li><b>Code</b>, fixo depois de gravado;</li>
+  <li><b>Label</b>, o nome que o cliente e você veem;</li>
+  <li><b>Position</b>, a ordem;</li>
+  <li><b>Description</b>, uma frase que o cliente lê enquanto o pedido está nessa etapa;</li>
+  <li>a caixa <b>Final stage</b>.</li>
+</ul>
+<p><b>Add stage</b> acrescenta uma etapa, <b>Remove</b> tira.</p>
+<ul>
+  <li>A primeira etapa é sempre <b>Awaiting payment</b>.</li>
+  <li>Há exatamente uma <b>Final stage</b>, e é a última. Chegar a ela conclui o pedido.</li>
+  <li>O painel recusa tirar uma etapa onde ainda há pedidos: <b>1 order still sits on a stage you removed. Move them first.</b> Mova esses pedidos antes, em <b>Orders</b>.</li>
+</ul>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>Uma <b>Description</b> bem escrita poupa perguntas: diga ao cliente o que está a acontecer e quanto costuma demorar, por exemplo <em>We filed your NIF request with Finanças. It usually takes 3 to 5 business days.</em></p></aside>
+
+<h4>5. Required documents: os documentos pedidos ao cliente</h4>
+<p>Cada documento tem:</p>
+<table>
+  <thead>
+    <tr><th>Campo</th><th>O que é</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Code</b></td><td>O código fixo do documento.</td></tr>
+    <tr><td><b>Label</b></td><td>O nome que o cliente vê.</td></tr>
+    <tr><td><b>Position</b></td><td>A ordem na lista.</td></tr>
+    <tr><td><b>Note</b></td><td>A instrução que o cliente lê por baixo do nome. Menos de 200 caracteres. Num documento opcional, o cliente vê <b>Optional.</b> antes da nota.</td></tr>
+    <tr><td><b>Accepted file types</b></td><td>Os formatos aceites: PDF, JPEG, PNG, WebP, Word (.doc), Word (.docx).</td></tr>
+    <tr><td><b>Max size (MB)</b></td><td>O tamanho máximo, até 20 MB.</td></tr>
+    <tr><td><b>One per applicant</b></td><td>Marcado, um pedido de duas pessoas (<b>Couple package</b> ou conta conjunta) pede dois, um por pessoa.</td></tr>
+    <tr><td><b>Required</b></td><td>Obrigatório. O pedido não sai de <b>Documents</b> sem ele aprovado.</td></tr>
+    <tr><td><b>Document to sign</b></td><td>O que o cliente descarrega, assina e devolve nesse documento: <b>None</b>, <b>Power of attorney (NIF)</b>, <b>Power of attorney (bank account)</b> ou <b>Signed service agreement</b> (o lugar do contrato assinado).</td></tr>
+  </tbody>
+</table>
+<figure data-scene="admin-service-editor-documents">
+  <img src="prints/admin-service-editor-documents.png" alt="Parte Required documents do editor, com as caixas One per applicant e Required e o campo Document to sign" loading="lazy">
+  <figcaption>Um documento no editor. <span class="circulo-vermelho">1</span> <b>One per applicant</b>. <span class="circulo-vermelho">2</span> <b>Required</b>. <span class="circulo-vermelho">3</span> <b>Document to sign</b>.</figcaption>
+</figure>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Um documento novo marcado <b>Required</b> passa a ser pedido também aos pedidos que já estão em <b>Documents</b>: eles ficam à espera desse documento. Se houver pedidos em curso, acrescente-o primeiro sem <b>Required</b>, ou avise esses clientes.</p></aside>
+<p>O painel recusa tirar um documento que algum cliente já enviou: <b>1 upload uses a document you removed. Keep it or mark it not required.</b> Nesse caso, desmarque <b>Required</b> em vez de o tirar.</p>
+<p>Não mude nem tire o documento <b>Signed service agreement</b>: é o lugar onde o cliente devolve o contrato assinado.</p>
+<p>Na linha <b>Signed service agreement</b>, o campo <b>Document to sign</b> mostra <b>Signed service agreement</b>. O editor não protege esta linha de forma especial: só recusa tirá-la depois de um cliente ter enviado um arquivo nela, como em qualquer outro documento.</p>
+
+<h4>Exemplo: dois documentos opcionais para o trabalhador independente</h4>
+<p>Este é o exercício da primeira sessão de formação, como modelo.</p>
+<ol class="passos">
+  <li>No serviço, clique <b>Add document</b>.</li>
+  <li>Em <b>Label</b>, escreva <em>Annual tax return (self employed)</em>.</li>
+  <li>Em <b>Note</b>, escreva <em>Self employed only. Your last annual tax return, validated by the tax authority. In Portuguese, English or Spanish, or with a certified translation.</em></li>
+  <li>Deixe <b>One per applicant</b> marcado e desmarque <b>Required</b>.</li>
+  <li>Repita com <em>Proof of services provided (self employed)</em> e a nota <em>Self employed only. For example invoices or receipts for your clients. In Portuguese, English or Spanish, or with a certified translation.</em></li>
+  <li>Clique <b>Save service</b>.</li>
+</ol>
+
+<h4>6. Deliverables: o que a firma devolve</h4>
+<p>A lista dos arquivos que o cliente recebe no fim. Cada item tem <b>Code</b>, <b>Label</b>, <b>Position</b> e <b>Kind</b> (<b>Document</b> ou <b>Report</b>). São os itens que aparecem em <b>Deliverable</b> na janela do pedido e na frase <b>Still to send</b> (capítulo 5). <b>Add deliverable</b> acrescenta.</p>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>O <b>Bank Account only</b> não tem itens nesta lista. Se o IBAN é sempre entregue, acrescente <em>Your Portuguese IBAN</em>, com <b>Kind</b> <b>Document</b>, e grave.</p></aside>
+
+<h4>Gravar</h4>
+<p>Clique <b>Save service</b> no fim da página (num serviço novo, <b>Create service</b>). Se algum campo estiver errado, aparece <b>Check the highlighted fields.</b> e o campo fica marcado, com a explicação por baixo.</p>
+
+<h3>Um serviço novo</h3>
+<p><b>New service</b> cria um serviço que aparece na página <b>Services</b> do cliente, fora do formulário de candidatura. Precisa de um preço no Stripe para poder ser pago. Combine com o Guilherme antes de o pôr à venda.</p>

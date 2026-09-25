@@ -1,0 +1,94 @@
+<h2>Entrar no painel</h2>
+
+<p class="lead">O painel abre com três coisas: o e-mail da firma, a sua senha e um código de 6 dígitos gerado por um app no seu telemóvel. Este capítulo mostra a entrada de todos os dias, o que fazer quando esquece a senha e como ativar o segundo fator.</p>
+
+<h3>Entrar</h3>
+<p>Abra bank-nif-portugal.alttavia-relocation.com/admin/login. Depois:</p>
+<ol class="passos">
+  <li>Em <b>Email address</b>, escreva info@alttavia-relocation.com.</li>
+  <li>Em <b>Password</b>, escreva a sua senha.</li>
+  <li>Clique <b>Sign in</b>.</li>
+</ol>
+<figure data-scene="admin-login">
+  <img src="prints/admin-login.png" alt="Página de entrada do painel com Email address, Password, Sign in e Forgot your password? marcados a vermelho" loading="lazy">
+  <figcaption>A entrada no painel. Os círculos 1 a 3 correspondem aos passos acima. <span class="circulo-vermelho">4</span> <b>Forgot your password?</b> serve quando esquece a senha (mais abaixo).</figcaption>
+</figure>
+<p>Com o segundo fator ativo, abre-se logo a seguir o passo <b>One more step</b>:</p>
+<ol class="passos">
+  <li>Abra o app autenticador no telemóvel e escreva o código de 6 dígitos que ele mostra na linha <b>Alttavia Admin</b>.</li>
+  <li>Clique <b>Continue</b>. Abre o <b>Overview</b> (capítulo 3).</li>
+</ol>
+<figure data-scene="admin-login-code">
+  <img src="prints/admin-login-code.png" alt="Segundo passo da entrada, com o campo do código do app e o botão Continue" loading="lazy">
+  <figcaption>O segundo passo. Os círculos correspondem aos passos acima. <b>Use another account</b> volta ao início.</figcaption>
+</figure>
+<p>O que a página pode responder:</p>
+<ul>
+  <li><b>That email and password do not match.</b> O e-mail ou a senha estão errados. A mensagem é a mesma nos dois casos, de propósito.</li>
+  <li><b>Too many attempts. Wait a few minutes and try again.</b> Houve muitas tentativas seguidas. Espere uns minutos.</li>
+  <li><b>That code is not right. Check the app and try again.</b> O código do app não confere. Use o que está no ecrã agora.</li>
+  <li><b>That took a little too long. Enter the code the app shows now.</b> O código mudou entretanto. Escreva o novo.</li>
+</ul>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>O código que os clientes recebem por e-mail nunca abre o painel. Se entrar na área de cliente com o info@, o painel manda-a de volta para /admin/login com a frase <b>Sign in with your password.</b> (ou <b>Sign in with your password and your code.</b>) e o e-mail já escrito.</p></aside>
+
+<h3>Sair</h3>
+<p>No pé do menu, por baixo de <b>Signed in as</b> e do seu e-mail, clique <b>Sign out</b>. A página volta ao site público. Num computador que não é só seu, saia sempre no fim.</p>
+
+<h3>Se esquecer a senha</h3>
+<p>Em /admin/login, clique <b>Forgot your password?</b>. Abre-se <b>Reset your password</b>. Depois:</p>
+<ol class="passos">
+  <li>Escreva o e-mail em <b>Email address</b>.</li>
+  <li>Clique <b>Send the code</b>. Aparece sempre a frase <b>If this email has an account, a code is on its way.</b>, mesmo que o e-mail esteja errado. Assim, quem tenta adivinhar contas não fica a saber quais existem.</li>
+  <li>Abra o info@. O código chega de hello@send.alttavia-relocation.com. Se não chegar num minuto, veja o spam. <b>Send a new code</b> fica disponível 60 segundos depois.</li>
+  <li>Na página <b>Choose a new password</b>, escreva o código em <b>6 digit code</b>.</li>
+  <li>Escreva a senha nova em <b>New password</b> e repita em <b>Type it again</b>. Tem de ter entre 12 e 72 caracteres. Uma frase curta funciona bem.</li>
+  <li>Clique <b>Set the new password</b>.</li>
+  <li>Com o segundo fator ativo, aparece <b>Code accepted. Your account has a second factor, so enter the 6 digit code from your authenticator app too.</b> e o campo <b>Code from your authenticator app</b>. Escreva o código do app e clique de novo <b>Set the new password</b>.</li>
+  <li>Aparece <b>Password changed. Sign in with your new password.</b> Entre de novo com a senha nova.</li>
+</ol>
+<figure data-scene="admin-forgot-password">
+  <img src="prints/admin-forgot-password.png" alt="Página Reset your password com o campo do e-mail e o botão Send the code" loading="lazy">
+  <figcaption>Recuperar a senha. Os círculos correspondem aos passos 1 e 2.</figcaption>
+</figure>
+
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Mudar a senha por este caminho fecha todas as sessões abertas da conta, também noutros computadores. É de propósito: se alguém conhecia a senha antiga, deixa de ter acesso.</p></aside>
+<p>Outras respostas possíveis:</p>
+<ul>
+  <li><b>That code is not right or has expired. Check the digits or ask for a new one.</b> Peça um código novo com <b>Send a new code</b>.</li>
+  <li><b>Choose a password different from the one you had.</b> A senha nova tem de ser diferente da antiga.</li>
+  <li><b>The two entries do not match.</b> As duas senhas escritas não são iguais.</li>
+</ul>
+
+<h3>O segundo fator</h3>
+<p>O segundo fator é um código de 6 dígitos que um app no seu telemóvel gera e troca a cada 30 segundos. Depois de ativo, a senha sozinha já não abre o painel: é preciso também o telemóvel. Isto protege os documentos de todos os clientes, mesmo que a senha chegue a outra pessoa.</p>
+<p>Serve qualquer app autenticador: Google Authenticator, Microsoft Authenticator, 1Password ou Authy. Instale um no telemóvel antes de começar.</p>
+
+<h4>Ativar (uma vez)</h4>
+<aside class="nota"><p class="caixa-titulo">Nota</p><p>Na Alttavia, a ativação é feita com o Guilherme, na chamada de 25/09/2026, às 18:00.</p></aside>
+<!-- VERIFICAR ANTES DE ENVIAR O GUIA: se a chamada das 18:00 já aconteceu e o fator ficou ativo, escrever "foi ativado com o Guilherme na chamada de 25/09/2026". -->
+<ol class="passos">
+  <li>No menu, clique <b>Settings</b> e procure a secção <b>Second factor</b>.</li>
+  <li>Clique <b>Set up</b>.</li>
+  <li>Aparece um código QR com a frase <b>Open the authenticator app, add an account and scan this code.</b> No telemóvel, abra o app, escolha adicionar uma conta, depois ler um código QR, e aponte a câmara para o ecrã. Se a câmara não o ler, use a linha <b>Cannot scan it? Type this key into the app instead:</b> e escreva a chave no app, à mão.</li>
+  <li>O app passa a mostrar uma linha <b>Alttavia Admin</b> com o seu e-mail e um código que muda a cada 30 segundos. Escreva esse código em <b>6 digit code</b>.</li>
+  <li>Clique <b>Turn on</b>. Aparece <b>The second factor is on. From now on every sign in asks for the code from your app.</b> Noutros aparelhos onde tinha sessão aberta, vai ser preciso entrar de novo.</li>
+</ol>
+<figure data-scene="admin-settings-second-factor">
+  <img src="prints/admin-settings-second-factor.png" alt="Secção Second factor em Settings, com o botão Set up" loading="lazy">
+  <figcaption>Os círculos correspondem aos passos 1 e 2. Depois de ativo, a secção diz <b>On since</b> com a data e mostra <b>Turn off</b>.</figcaption>
+</figure>
+
+<h4>Todos os dias</h4>
+<p>Cada entrada passa a ter dois passos: a senha e, logo a seguir, <b>One more step</b> com o código do app. O código só vale uns segundos: escreva o que está no ecrã no momento.</p>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>O código depende da hora do telemóvel. Se os códigos começarem a falhar todos, confirme que o telemóvel acerta a hora sozinho (hora automática, nas definições).</p></aside>
+
+<h4>Trocar de telemóvel</h4>
+<ol class="passos">
+  <li>Com o telemóvel antigo ainda à mão, abra <b>Settings</b> e clique <b>Turn off</b>.</li>
+  <li>Escreva o código que o app mostra agora (a página pede: <b>Enter the code your app shows now to turn the second factor off.</b>) e confirme com <b>Turn off</b>. Aparece <b>The second factor is off. Sign ins ask for your password only.</b></li>
+  <li>No telemóvel novo, instale o app e repita os passos de ativação, acima.</li>
+</ol>
+
+<h4>Perdeu o telemóvel</h4>
+<p>Sem o telemóvel, não consegue entrar. Escreva logo ao Guilherme (capítulo 11). Ele confirma por telefone que é você e retira o segundo fator da conta. Depois, você entra só com a senha e ativa de novo num telemóvel novo. Se o telemóvel pode estar nas mãos de outra pessoa, mude também a senha com <b>Forgot your password?</b>.</p>
+<p><span class="a-confirmar">[A CONFIRMAR]</span> Falta decidir: o segundo fator vai ser obrigatório para todas as contas de administração? Quando for obrigatório, uma conta sem ele vê, depois da senha, a página <b>Set up your second factor</b> e só entra depois de o ativar.</p>

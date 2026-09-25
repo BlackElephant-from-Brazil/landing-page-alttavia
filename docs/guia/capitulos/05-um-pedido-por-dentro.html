@@ -1,0 +1,241 @@
+<h2>Um pedido por dentro</h2>
+
+<p class="lead">Quase todo o trabalho acontece na janela de um pedido. Lá você revê os documentos, confere as procurações e o contrato, avança as etapas, envia os arquivos ao cliente, escreve o relatório e conclui. Este capítulo percorre a janela de cima para baixo.</p>
+
+<h3>Abrir e fechar um pedido</h3>
+<p>A janela do pedido abre por cima da página, a partir de vários sítios:</p>
+<ul>
+  <li>uma linha de <b>In progress</b> ou de <b>Awaiting review</b>, no <b>Overview</b>;</li>
+  <li>um cartão do quadro ou uma linha da tabela, em <b>Orders</b>;</li>
+  <li>um pedido na janela de um cliente, em <b>Users</b>;</li>
+  <li>o botão <b>Open the order</b> ou <b>Review the documents</b> dos e-mails da equipa.</li>
+</ul>
+<p>Para fechar, clique o X no canto superior direito ou carregue na tecla Esc. Enquanto a janela está aberta, o endereço da página termina em <b>?order=</b> e um código: é esse endereço que você copia para mostrar um pedido ao Guilherme.</p>
+
+<h3>O cabeçalho</h3>
+<p>No topo: a palavra <b>Order</b>, o e-mail do cliente e quatro dados, <b>Service</b>, <b>Amount</b>, <b>Paid on</b> (ou <b>Not yet</b>) e <b>Stage</b>. Por baixo, o nome e o telefone do cliente, quando existem.</p>
+<p>Depois vêm as secções, por esta ordem: <b>Stage</b>, <b>Documents</b> (com <b>Details for the deeds</b>), <b>Service agreement</b>, <b>Deliverables</b>, <b>Report</b>, <b>Answers from the form</b> e <b>History</b>.</p>
+
+<h3>As etapas: Back, Forward e Jump to</h3>
+<p>A secção <b>Stage</b> mostra todas as etapas do serviço, numeradas. A atual fica a dourado, as já feitas a cinzento. Num pedido concluído, à direita do título aparece <b>Completed</b> com a data.</p>
+<ol class="passos">
+  <li><b>Forward</b> passa à etapa seguinte.</li>
+  <li><b>Back</b> volta à etapa anterior.</li>
+  <li>Para saltar, escolha a etapa em <b>Jump to</b> (a atual diz <b>(current)</b>) e clique <b>Go</b>.</li>
+</ol>
+<p>Cada mudança fica registada em <b>History</b>, no fim da janela, e o cliente vê a barra de etapas avançar na área dele. Mudar de etapa não envia e-mail ao cliente, salvo a conclusão (mais abaixo).</p>
+<p>Duas regras seguram o pedido:</p>
+<ul>
+  <li>Num pedido não pago, <b>Forward</b> e <b>Jump to</b> estão desativados e a página diz <b>Stages open once the order is paid.</b></li>
+  <li>Em <b>Documents</b>, enquanto houver algum documento obrigatório por aprovar, <b>Forward</b> e as etapas seguintes de <b>Jump to</b> ficam desativados e aparece <b>Approve every required document to move on.</b> <b>Back</b> funciona sempre.</li>
+</ul>
+<figure data-scene="admin-order-stage-held">
+  <img src="prints/admin-order-stage-held.png" alt="Etapas de um pedido em Documents, com Forward desativado e a frase Approve every required document to move on." loading="lazy">
+  <figcaption>Um pedido em <b>Documents</b> com documentos por aprovar. <span class="circulo-vermelho">1</span> <b>Forward</b>, desativado; a frase marcada a vermelho diz porquê. <span class="circulo-vermelho">2</span> <b>Back</b>, que funciona sempre. <span class="circulo-vermelho">3</span> <b>Jump to</b>, onde as etapas seguintes também estão desativadas.</figcaption>
+</figure>
+
+<h3>Os documentos</h3>
+<p>A secção <b>Documents</b> lista cada documento que o serviço pede. À direita do título, a contagem, por exemplo <b>5 of 7 required approved</b>. Num pedido de duas pessoas (<b>Couple package</b> ou conta conjunta), os documentos de cada pessoa aparecem com <b>Applicant 1</b> ou <b>Applicant 2</b> a seguir ao nome. Um documento que não é obrigatório diz <b>optional</b>.</p>
+<p>Cada linha tem uma etiqueta com o estado:</p>
+<table>
+  <thead>
+    <tr><th>Etiqueta</th><th>O que quer dizer</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Waiting</b></td><td>O cliente ainda não enviou nada.</td></tr>
+    <tr><td><b>Not arrived</b></td><td>O cliente começou a enviar, mas o envio não terminou. Quando ele tentar de novo, o arquivo novo toma o lugar.</td></tr>
+    <tr><td><b>To review</b></td><td>O arquivo chegou e espera a sua decisão.</td></tr>
+    <tr><td><b>Approved</b></td><td>Você aprovou.</td></tr>
+    <tr><td><b>Rejected</b></td><td>Você rejeitou. O motivo aparece por baixo, num quadro vermelho claro.</td></tr>
+  </tbody>
+</table>
+<p>Cada arquivo mostra o nome, o tamanho, a data (<b>uploaded</b> ou <b>reviewed</b>) e duas formas de o abrir:</p>
+<ol class="passos">
+  <li><b>View</b> abre o arquivo numa aba nova, sem sair do painel. Existe para PDF e fotografias.</li>
+  <li><b>Download</b> guarda o arquivo no computador. Existe para todos.</li>
+</ol>
+<figure data-scene="admin-order-documents">
+  <img src="prints/admin-order-documents.png" alt="Lista de documentos de um pedido com View e Download marcados a vermelho" loading="lazy">
+  <figcaption>Os documentos de um pedido. Os círculos correspondem à lista acima.</figcaption>
+</figure>
+
+<h4>Aprovar</h4>
+<p>Abra o arquivo com <b>View</b> e confira-o. Se estiver certo, clique <b>Approve</b>. A etiqueta passa a <b>Approved</b>.</p>
+<figure data-scene="admin-order-review">
+  <img src="prints/admin-order-review.png" alt="Um arquivo To review com os botões Approve e Reject" loading="lazy">
+  <figcaption>Rever um arquivo. <span class="circulo-vermelho">1</span> <b>Approve</b> aceita. <span class="circulo-vermelho">2</span> <b>Reject</b> pede um motivo.</figcaption>
+</figure>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>A aprovação não se desfaz, e o cliente deixa de poder trocar esse arquivo. Confira antes de clicar. Se aprovar por engano, veja o capítulo 11.</p></aside>
+
+<h4>Rejeitar com um motivo</h4>
+<p>Clique <b>Reject</b>. Abre-se o campo <b>Reason for rejecting</b>, seguido do nome do documento. Depois:</p>
+<ol class="passos">
+  <li>Escreva, em inglês, o que está errado e o que o cliente deve enviar. Por exemplo: <em>The scan is too dark to read. Upload a clear copy of the full page.</em></li>
+  <li>Clique <b>Reject and notify</b>. Para desistir, <b>Cancel</b>.</li>
+</ol>
+<figure data-scene="admin-order-reject-reason">
+  <img src="prints/admin-order-reject-reason.png" alt="Campo do motivo de rejeição com o botão Reject and notify" loading="lazy">
+  <figcaption>O motivo da rejeição. Os círculos correspondem aos passos acima.</figcaption>
+</figure>
+<p>O cliente recebe o e-mail <b>A new file is needed</b> com o nome do documento, e vê o mesmo motivo no pedido dele. Ele lê o texto palavra por palavra, tal como você o escreveu.</p>
+<p>Quando o cliente envia um arquivo novo, ele aparece <b>To review</b> no mesmo documento. O rejeitado passa para <b>1 other upload</b> (ou <b>2 other uploads</b>, e assim por diante): clique para ver os envios anteriores, cada um com o estado e o motivo.</p>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p><b>Approve</b> e <b>Reject</b> só aparecem em arquivos <b>To review</b>. Um documento sem estes botões já foi decidido, ou ainda não chegou.</p></aside>
+
+<h3>As procurações</h3>
+<p>Os documentos <b>Power of attorney for the NIF</b> e <b>Power of attorney for the bank account</b> são procurações que a plataforma prepara com os dados do passaporte do cliente. O cliente descarrega-as, assina à mão com a mesma assinatura do passaporte e envia a cópia assinada nesse mesmo documento.</p>
+<ul>
+  <li><b>Download deed</b>, na linha da procuração, gera na hora uma procuração nova, sem assinatura, com os dados de <b>Details for the deeds</b> e a data de hoje. Nada fica guardado. Serve para conferir o texto.</li>
+  <li>A cópia assinada pelo cliente é o arquivo da linha: abre com <b>View</b> ou <b>Download</b>, como qualquer outro.</li>
+  <li><b>Download deed</b> só aparece depois de o cliente preencher os dados dele.</li>
+</ul>
+<p>Antes de aprovar, compare a assinatura com a do passaporte.</p>
+<p>No <b>Couple package</b>, cada pessoa tem a sua procuração do NIF, e há uma só procuração do banco com os dois nomes, assinada pelos dois. Numa conta conjunta pedida como <b>Bank Account only</b> ou <b>NIF + Bank Account</b>, cada pessoa tem a sua própria procuração do banco (mais abaixo, em "Um pedido de duas pessoas").</p>
+<figure data-scene="admin-order-deeds">
+  <img src="prints/admin-order-deeds.png" alt="Linhas das procurações com Download deed e o bloco Details for the deeds" loading="lazy">
+  <figcaption>As procurações. <span class="circulo-vermelho">1</span> <b>Download deed</b> gera o PDF com os dados que o cliente confirmou. <span class="circulo-vermelho">2</span> Esses dados, em <b>Details for the deeds</b>.</figcaption>
+</figure>
+
+<h3>O contrato assinado: Signed service agreement</h3>
+<p>O último documento da lista é o contrato de serviço assinado pelo cliente. O cliente descarrega o contrato, assina à mão com a mesma assinatura do passaporte e envia a cópia assinada neste documento. Num pedido de duas pessoas (<b>Couple package</b> ou conta conjunta) há um só, e a página pede que as duas pessoas o assinem.</p>
+<ul>
+  <li><b>Download agreement</b>, na linha, descarrega o contrato tal como foi preparado, sem a assinatura do cliente.</li>
+  <li>A cópia assinada é o arquivo da linha, com <b>View</b> e <b>Download</b>.</li>
+  <li>Reveja-a como qualquer outro documento: <b>Approve</b>, ou <b>Reject</b> com um motivo.</li>
+  <li>É obrigatório: o pedido não sai de <b>Documents</b> sem ele aprovado.</li>
+  <li>A primeira cópia assinada chega à equipa por e-mail, <b>Signed service agreement received</b>, em anexo quando tem até 8 MB. Acima de 8 MB, o e-mail diz para a descarregar do pedido. A seguir, só chega outra quando você rejeita a cópia e o cliente envia uma nova. Na produção, esse e-mail vai para o info@ <span class="a-confirmar">[A CONFIRMAR]</span>.</li>
+</ul>
+<figure data-scene="admin-order-signed-agreement">
+  <img src="prints/admin-order-signed-agreement.png" alt="Linha Signed service agreement na lista de documentos, com Download agreement e a cópia assinada" loading="lazy">
+  <figcaption><span class="circulo-vermelho">1</span> O contrato assinado pelo cliente, revisto como qualquer outro documento.</figcaption>
+</figure>
+<p>Este documento entrou a 25/09/2026. Um pedido que nessa data já tinha passado de <b>Documents</b> não o pede: o lugar fica fechado e vazio.</p>
+<!-- VERIFICAR ANTES DE ENVIAR O GUIA: a migração 0013 (o documento Signed service agreement) corrida no projeto Supabase; a 25/09 às 15:00 ainda não estava. -->
+
+<h3>Details for the deeds</h3>
+<p>Por baixo da lista de documentos, o bloco <b>Details for the deeds</b> mostra os dados que o cliente escreveu. São os dados que entram nas procurações e no contrato:</p>
+<ul>
+  <li><b>Full name</b>;</li>
+  <li><b>Referred to as</b> (<b>She</b> ou <b>He</b>);</li>
+  <li><b>Place of birth</b> e <b>Date of birth</b>;</li>
+  <li><b>Passport number</b>, <b>Issuing authority</b>, <b>Date of issue</b> e <b>Expiry date</b>;</li>
+  <li><b>Tax residence address</b>.</li>
+</ul>
+<p>Num pedido de duas pessoas (<b>Couple package</b> ou conta conjunta) há um bloco para <b>Applicant 1</b> e outro para <b>Applicant 2</b>.</p>
+<p>Enquanto o cliente não os escreve, o bloco diz <b>The client has not entered their details yet.</b></p>
+<p>Só o cliente muda estes dados, em <b>Edit your details</b>, na área dele. Se vir um erro, rejeite a procuração com um motivo que peça a correção, por exemplo: <em>The passport number in the deed does not match your passport. Correct it in Edit your details, then sign and upload the deed again.</em></p>
+
+<h3>Service agreement: o contrato preparado</h3>
+<p>A secção <b>Service agreement</b> mostra o contrato que a plataforma prepara para o cliente. À direita do título, o estado:</p>
+<table>
+  <thead>
+    <tr><th>Estado</th><th>O que quer dizer</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Not required</b></td><td>O serviço não tem contrato.</td></tr>
+    <tr><td><b>After payment</b></td><td>O pedido ainda não foi pago.</td></tr>
+    <tr><td><b>Waiting for the client's details</b></td><td>O cliente pagou mas ainda não confirmou os dados. O contrato é preparado e enviado no momento em que ele os confirmar.</td></tr>
+    <tr><td><b>Prepared</b></td><td>O contrato existe.</td></tr>
+  </tbody>
+</table>
+<p>Com o contrato preparado, a secção mostra:</p>
+<ul>
+  <li>o modelo: <b>NIF</b>, <b>Bank account</b>, <b>NIF + Bank account package</b> ou <b>Couple package</b>;</li>
+  <li>a versão: <b>version 1</b>, <b>version 2</b>, e assim por diante;</li>
+  <li>o nome e o tamanho do arquivo;</li>
+  <li>a data de preparação;</li>
+  <li>a data do e-mail ao cliente, ou <b>Not emailed yet</b>.</li>
+</ul>
+<p>A etiqueta à direita diz <b>Emailed</b> ou <b>Not emailed</b>. <b>Download</b> guarda o PDF no computador.</p>
+<p>Por baixo, quando o cliente pagou pelo botão da plataforma, a linha <b>The client accepted the service terms and the service agreement before paying, on</b> dá a data e, entre parênteses, a versão dos termos (<b>terms of</b> ...). Não aparece num pedido pago fora da plataforma (capítulo 6).</p>
+<p>A partir de 25/09/2026, o contrato sai com o papel timbrado da firma. A sua assinatura digitalizada entra quando a enviar ao Guilherme; até lá, a linha de assinatura da firma fica em branco. Um contrato preparado antes recebe o timbre e a assinatura com <b>Regenerate and resend</b>.</p>
+<p>No staging, e em qualquer pedido pago com o cartão de teste, o contrato nunca leva a sua assinatura e cada página diz no rodapé <b>Specimen from the test environment. Not a binding agreement.</b> O mesmo vale para um pagamento marcado com <b>Already paid outside the platform</b> no staging. É de propósito: só um pedido pago com dinheiro real recebe a assinatura.</p>
+<!-- VERIFICAR ANTES DE ENVIAR O GUIA: o papel timbrado num contrato preparado em produção depois do Publish (Download na secção Service agreement). -->
+<p>Se o cliente mudar os dados depois de o contrato estar preparado, aparece uma linha âmbar: <b>The client changed their details after this version was prepared. Regenerate and resend to bring the agreement in line.</b></p>
+<figure data-scene="admin-order-agreement">
+  <img src="prints/admin-order-agreement.png" alt="Secção Service agreement com a versão, Download e Regenerate and resend" loading="lazy">
+  <figcaption>O contrato do pedido. <span class="circulo-vermelho">1</span> A secção, com o modelo, a versão e as datas. <span class="circulo-vermelho">2</span> <b>Regenerate and resend</b>.</figcaption>
+</figure>
+
+<h4>Preparar uma versão nova</h4>
+<ol class="passos">
+  <li>Clique <b>Regenerate and resend</b>.</li>
+  <li>A pergunta <b>Regenerate and resend this agreement?</b> explica o que acontece: sai uma versão nova, com os dados do cliente como estão agora. Essa versão é enviada de novo ao cliente, e a anterior fica guardada.</li>
+  <li>Clique <b>Yes, regenerate and resend</b>. Para desistir, <b>Cancel</b>.</li>
+  <li>A página responde <b>Prepared and emailed to the client.</b> Se disser <b>Prepared, but the email did not go out. Try again in a moment.</b>, tente de novo daí a pouco.</li>
+</ol>
+<p>Quando o cliente escreveu os dados para uma procuração mas ainda não pediu o contrato, o botão chama-se <b>Prepare and send</b> e prepara a primeira versão. A pergunta é então <b>Prepare and send the agreement?</b>, e o botão para confirmar diz <b>Yes, prepare and send</b>. No <b>Couple package</b>, o contrato só é preparado quando os dados das duas pessoas estão no pedido.</p>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Se o cliente já tinha enviado o contrato assinado, uma versão nova precisa de uma assinatura nova. Rejeite o <b>Signed service agreement</b> com um motivo que peça a assinatura da versão nova. <span class="a-confirmar">[A CONFIRMAR]</span> Falta confirmar: é este o procedimento que a firma quer?</p></aside>
+
+<h3>Os arquivos para o cliente: Deliverables</h3>
+<p>Aqui você devolve ao cliente o que a firma obteve: o NIF, o acesso às Finanças, o IBAN. À direita do título, a contagem, por exemplo <b>1 of 2 from the list</b>, e por baixo da lista a frase <b>Still to send:</b> com o que falta.</p>
+<ol class="passos">
+  <li>Na caixa <b>Upload a file for the client</b>, escolha o item em <b>Deliverable</b>, por exemplo <b>Your Portuguese NIF</b>, ou <b>Other file</b> para outra coisa. Esta escolha só aparece se o serviço tiver itens na lista.</li>
+  <li>O campo <b>Label the client sees</b> preenche-se com o nome do item. É o nome que o cliente lê: mude-o se quiser.</li>
+  <li>Clique <b>Choose file</b> e escolha o arquivo: PDF, JPG, PNG, WebP, DOC ou DOCX, até 20 MB.</li>
+  <li>Clique <b>Upload</b>. Por baixo aparece a percentagem e uma barra dourada. No fim aparece o nome do arquivo seguido de <b>received.</b>, e o arquivo entra na lista com <b>Download</b> e <b>Remove</b>.</li>
+</ol>
+<figure data-scene="admin-order-deliverables">
+  <img src="prints/admin-order-deliverables.png" alt="Secção Deliverables com a caixa para enviar um arquivo ao cliente" loading="lazy">
+  <figcaption>Enviar um arquivo ao cliente, na secção <b>Deliverables</b>, marcada a vermelho. <span class="circulo-vermelho">4</span> <b>Upload</b>, o último passo.</figcaption>
+</figure>
+<p>O cliente vê o arquivo na hora, na área dele, sem receber e-mail. O aviso chega com a conclusão do pedido.</p>
+
+<h4>Remover um arquivo enviado por engano</h4>
+<ol class="passos">
+  <li>Na linha do arquivo, clique <b>Remove</b>.</li>
+  <li>A pergunta <b>Remove this file? The client stops seeing it.</b> aparece por baixo. Clique <b>Yes, remove</b>. O arquivo desaparece dos dois lados e é apagado do armazenamento.</li>
+</ol>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>No <b>Bank Account only</b> a lista de itens está vazia, por isso a caixa não mostra <b>Deliverable</b>. Escreva o nome em <b>Label the client sees</b>, por exemplo <em>Your Portuguese IBAN</em>. Se esse item deve estar sempre na lista, acrescente-o em <b>Services</b> (capítulo 7).</p></aside>
+
+<h3>O relatório: Report</h3>
+<ol class="passos">
+  <li>Em <b>Report for the client</b>, escreva em inglês o que foi feito, o que o cliente tem agora e o que deve ter em conta. Deixe uma linha em branco entre parágrafos. Para pôr palavras em negrito, escreva dois asteriscos de cada lado, por exemplo **Finanças password**.</li>
+  <li>Clique <b>Save report</b>. Aparece <b>Saved.</b></li>
+</ol>
+<figure data-scene="admin-order-report">
+  <img src="prints/admin-order-report.png" alt="Campo Report for the client com o botão Save report" loading="lazy">
+  <figcaption>O relatório para o cliente. Os círculos correspondem aos passos acima.</figcaption>
+</figure>
+<p>O cliente só lê o relatório quando o pedido fica concluído, com o título <b>Closing report</b>. Até lá, pode mudá-lo as vezes que quiser.</p>
+
+<h3>Concluir o pedido</h3>
+<p>Concluir é levar o pedido à última etapa. O cliente recebe então o e-mail <b>Your</b> [serviço] <b>order is complete</b>, com o título <b>All done</b>, que lhe diz que os documentos e o relatório estão prontos. Por isso, envie antes os arquivos e grave o relatório.</p>
+<ol class="passos">
+  <li>Na etapa anterior à última, clique <b>Forward</b>. Ou escolha a última etapa em <b>Jump to</b> e clique <b>Go</b>.</li>
+  <li>A página pergunta: <b>This marks the order complete and emails the client. Continue?</b></li>
+  <li>Se faltar alguma coisa, a pergunta diz o quê, a vermelho, por exemplo: <b>Not sent yet: Your Portuguese NIF, Finanças access and the report for the client.</b> Nesse caso clique <b>Cancel</b>, envie o que falta e volte ao passo 1.</li>
+  <li>Com tudo pronto, clique <b>Confirm</b>. Aparece <b>Order completed.</b> e, no título da secção <b>Stage</b>, <b>Completed</b> com a data.</li>
+</ol>
+<figure data-scene="admin-order-completion">
+  <img src="prints/admin-order-completion.png" alt="Pergunta antes de concluir, com a linha Not sent yet e os botões Confirm e Cancel" loading="lazy">
+  <figcaption>Antes de concluir. <span class="circulo-vermelho">2</span> A pergunta, com o que falta enviar (passo 3). <span class="circulo-vermelho">4</span> <b>Confirm</b>.</figcaption>
+</figure>
+<ul>
+  <li>O e-mail de conclusão sai uma vez só, na primeira conclusão. Se o pedido voltar atrás e for concluído de novo, a pergunta diz <b>This marks the order complete. The client was emailed the first time, so no email goes out. Continue?</b></li>
+  <li>Se aparecer <b>Order completed. The email to the client could not be sent.</b>, o pedido ficou concluído mas o e-mail não saiu. Escreva ao cliente e avise o Guilherme.</li>
+</ul>
+
+<h3>Answers from the form</h3>
+<p>As respostas que o cliente deu no formulário de candidatura. São o país do comprovativo de morada, quem se candidata, se já tem NIF, a conta bancária, os passaportes e o visto. Só aparece nos pedidos que vieram do formulário. O cliente já não vê esta lista na área dele.</p>
+
+<h3>History</h3>
+<p>Cada mudança de etapa, com a data e a hora, a mais recente primeiro, por exemplo <b>Documents to Submitted</b>. A última linha diz <b>Created on Awaiting payment</b>. Algumas linhas trazem uma nota, por exemplo <b>Paid outside the platform, recorded by the admin on the live site</b> (no staging, <b>on the test site</b>).</p>
+<p>Também ficam registadas as decisões sobre documentos e o envio do contrato assinado à equipa. Essas linhas repetem a etapa (por exemplo <b>Documents to Documents</b>) e trazem uma nota: <b>Document approved: Passport</b>, <b>Document rejected: Proof of address</b> ou <b>Signed service agreement sent to the team inbox</b>.</p>
+<p>No fundo, uma linha pequena com a data de criação do pedido e o seu código (<b>id</b>). É o código que identifica o pedido, se precisar de o indicar ao Guilherme.</p>
+<figure data-scene="admin-order-history">
+  <img src="prints/admin-order-history.png" alt="Secção History com as mudanças de etapa e as horas" loading="lazy">
+  <figcaption><span class="circulo-vermelho">1</span> <b>History</b>: cada mudança de etapa, com a data e a hora.</figcaption>
+</figure>
+
+<h3>Um pedido de duas pessoas</h3>
+<p>No <b>Couple package</b>, cada documento pessoal aparece duas vezes, uma por pessoa (<b>Applicant 1</b> e <b>Applicant 2</b>). A procuração do banco e o contrato assinado aparecem uma vez só, porque os dois assinam o mesmo papel. <b>Details for the deeds</b> mostra as duas pessoas.</p>
+<figure data-scene="admin-order-couple">
+  <img src="prints/admin-order-couple.png" alt="Documentos de um pedido Couple package, com Applicant 1 e Applicant 2" loading="lazy">
+  <figcaption>Um pedido de casal. <span class="circulo-vermelho">1</span> Os documentos, uma vez por pessoa. <span class="circulo-vermelho">2</span> Os dados das duas pessoas.</figcaption>
+</figure>
+<p>Uma conta conjunta pedida no formulário como <b>Bank Account only</b> ou <b>NIF + Bank Account</b> também junta duas pessoas num só pedido, com <b>Applicant 1</b> e <b>Applicant 2</b> e dois blocos em <b>Details for the deeds</b>. Há duas diferenças para o <b>Couple package</b>:</p>
+<ul>
+  <li>cada pessoa tem a sua própria <b>Power of attorney for the bank account</b>;</li>
+  <li>o contrato de serviço nomeia só a primeira pessoa, embora o <b>Signed service agreement</b> seja um só e a página peça que as duas o assinem.</li>
+</ul>
+<p><span class="a-confirmar">[A CONFIRMAR, item 18 dos fatos legais]</span> Falta decidir: numa conta conjunta, o que vale até existir um modelo de contrato para duas pessoas, e a segunda pessoa assina também?</p>

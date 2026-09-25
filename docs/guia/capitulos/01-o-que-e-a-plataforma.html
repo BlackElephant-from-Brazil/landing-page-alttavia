@@ -1,0 +1,140 @@
+<h2>O que é a plataforma</h2>
+
+<p class="lead">A plataforma é o sistema onde o cliente compra o NIF e a conta bancária, paga, envia os documentos e recebe o resultado. É também onde a firma acompanha cada pedido, do pagamento à entrega. Este capítulo mostra os dois lados, os endereços e o caminho de um pedido.</p>
+
+<h3>Os dois lados</h3>
+<p>A plataforma tem dois lados, com entradas diferentes.</p>
+<ul>
+  <li>O lado do cliente: o site público, o formulário de candidatura (<b>Start my application</b>) e a área de cliente, com três entradas no menu: <b>Dashboard</b>, <b>Services</b> e <b>My purchases</b>. O cliente entra com o e-mail e um código de 6 dígitos que recebe por e-mail. Não tem senha.</li>
+  <li>O lado da firma: o painel de administração, com seis entradas no menu: <b>Overview</b>, <b>Orders</b>, <b>Users</b>, <b>Services</b>, <b>Feedback</b> e <b>Settings</b>. Você entra com o e-mail, a sua senha e o código do app autenticador (capítulo 2).</li>
+</ul>
+<p>As páginas estão em inglês, porque os clientes leem em inglês. Neste guia, os nomes de botões e campos aparecem a negrito, escritos exatamente como na página.</p>
+
+<figure data-scene="landing">
+  <img src="prints/landing.png" alt="Topo do site público com os botões Start my application e Log in marcados a vermelho" loading="lazy">
+  <figcaption>O site público. <span class="circulo-vermelho">1</span> <b>Start my application</b> abre o formulário. <span class="circulo-vermelho">2</span> <b>Log in</b> leva o cliente que já tem conta à área dele.</figcaption>
+</figure>
+
+<figure data-scene="admin-overview">
+  <img src="prints/admin-overview.png" alt="O painel na página Overview, com o menu à esquerda" loading="lazy">
+  <figcaption>O painel da firma, com o menu à esquerda. Num ecrã pequeno, o menu passa para o topo. Os círculos <span class="circulo-vermelho">1</span> (os seis números) e <span class="circulo-vermelho">2</span> (os gráficos) estão explicados no capítulo 3.</figcaption>
+</figure>
+
+<h3>Os endereços</h3>
+<table>
+  <thead>
+    <tr><th>O quê</th><th>Produção (o site verdadeiro)</th><th>Staging (o ambiente de testes)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Site público</td><td>bank-nif-portugal.alttavia-relocation.com/en</td><td>staging--bank-and-nif-in-portugal.netlify.app/en</td></tr>
+    <tr><td>Entrada do cliente</td><td>bank-nif-portugal.alttavia-relocation.com/en/login</td><td>staging--bank-and-nif-in-portugal.netlify.app/en/login</td></tr>
+    <tr><td>Área do cliente</td><td>bank-nif-portugal.alttavia-relocation.com/en/dashboard</td><td>staging--bank-and-nif-in-portugal.netlify.app/en/dashboard</td></tr>
+    <tr><td>Painel da firma</td><td>bank-nif-portugal.alttavia-relocation.com/admin/login</td><td>staging--bank-and-nif-in-portugal.netlify.app/admin/login</td></tr>
+  </tbody>
+</table>
+<p>Todos os endereços começam por https://.</p>
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>Guarde o endereço do painel de produção nos favoritos do navegador. É o que você vai abrir todos os dias.</p></aside>
+
+<h3>Produção e staging</h3>
+<p>A produção é o site que os clientes usam. Os pagamentos são reais e passam pela conta Stripe da firma.</p>
+<p>O staging é uma cópia do site para testes, e fica sempre no ar. Lá o Stripe está em modo de teste: nenhum pagamento é real. Para pagar num teste, use o cartão <em>4242 4242 4242 4242</em>, qualquer validade futura e qualquer código de três dígitos.</p>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Os dois usam <strong>a mesma base de dados</strong>. O que você grava no staging vale também na produção: uma mudança em <b>Services</b>, um cliente criado em <b>Users</b>, um documento aprovado. Os pedidos feitos no staging aparecem no painel da produção e entram nos números do <b>Overview</b>. Faça testes à vontade, mas nunca mude o catálogo no staging a pensar que é só um ensaio.</p></aside>
+<p>Há outras diferenças que convém saber:</p>
+<ul>
+  <li>No staging, os avisos para a equipa (pedido pago, documentos prontos, contrato assinado) vão para a caixa de testes do Guilherme. Na produção, vão para o info@ <span class="a-confirmar">[A CONFIRMAR]</span>.</li>
+  <li>Os botões dos e-mails da produção abrem a produção. Os dos e-mails enviados pelo staging também abrem a produção, salvo se o Guilherme tiver configurado o staging para os abrir no staging <span class="a-confirmar">[A CONFIRMAR]</span>.</li>
+  <!-- VERIFICAR: EMAIL_TEAM_INBOX no contexto Production da Netlify (info@alttavia-relocation.com) e no Branch deploys (caixa de testes); NEXT_PUBLIC_SITE_URL no Branch deploys (sem ela, dashboardUrl() em src/lib/email/templates.ts manda para a produção). Confirmados, tirar as duas marcas, aqui e no capítulo 10. -->
+  <li>O painel mostra clientes de demonstração, com contas terminadas em @demo.alttavia.invalid: 56 clientes fictícios, com pedidos espalhados pelos últimos dois anos. Servem para treinar, e nenhum e-mail sai para eles. Quando a firma quiser, o Guilherme apaga-os todos de uma vez.</li>
+</ul>
+
+<h3>O que é um pedido</h3>
+<p>Cada compra é um pedido (<b>Order</b>). Uma compra vale uma unidade: o NIF do parceiro é uma segunda compra, salvo no <b>Couple package</b> e nas contas conjuntas (<b>Bank Account only</b> ou <b>NIF + Bank Account</b> para duas pessoas, pedidas no formulário de candidatura), que juntam as duas pessoas num só pedido.</p>
+<p>Um pedido guarda tudo o que diz respeito àquela compra:</p>
+<ul>
+  <li>o cliente (o e-mail da conta), o serviço, o valor e a data do pagamento;</li>
+  <li>a etapa em que está (<b>Stage</b>);</li>
+  <li>os documentos que o cliente envia, incluindo as procurações e o contrato assinados à mão;</li>
+  <li>o contrato de serviço (<b>Service agreement</b>) preparado pela plataforma;</li>
+  <li>os arquivos que a firma devolve ao cliente (<b>Deliverables</b>) e o relatório final (<b>Report</b>);</li>
+  <li>o histórico de cada mudança de etapa (<b>History</b>).</li>
+</ul>
+<p>O caminho de um pedido é sempre o mesmo:</p>
+<ol class="passos">
+  <li>O pedido nasce em <b>Awaiting payment</b>. Isto acontece quando o cliente termina o formulário e cria a conta, quando compra um serviço na área de cliente, ou quando você atribui uma compra em <b>Users</b> (capítulo 6).</li>
+  <li>O pagamento passa o pedido sozinho para <b>Documents</b>. O cliente confirma os dados, recebe o contrato e envia os documentos.</li>
+  <li>Você revê os documentos. Enquanto faltar aprovar um documento obrigatório, o pedido não sai de <b>Documents</b>.</li>
+  <li>Daí em diante, quem move o pedido é você, uma etapa de cada vez ou aos saltos.</li>
+  <li>Antes do fim, você envia os arquivos ao cliente e escreve o relatório.</li>
+  <li>Na última etapa, o pedido fica concluído (<b>Completed</b>). Na primeira vez que lá chega, o cliente recebe o e-mail <b>Your</b> [serviço] <b>order is complete</b>, com o título <b>All done</b>.</li>
+</ol>
+
+<figure data-scene="admin-order-stage-held">
+  <img src="prints/admin-order-stage-held.png" alt="Etapas de um pedido NIF + Bank Account na janela do pedido, com a etapa atual em dourado" loading="lazy">
+  <figcaption>As etapas de um pedido, na janela do pedido: a atual fica a dourado, as anteriores a cinzento. Os círculos não são os passos acima: <span class="circulo-vermelho">1</span> <b>Forward</b>, <span class="circulo-vermelho">2</span> <b>Back</b>, <span class="circulo-vermelho">3</span> <b>Jump to</b> (capítulo 5).</figcaption>
+</figure>
+
+<h3>As etapas, em palavras simples</h3>
+<table>
+  <thead>
+    <tr><th>Na página</th><th>O que quer dizer</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Awaiting payment</b></td><td>O pedido existe, mas ainda não foi pago.</td></tr>
+    <tr><td><b>Documents</b></td><td>O cliente pagou. Envia os documentos e você revê cada um.</td></tr>
+    <tr><td><b>Submitted</b></td><td>O pedido do NIF foi entregue às Finanças.</td></tr>
+    <tr><td><b>NIF ready</b></td><td>O NIF foi emitido.</td></tr>
+    <tr><td><b>Finanças access ready</b></td><td>O acesso ao Portal das Finanças está pronto. No <b>NIF only</b>, é a última etapa.</td></tr>
+    <tr><td><b>With the bank</b></td><td>O processo de abertura de conta está no banco.</td></tr>
+    <tr><td><b>Issued documents delivery</b></td><td>A firma entrega ao cliente os documentos emitidos.</td></tr>
+    <tr><td><b>Account open</b></td><td>A conta está aberta. Nos serviços com conta bancária, é a última etapa.</td></tr>
+  </tbody>
+</table>
+
+<h3>Os quatro serviços</h3>
+<p>A tabela mostra o catálogo como estava a 25/09/2026. O catálogo que vale é sempre o que está em <b>Services</b> (capítulo 7): o que você mudar lá muda aqui.</p>
+<table>
+  <thead>
+    <tr><th>Serviço</th><th>Preço</th><th>Etapas</th><th>Documentos pedidos ao cliente</th><th>Arquivos que a firma devolve</th><th>Contrato</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>NIF only</b></td>
+      <td>€149</td>
+      <td><b>Awaiting payment</b>, <b>Documents</b>, <b>Submitted</b>, <b>NIF ready</b>, <b>Finanças access ready</b> (última)</td>
+      <td><b>Passport</b>; <b>Proof of address</b>; <b>Power of attorney for the NIF</b>; <b>Signed service agreement</b></td>
+      <td><b>Your Portuguese NIF</b>; <b>Finanças access</b></td>
+      <td><b>NIF</b></td>
+    </tr>
+    <tr>
+      <td><b>NIF + Bank Account</b></td>
+      <td>€497</td>
+      <td><b>Awaiting payment</b>, <b>Documents</b>, <b>Submitted</b>, <b>NIF ready</b>, <b>Finanças access ready</b>, <b>With the bank</b>, <b>Issued documents delivery</b>, <b>Account open</b> (última)</td>
+      <td><b>Passport</b>; <b>Proof of address</b>; <b>Tax identification number from your country</b>; <b>Bank statements or annual income statement</b>; <b>Proof of profession</b>; <b>Power of attorney for the NIF</b>; <b>Power of attorney for the bank account</b>; <b>Signed service agreement</b></td>
+      <td><b>Your Portuguese NIF</b>; <b>Finanças access</b>; <b>Your Portuguese IBAN</b></td>
+      <td><b>NIF + Bank account package</b></td>
+    </tr>
+    <tr>
+      <td><b>Bank Account only</b></td>
+      <td>€399</td>
+      <td><b>Awaiting payment</b>, <b>Documents</b>, <b>With the bank</b>, <b>Issued documents delivery</b>, <b>Account open</b> (última)</td>
+      <td><b>Passport</b>; <b>Portuguese tax identification number</b>; <b>Tax identification number from your country</b>; <b>Proof of address</b>; <b>Bank statements or annual income statement</b>; <b>Proof of profession</b>; <b>Power of attorney for the bank account</b>; <b>Signed service agreement</b></td>
+      <td>Nenhum na lista. Escreva o nome à mão ao enviar, ou acrescente-o em <b>Services</b>.</td>
+      <td><b>Bank account</b></td>
+    </tr>
+    <tr>
+      <td><b>Couple package</b></td>
+      <td>€597</td>
+      <td>As mesmas oito do <b>NIF + Bank Account</b></td>
+      <td>Para cada pessoa: <b>Passport</b>; <b>Proof of address</b>; <b>Tax identification number from your country</b>; <b>Bank statements or annual income statement</b>; <b>Proof of profession</b>; <b>Power of attorney for the NIF</b>. Para as duas juntas: uma só <b>Power of attorney for the bank account</b>, com os dois nomes, e um só <b>Signed service agreement</b>.</td>
+      <td><b>Your Portuguese NIF</b>; <b>Finanças access</b>; <b>Your Portuguese IBAN</b></td>
+      <td><b>Couple package</b>: um contrato com as duas pessoas</td>
+    </tr>
+  </tbody>
+</table>
+<!-- VERIFICAR ANTES DE ENVIAR O GUIA: o documento Signed service agreement nos quatro serviços (0013), a procuração do banco única no Couple package (0016) e o contrato Couple package (0017) entram com a atualização de 25/09/2026. A 25/09 às 15:00 o projeto Supabase ainda não tinha corrido 0013 a 0017 (runbook, secção 0, "Antes do Publish"). -->
+<aside class="dica"><p class="caixa-titulo">Dica</p><p>O preço e o código de cada um destes quatro serviços estão fixos, porque o site e o formulário de candidatura os mostram. Para mudar um preço, fale com o Guilherme: muda no site e no Stripe ao mesmo tempo.</p></aside>
+
+<figure data-scene="dashboard-in-progress">
+  <img src="prints/dashboard-in-progress.png" alt="Página inicial da área de cliente com o cartão de um pedido em curso" loading="lazy">
+  <figcaption>Um pedido visto pelo cliente, na página inicial da área dele (capítulo 9). <span class="circulo-vermelho">1</span> O cartão do pedido. <span class="circulo-vermelho">2</span> <b>See more</b> abre os detalhes.</figcaption>
+</figure>

@@ -1,0 +1,87 @@
+<h2>Quando algo não bate certo</h2>
+
+<p class="lead">Primeiros socorros para as situações mais comuns. Cada uma diz o que verificar, o que você resolve sozinha e quando escrever ao Guilherme. Em caso de dúvida, não repita a ação: escreva primeiro.</p>
+
+<h3>Um cliente não consegue enviar um arquivo</h3>
+<ol class="passos">
+  <li>Abra o pedido e veja a etapa. Os documentos só aceitam arquivos na etapa <b>Documents</b>. Se o pedido já avançou, o cliente não vê o botão de envio. Volte o pedido a <b>Documents</b> com <b>Back</b>, espere o envio e avance de novo.</li>
+  <li>Veja o estado do documento. Um arquivo <b>Approved</b> não se troca.</li>
+  <li>Peça ao cliente a frase exata que aparece por baixo do documento:
+    <ul>
+      <li>Uma frase com os formatos aceites ou o tamanho máximo: o arquivo não é do tipo certo, ou é grande demais. Peça um PDF ou uma fotografia mais leve.</li>
+      <li><b>We could not read this file. Save a new copy or take a new photo, then try again.</b>: o arquivo mudou de sítio, ou está num serviço de nuvem que não o descarregou. Peça uma cópia guardada no computador ou uma fotografia nova.</li>
+      <li><b>This file is empty.</b>: o arquivo está vazio. Peça outro.</li>
+    </ul>
+  </li>
+  <li>Numa ligação fraca, o envio pode demorar e passar por <b>Sending through our server</b>. Peça ao cliente para esperar até ver <b>Received</b>, sem fechar a página.</li>
+  <li>Se nada disto resolver, escreva ao Guilherme com o endereço do pedido e a frase que o cliente vê.</li>
+</ol>
+
+<h3>Um e-mail não chegou</h3>
+<h4>Ao cliente</h4>
+<ol class="passos">
+  <li>Peça-lhe para procurar o remetente hello@send.alttavia-relocation.com, também no spam.</li>
+  <li>Em <b>Users</b>, confira o e-mail da conta. Um erro de escrita corrige-se com <b>Edit</b> (capítulo 6).</li>
+  <li>O código de entrada vale 10 minutos. Se passou do prazo, o cliente pede outro com <b>Send a new code</b>.</li>
+  <li>O contrato: em <b>Service agreement</b>, veja se diz <b>Emailed</b> ou <b>Not emailed yet</b>. Mesmo sem o e-mail, o cliente abre o contrato no pedido, com <b>View</b> e <b>Download</b>. Para reenviar, use <b>Regenerate and resend</b> (sai uma versão nova).</li>
+  <li>Contas terminadas em .invalid nunca recebem e-mails (capítulo 10).</li>
+</ol>
+<h4>À equipa</h4>
+<p>No staging, os avisos vão para a caixa de testes do Guilherme, não para o info@. Na produção, vão para o info@ <span class="a-confirmar">[A CONFIRMAR]</span>: procure também no spam. Se num dia vários e-mails não chegarem, avise o Guilherme com <b>Blocks my work</b>. Pode ser o limite diário de envios.</p>
+
+<h3>Enviei o arquivo errado ao cliente</h3>
+<ol class="passos">
+  <li>Na janela do pedido, em <b>Deliverables</b>, clique <b>Remove</b> no arquivo errado e <b>Yes, remove</b>. O cliente deixa de o ver na hora.</li>
+  <li>Envie o arquivo certo com <b>Upload</b>.</li>
+  <li>Se o cliente pode já o ter descarregado, escreva-lhe a dizer qual é o arquivo certo.</li>
+</ol>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Se o arquivo errado era de <strong>outro cliente</strong>, remova-o logo e avise o Guilherme no mesmo momento. Um cliente viu dados de outra pessoa: a firma deve decidir se é preciso avisar alguém. O prazo conta desde já: se for preciso notificar a CNPD, são 72 horas (artigo 33.º do RGPD). <span class="a-confirmar">[A CONFIRMAR]</span> Falta definir: qual é o procedimento da firma nestes casos, e quem decide?</p></aside>
+
+<h3>Movi um pedido por engano</h3>
+<ol class="passos">
+  <li>Na janela do pedido, clique <b>Back</b>, ou escolha a etapa certa em <b>Jump to</b> e clique <b>Go</b>. Voltar atrás não envia e-mails.</li>
+  <li>Tudo fica em <b>History</b>, com a hora. Não há nada a apagar.</li>
+</ol>
+<p>Se concluiu por engano, o cliente recebeu o e-mail <b>Your</b> [serviço] <b>order is complete</b> (só na primeira vez). Volte o pedido à etapa certa com <b>Back</b> e escreva ao cliente a explicar. Quando o concluir de verdade, o e-mail não sai outra vez: nesse momento, avise-o você.</p>
+
+<h3>Aprovei um documento por engano</h3>
+<p>A aprovação não se desfaz no painel, e o cliente já não pode trocar esse arquivo.</p>
+<ol class="passos">
+  <li>Não avance o pedido enquanto isto não estiver resolvido, se o documento importa para o passo seguinte.</li>
+  <li>Escreva ao Guilherme com o endereço do pedido e o nome do documento. O Guilherme reabre o documento, que volta a <b>To review</b>. Depois, aprove-o ou rejeite-o com um motivo, como qualquer outro.</li>
+  <li>Se precisar do arquivo certo com urgência, peça-o ao cliente por e-mail enquanto isso.</li>
+</ol>
+
+<h3>Rejeitei um documento por engano</h3>
+<p>O cliente já recebeu o e-mail <b>A new file is needed</b>. Escreva-lhe a pedir que envie o mesmo arquivo outra vez, no mesmo documento. Quando chegar, aprove-o.</p>
+
+<h3>O cliente diz que pagou, mas o pedido está em Awaiting payment</h3>
+<ol class="passos">
+  <li>Espere uns minutos e recarregue: a confirmação do Stripe pode demorar.</li>
+  <li>Procure o pagamento no Stripe, pelo e-mail do cliente.</li>
+  <li>Se o pagamento está no Stripe e o pedido continua por pagar, escreva ao Guilherme. Não use <b>Already paid outside the platform</b> para isto. O pedido ficaria registado como pago fora da plataforma, sem a ligação ao pagamento do Stripe, e as contas deixariam de bater certo.</li>
+</ol>
+<p>Se chegar o e-mail <b>Paid amount does not match the order</b>, o Stripe cobrou um valor diferente do pedido. Não peça ao cliente para pagar de novo e escreva ao Guilherme.</p>
+
+<h3>O painel não abre</h3>
+<ul>
+  <li><b>That email and password do not match.</b>: use <b>Forgot your password?</b> (capítulo 2).</li>
+  <li>O código do app falha sempre: confirme que o telemóvel tem a hora automática.</li>
+  <li>Perdeu o telemóvel do segundo fator: escreva ao Guilherme.</li>
+  <li>A página não carrega de todo, ou mostra <b>Something did not load.</b>: tente outra vez daí a um minuto. Se continuar, escreva ao Guilherme com <b>Blocks my work</b>. A página de erro traz um código em <b>Reference</b>: copie-o para a mensagem.</li>
+</ul>
+
+<h3>Quando escrever ao Guilherme, e como</h3>
+<p>Escreva sempre nestes casos:</p>
+<ul>
+  <li>algo impede o trabalho ou as vendas;</li>
+  <li>uma ação não se desfaz;</li>
+  <li>dados de um cliente chegaram a outro;</li>
+  <li>tem dúvidas antes de apagar alguma coisa.</li>
+</ul>
+<ol class="passos">
+  <li>O canal principal é o botão <b>Feedback</b> (capítulo 8), com a prioridade certa.</li>
+  <li>Para <b>Blocks my work</b>, mande também uma mensagem curta por WhatsApp a dizer que deixou uma nota. <span class="a-confirmar">[A CONFIRMAR]</span> Falta definir: qual é o número de WhatsApp e o e-mail de suporte do Guilherme, e a que horas responde?</li>
+  <li>Diga sempre: o endereço da página (com o <b>?order=</b> do pedido), o que esperava, o que aconteceu e a hora.</li>
+</ol>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Nunca envie ao Guilherme, nem a ninguém, a sua senha, os códigos de entrada ou documentos de clientes. O endereço da página chega para ele encontrar tudo.</p></aside>
