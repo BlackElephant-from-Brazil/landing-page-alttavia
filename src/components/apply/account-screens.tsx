@@ -7,7 +7,9 @@ import { CodeStep } from "@/components/auth/code-step";
 import { EmailStep } from "@/components/auth/email-step";
 import { Button } from "@/components/ui/button";
 import { EyebrowSolo } from "@/components/ui/eyebrow";
+import { PrivacyNote } from "@/components/ui/privacy-note";
 import { applyCopy } from "@/content/apply";
+import { ACCOUNT_PRIVACY_NOTE } from "@/content/privacy-link";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -24,6 +26,11 @@ import { createClient } from "@/lib/supabase/client";
  * verified and before the order is submitted. The column grant and the own
  * row policy allow exactly that write; a failure is logged and ignored, the
  * order matters more than the greeting.
+ *
+ * Under that form, one muted line says what the name and email are for and
+ * links the privacy notice (/en/privacy) in a new tab, so the form keeps
+ * its place (`PrivacyNote`, src/components/ui/privacy-note.tsx). The words
+ * live in src/content/privacy-link.ts.
  */
 
 const copy = applyCopy.account;
@@ -69,6 +76,7 @@ export function AccountEmailScreen({
           onSent(email);
         }}
       />
+      <PrivacyNote note={ACCOUNT_PRIVACY_NOTE} className="mt-4 max-w-xl" />
       <Button type="button" variant="ghost" size="md" onClick={onBack} className="mt-6 -ml-2 px-2">
         <ArrowLeft className="size-4" aria-hidden />
         {applyCopy.nav.back}

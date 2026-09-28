@@ -1,3 +1,4 @@
+import { PrivacyLink } from "@/components/ui/privacy-note";
 import { SERVICE_TERMS_PATH, acceptanceLineParts } from "@/content/terms-version";
 import { cn } from "@/lib/cn";
 
@@ -16,6 +17,10 @@ import { cn } from "@/lib/cn";
  * the "In progress" card (a server component) renders it under its button
  * row, where it spans the row instead of the button's width. Small and
  * muted: it informs, it does not compete with the price.
+ *
+ * After the line, a "Privacy notice" link (src/components/ui/privacy-note.tsx),
+ * in a new tab too: the client area collects passport and tax details, and
+ * this line sits under every button that buys a service.
  */
 
 export function PayTermsNote({
@@ -49,7 +54,7 @@ export function PayTermsNote({
         {link}
         <span className="sr-only"> (opens in a new tab)</span>
       </a>
-      {after}
+      {after} <PrivacyLink />
     </p>
   );
 }

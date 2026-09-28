@@ -22,6 +22,18 @@ export function joinParts(parts: string[]): string {
 
 export const NOTHING_STORED = "Nothing is stored for this account yet.";
 
+/**
+ * Why an account cannot be deleted, or null when it can. A paid order's
+ * agreement and payment records are kept for 10 years (the privacy notice,
+ * src/content/privacy.ts), so DELETE /api/admin/users/[id] refuses such an
+ * account and the dialog says so before anything is typed.
+ */
+export function deletionBlock(counts: AdminUserCounts): string | null {
+  if (counts.paidOrders <= 0) return null;
+  const orders = plural(counts.paidOrders, "paid order", "paid orders");
+  return `This client has ${orders}. We keep their records for 10 years, so the account cannot be deleted.`;
+}
+
 export function describeDeletion(counts: AdminUserCounts): string {
   const entries: { count: number; text: string }[] = [
     { count: counts.orders, text: plural(counts.orders, "order", "orders") },

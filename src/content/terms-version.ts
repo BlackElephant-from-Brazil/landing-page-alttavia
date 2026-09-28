@@ -16,13 +16,17 @@
  * after the change carries the new one, even on an order opened before it,
  * and a paid order's record is never rewritten.
  *
+ * Versions: "2026-09-25", the first wording (the page as it stood when the
+ * line under Pay was built); "2026-09-28", the service terms page rewritten
+ * from docs/legal/service-terms-changes.md with the owner's approval.
+ *
  * The line follows the house rules of src/content/bank-nif.ts (checked by
  * terms-version.test.ts). "your service agreement" is not a link: the
  * agreement is prepared from the client's details after payment, and its
  * copy arrives by email.
  */
 
-export const TERMS_VERSION = "2026-09-25";
+export const TERMS_VERSION = "2026-09-28";
 
 export const TERMS_ACCEPTANCE_LINE = "By paying you accept the service terms and your service agreement.";
 

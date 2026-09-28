@@ -136,7 +136,7 @@ beforeEach(() => {
   for (const key of Object.keys(tables)) delete tables[key];
   steps.length = 0;
   fail.upsert = null;
-  counts.value = { orders: 2, paidOrders: 1, documents: 2, deliverables: 0, agreements: 0, answers: 1, files: 3 };
+  counts.value = { orders: 2, paidOrders: 0, documents: 2, deliverables: 0, agreements: 0, answers: 1, files: 3 };
   deleteOrderFiles.mockReset();
   deleteOrderFiles.mockImplementation(async (orderId: string) => {
     steps.push(`files ${orderId}`);
@@ -310,6 +310,18 @@ describe("deleteClientAccount", () => {
     seed();
 
     await expect(remove({ confirmEmail: "  Ana@Example.com " })).resolves.toMatchObject({ email: "ana@example.com" });
+  });
+
+  it("refuses an account with a paid order, whose records are kept for 10 years, before touching a file", async () => {
+    seed();
+    counts.value = { orders: 2, paidOrders: 1, documents: 2, deliverables: 0, agreements: 1, answers: 1, files: 3 };
+
+    await expect(remove()).rejects.toMatchObject({ code: "has_paid_orders", status: 409 });
+    expect(deleteOrderFiles).not.toHaveBeenCalled();
+    expect(steps).toEqual([]);
+    expect(tables.users).toHaveLength(1);
+    expect(tables.user_services).toHaveLength(2);
+    expect(auth.deleteUser).not.toHaveBeenCalled();
   });
 
   it("answers 404 for an account that is not on record", async () => {

@@ -81,7 +81,8 @@ Cada linha é um teste para você fazer e marcar. **Passo N** remete ao **Teste 
 
 Nada desta lista impede o aceite.
 
-- **Na sua aprovação:** a proposta de aviso de privacidade e as mudanças aos termos; até lá vale a página atual.
+- **Depois do lançamento:** a sua revisão do aviso de privacidade (`/en/privacy`) e dos termos (`/en/service-terms`), publicados a 28/09 e aprovados para o lançamento; as correções entram numa atualização.
+- **Depois do lançamento:** o monitor externo que confirma a cada poucos minutos que o site responde; nenhum plano serve hoje. Até lá, o suporte recebe por e-mail os erros do servidor e os avisos de pagamento do Stripe que o site recusou ou não conseguiu registar.
 - **Quando a enviar:** a sua assinatura digitalizada no contrato. Os contratos de pedidos reais já preparados só a recebem com **Regenerate and resend**; os de teste nunca a recebem.
 - **Hoje, 25/09, às 18:00:** ativação do seu segundo fator, na chamada.
 - **[A CONFIRMAR]:** leitura, pela firma, do contrato e da procuração do banco do pacote casal.

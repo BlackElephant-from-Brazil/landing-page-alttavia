@@ -40,7 +40,8 @@ export type AccountErrorCode =
   | "email_taken"
   | "is_admin"
   | "is_self"
-  | "email_mismatch";
+  | "email_mismatch"
+  | "has_paid_orders";
 
 export class AccountError extends Error {
   readonly code: AccountErrorCode;
@@ -60,6 +61,7 @@ const copy = {
   isAdmin: "This is an administrator account. Change it in Settings.",
   isSelf: "You cannot delete the account you are signed in with.",
   mismatch: "The email does not match this account.",
+  paidOrders: "This client has paid orders. We keep their records for 10 years, so the account cannot be deleted.",
 } as const;
 
 /** Chunk size for `in (...)` filters, as scripts/purge-test-data.mjs uses. */
@@ -225,6 +227,13 @@ export type DeletedAccount = {
  * before a single row is deleted, so the account survives intact and the
  * admin can try again; the other way round would leave files that nothing
  * points at.
+ *
+ * An account with a paid order is refused (409 has_paid_orders, 2026-09-28):
+ * the privacy notice keeps the service agreement and the payment and order
+ * records of a paid order for 10 years, the period Portuguese law sets for
+ * accounting records, and honours a deletion request "unless a law requires
+ * us to keep it". Deleting here would take all of it. Only an account whose
+ * orders are all unpaid (or that has none) can go.
  */
 export async function deleteClientAccount(admin: Db, id: string, options: DeleteAccountOptions): Promise<DeletedAccount> {
   const profile = await readProfile(admin, id);
@@ -243,6 +252,7 @@ export async function deleteClientAccount(admin: Db, id: string, options: Delete
     answers: 0,
     files: 0,
   };
+  if (counts.paidOrders > 0) throw new AccountError("has_paid_orders", 409, copy.paidOrders);
 
   const { data: orderData, error: orderError } = await admin.from("user_services").select("id").eq("user_id", id);
   if (orderError) throw new Error(`user_services: ${orderError.message}`);

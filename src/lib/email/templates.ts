@@ -13,6 +13,11 @@
  * enough. Same layout with a small table of facts and a footer that does not
  * invite a reply.
  *
+ * To ALERTS_TO (src/lib/ops/alerts.ts, since 2026-09-28): `opsAlert`, a
+ * server error or a Stripe webhook that was refused or could not record a
+ * payment. Team layout, facts already cleaned by src/lib/ops/format.ts, and
+ * a button only when an admin screen helps.
+ *
  * Same visual language as the Supabase code email: Georgia, navy text, a
  * gold eyebrow, one button. Table based and inline styled because that is
  * what email clients render. Every value that comes from a person (a
@@ -88,7 +93,8 @@ type Layout = {
   facts?: Fact[];
   /** A block of the person's own words, rendered in a quiet box. */
   quote?: { label: string; body: string };
-  cta: { label: string; url: string };
+  /** The one button. Only the operations alert may leave it out, when no admin screen helps. */
+  cta?: { label: string; url: string };
   /** A last line under the button. */
   footnote?: string;
   /** Who reads it: the client (the default) may reply; the team gets a plain signature. */
@@ -134,6 +140,14 @@ function html(layout: Layout): string {
     ? `<p style="margin:20px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.6;color:${NAVY_MUTED};">${escapeHtml(layout.footnote)}</p>`
     : "";
 
+  const cta = layout.cta
+    ? `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:8px 0 0;">
+          <tr><td style="background:${NAVY};border-radius:999px;">
+            <a href="${escapeHtml(layout.cta.url)}" style="display:inline-block;padding:14px 28px;font-family:Georgia,'Times New Roman',serif;font-size:16px;color:${WHITE};text-decoration:none;">${escapeHtml(layout.cta.label)}</a>
+          </td></tr>
+        </table>`
+    : "";
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -151,11 +165,7 @@ function html(layout: Layout): string {
         ${paragraphs}
         ${facts}
         ${quote}
-        <table role="presentation" cellspacing="0" cellpadding="0" style="margin:8px 0 0;">
-          <tr><td style="background:${NAVY};border-radius:999px;">
-            <a href="${escapeHtml(layout.cta.url)}" style="display:inline-block;padding:14px 28px;font-family:Georgia,'Times New Roman',serif;font-size:16px;color:${WHITE};text-decoration:none;">${escapeHtml(layout.cta.label)}</a>
-          </td></tr>
-        </table>
+        ${cta}
         ${footnote}
       </td></tr>
       <tr><td style="padding:18px 40px 24px;border-top:1px solid #E3DAD0;">
@@ -172,9 +182,9 @@ function text(layout: Layout): string {
   const lines = [layout.heading, "", ...layout.paragraphs.flatMap((p) => [p, ""])];
   if (layout.facts?.length) lines.push(...layout.facts.map((fact) => `${fact.label}: ${fact.value}`), "");
   if (layout.quote) lines.push(`${layout.quote.label}:`, layout.quote.body.trim(), "");
-  lines.push(`${layout.cta.label}: ${layout.cta.url}`);
-  if (layout.footnote) lines.push("", layout.footnote);
-  lines.push("", signature(layout));
+  if (layout.cta) lines.push(`${layout.cta.label}: ${layout.cta.url}`, "");
+  if (layout.footnote) lines.push(layout.footnote, "");
+  lines.push(signature(layout));
   return lines.join("\n");
 }
 
@@ -400,5 +410,44 @@ export function signedAgreement(input: {
       { label: "File", value: input.fileName },
     ],
     cta: { label: "Open the order", url: input.adminUrl },
+  });
+}
+
+/**
+ * To ALERTS_TO (else FEEDBACK_TO), from src/lib/ops/alerts.ts: a server
+ * error in a page or a route, or a Stripe webhook that was refused or could
+ * not record a payment. Every value arrives cleaned (src/lib/ops/format.ts:
+ * no email address, no query string, cut to 300 characters) and is escaped
+ * here like any other. `prefix` is "[production]", "[staging]" or
+ * "[local]". The button appears only when the caller has an admin screen
+ * that helps, such as the order a failed payment names.
+ */
+export function opsAlert(input: {
+  prefix: string;
+  kind: "server_error" | "webhook";
+  subject: string;
+  facts: Fact[];
+  /** The first stack frames, already cleaned. */
+  stack?: string[];
+  /** Occurrences held since the last email for the same alert. */
+  moreSince: number;
+  link?: { label: string; url: string };
+  /** How long repeats of this alert are held, as the footnote says it. Default "30 minutes". */
+  heldFor?: string;
+}): EmailContent {
+  const lead =
+    input.kind === "webhook"
+      ? "The Stripe webhook refused an event or could not record it. Stripe sends a failed event again later; check the endpoint in the Stripe dashboard."
+      : "A request failed on the server. The details below come from the error, with email addresses and query strings removed.";
+  const more = input.moreSince > 0 ? [`${input.moreSince} more since the last email.`] : [];
+  return build(`${input.prefix} ${input.subject}`, {
+    eyebrow: input.kind === "webhook" ? "Stripe webhook" : "Server error",
+    heading: input.subject,
+    audience: "team",
+    paragraphs: [lead, ...more],
+    facts: input.facts,
+    ...(input.stack?.length ? { quote: { label: "First stack lines", body: input.stack.join("\n") } } : {}),
+    ...(input.link ? { cta: input.link } : {}),
+    footnote: `Repeats of the same alert are held for ${input.heldFor ?? "30 minutes"} and counted in the next email.`,
   });
 }

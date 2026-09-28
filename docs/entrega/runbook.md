@@ -1,6 +1,6 @@
 # Runbook da plataforma Alttavia
 
-Para quem dá suporte à plataforma (hoje, Guilherme, guyshore.com). Estado em 25/09/2026, dia da entrada em produção. Serve de modelo para o próximo cliente: nomes, endereços e contas são os da Alttavia, como exemplo preenchido. **[A CONFIRMAR]** marca o que o código não mostra ou o que foi construído hoje e ainda não foi verificado.
+Para quem dá suporte à plataforma (hoje, Guilherme, guyshore.com). Estado em 25/09/2026, dia da entrada em produção; os alertas por e-mail e o monitor adiado (secções 9, 11, 12 e 14) estão como a 28/09/2026. Serve de modelo para o próximo cliente: nomes, endereços e contas são os da Alttavia, como exemplo preenchido. **[A CONFIRMAR]** marca o que o código não mostra ou o que foi construído hoje e ainda não foi verificado.
 
 ## 0. Antes de começar
 
@@ -32,7 +32,7 @@ O código de hoje depende de cinco migrações e das definições do segundo fat
 - em `/admin/settings`, **Set up** mostra o código QR (na chamada das 18:00, com a Patrícia);
 - um pedido pago de NIF only tem o documento **Signed service agreement**.
 
-Até lá, tudo o que este runbook diz de 0013 a 0017 está [A CONFIRMAR: migrações aplicadas].
+As migrações 0013 a 0017 foram aplicadas a 25/09 e as 0018 e 0019 a 28/09.
 
 ## 1. Repor a senha de um admin
 
@@ -53,7 +53,7 @@ Gera 20 caracteres, confirma o papel admin e imprime a senha uma vez. Entregue-a
 
 **Sintomas:** senha certa, a página passa a **One more step** e pede o código do app (ou, ao reabrir `/admin/login`, mostra "Sign in with your password and your code."), e ela já não tem o app autenticador.
 
-Regra: com um fator verificado, o código é obrigatório. Sem nenhum, basta a senha, salvo se `ADMIN_REQUIRE_MFA=1` estiver na Netlify [A CONFIRMAR: se está definida]. Código: `src/lib/supabase/admin-user.ts` e `0015_admin_mfa.sql` [A CONFIRMAR: migrações aplicadas, secção 0].
+Regra: com um fator verificado, o código é obrigatório. Sem nenhum, basta a senha, salvo se `ADMIN_REQUIRE_MFA=1` estiver na Netlify [A CONFIRMAR: se está definida]. Código: `src/lib/supabase/admin-user.ts` e `0015_admin_mfa.sql`.
 
 1. Confirme a identidade dela por telefone: quem lê a caixa da firma não pode conseguir tirar o fator.
 2. Retire o fator com o script (API de administração do Auth, chave secreta, sem código; recusa contas de cliente):
@@ -92,7 +92,7 @@ from antes join pago on pago.id = antes.id;
 
 Esta nota é a que `src/lib/contracts/live-order.ts` lê para dar ao contrato a assinatura da firma: use-a só para dinheiro que a firma recebeu.
 
-Não envia e-mail nem regista a aceitação dos termos (`terms_accepted_at`, 0014 [A CONFIRMAR: migrações aplicadas, secção 0]) [A CONFIRMAR: como tratar essa aceitação]. Avise o cliente você mesmo.
+Não envia e-mail nem regista a aceitação dos termos (`terms_accepted_at`, 0014) [A CONFIRMAR: como tratar essa aceitação]. Avise o cliente você mesmo.
 
 **Verificar:** `select paid_at, stage_key from public.user_services where id = 'ID_DO_PEDIDO';` mostra a data e `documents`.
 
@@ -136,9 +136,9 @@ Enviar de novo substitui o arquivo. Fundo transparente e recorte junto à tinta:
 
 ## 6. Apagar um cliente
 
-`/admin/users`, linha do cliente, **Delete**; escreva o e-mail em **Type the email to confirm**; **Delete this client**. Recusa contas admin e a sua própria.
+`/admin/users`, linha do cliente, **Delete**; escreva o e-mail em **Type the email to confirm**; **Delete this client**. Recusa contas admin e a sua própria. Desde 28/09/2026 recusa também uma conta com pelo menos um pedido pago ("This client has 1 paid order. We keep their records for 10 years, so the account cannot be deleted."): o aviso de privacidade guarda o contrato e os registos de pagamento de um pedido pago durante 10 anos. Só se apaga uma conta sem pedidos pagos. Um pedido de apagamento de um cliente com pedidos pagos responde-se por escrito: os dados desses pedidos ficam pelo prazo legal.
 
-**Vai:** pedidos, histórico, documentos, dados dos requerentes, contratos, entregas, respostas, perfil, utilizador do Auth e, no R2, `orders/<id>/`, `deliverables/<id>/`, `contracts/<id>/`. **Fica:** o Stripe da firma, os e-mails já enviados (cópias assinadas em info@ incluídas), as pastas de `db:dump`. Não há volta. Antes de apagar quem pagou, confirme o prazo de conservação com a Patrícia [A CONFIRMAR].
+**Vai:** pedidos, histórico, documentos, dados dos requerentes, contratos, entregas, respostas, perfil, utilizador do Auth e, no R2, `orders/<id>/`, `deliverables/<id>/`, `contracts/<id>/`. **Fica:** o Stripe da firma, os e-mails já enviados (cópias assinadas em info@ incluídas), as pastas de `db:dump`. Não há volta. Quem pagou não se apaga pelo painel (acima); a Patrícia confirma na revisão pós-lançamento se os 10 anos do aviso de privacidade são o prazo certo.
 
 **Dados de teste** (`db:purge` só simula; apaga com `--apply`):
 
@@ -199,9 +199,9 @@ Apague a chave antiga só depois de verificar quatro coisas:
 
 | Código | Quando |
 |---|---|
-| 503 | Falta `STRIPE_WEBHOOK_SECRET`. |
-| 400 | Assinatura inválida ou ausente. |
-| 500 | Erro da base; o Stripe repete sozinho. |
+| 503 | Falta `STRIPE_WEBHOOK_SECRET`. Chega um alerta por e-mail (secção 14). |
+| 400 | Assinatura inválida (chega um alerta) ou ausente (só no registo). |
+| 500 | Erro da base; o Stripe repete sozinho. Chega um alerta com o id do pedido e **Open the order**. |
 | 200 sem mudar nada | Outro modo, outro evento, sessão não paga, sem `client_reference_id`, pedido inexistente ou já pago. |
 | 200 e aviso à equipa | Valor ou moeda diferentes: "Paid amount does not match the order". |
 
@@ -213,7 +213,7 @@ Corrija a causa (variável, deploy, base em pausa); depois, no Stripe da firma: 
 
 ## 10. Voltar a um deploy anterior
 
-Netlify, Deploys, o último deploy bom, Publish deploy. É imediato e fica até alguém publicar outro. A base não volta atrás. Com o segundo fator registado, um deploy anterior a hoje deixa a Patrícia entrar só com a senha. Mas a base (0015 [A CONFIRMAR: migrações aplicadas, secção 0]) não lhe mostra nada. Saída: publicar um deploy mais novo ou retirar o fator (secção 2). Último recurso: `571eb64`, a landing antes da plataforma [A CONFIRMAR: os Payment Links dela serão desativados a 28/09].
+Netlify, Deploys, o último deploy bom, Publish deploy. É imediato e fica até alguém publicar outro. A base não volta atrás. Com o segundo fator registado, um deploy anterior a hoje deixa a Patrícia entrar só com a senha. Mas a base (0015) não lhe mostra nada. Saída: publicar um deploy mais novo ou retirar o fator (secção 2). Último recurso: `571eb64`, a landing antes da plataforma [A CONFIRMAR: os Payment Links dela serão desativados a 28/09].
 
 **Verificar:** `/api/health` dá 200; abrem a landing, `/en/login` e `/admin/login`.
 
@@ -223,7 +223,7 @@ Netlify, Deploys, o último deploy bom, Publish deploy. É imediato e fica até 
 
 **Acordar:** painel Supabase, o projeto, Restore project; alguns minutos. **Verificar:** `/api/health` volta a 200.
 
-O monitor da secção 14 lê a base a cada poucos minutos e deve evitar a pausa, sem garantia da Supabase [A CONFIRMAR]. A garantia é o plano Pro (cerca de 25 USD por mês, com cópias diárias): decisão da firma.
+Não há monitor externo até depois do lançamento (secção 14): só o uso real do site lê a base, e uma semana sem clientes nem admin pode pausá-la. Com a base em pausa, as páginas que a leem falham e podem trazer alertas `Server error` (secção 14); na dúvida, abra `/api/health`. A garantia é o plano Pro (cerca de 25 USD por mês, com cópias diárias): decisão da firma.
 
 ## 12. Um e-mail não chegou
 
@@ -235,6 +235,10 @@ O monitor da secção 14 lê a base a cada poucos minutos e deve evitar a pausa,
 - `EMAIL_API_KEY or EMAIL_FROM not set`: variável em falta nesse contexto.
 - `Resend answered <código>`: 429 costuma ser a quota do plano sem mensalidade (100 por dia).
 - `EMAIL_TEAM_INBOX not set`: os avisos à equipa vão para esse único endereço [A CONFIRMAR: info@ em produção, caixa de testes em staging].
+- `ops alert: ALERTS_TO and FEEDBACK_TO are not set`: os alertas da secção 14 não têm destino nesse contexto; defina `ALERTS_TO` e faça um deploy novo.
+- `ops alert: ... held`: alerta retido pelo limite da secção 14; conta no e-mail seguinte do mesmo alerta.
+- `ops alert: throttle table unavailable`: a tabela `ops_alerts` não se lê (base em pausa, ou 0019 por aplicar). Os erros do servidor e os pagamentos por registar saem na mesma, com o limite contado em cada instância (`this instance decides alone`); as duas recusas do webhook que qualquer pessoa pode provocar (assinatura, segredo em falta) ficam só no registo (`this alert is logged only`).
+- `the stripe-signature header is not Stripe's, or its time is stale; no alert`: um pedido ao webhook com um cabeçalho que não tem o formato do Stripe ou com a hora fora dos 5 minutos. Quase sempre alguém de fora; não gera e-mail.
 - Respostas dos clientes: vão para `EMAIL_REPLY_TO`; sem ela, para o remetente, `EMAIL_FROM` (hello@send.alttavia-relocation.com) [A CONFIRMAR: `EMAIL_REPLY_TO` = info@alttavia-relocation.com em Production].
 
 Depois, na Resend: entregue, devolvido ou spam? O contrato reenvia-se com **Regenerate and resend**; "Payment received" e rejeições não se reenviam, escreva ao cliente. Em staging, os links dos e-mails apontam para produção, salvo `NEXT_PUBLIC_SITE_URL` em Branch deploys [A CONFIRMAR: valor no Branch deploys; o guia, capítulos 1 e 10, diz o mesmo].
@@ -243,11 +247,33 @@ Depois, na Resend: entregue, devolvido ou spam? O contrato reenvia-se com **Rege
 
 Ambiente de testes permanente. Atualizar com `git push origin main-split-bank-and-nif:staging`. Stripe de teste (cartão 4242 4242 4242 4242), com webhook e segredo próprios. A base é a de produção. Cada pedido de staging é real, e editar um serviço em `/admin/services` edita-o em produção. As contas admin são as mesmas e os e-mails saem de verdade (teste com business@guyshore.com). Limpe com `npm run db:purge -- --tests`.
 
-## 14. Saúde e o que vigiar
+## 14. Saúde, alertas e o que vigiar
 
 `GET /api/health`, público, sem cache: 200 `{"ok":true,"db":"ok","at":"..."}`; 503 `{"ok":false,"db":"down"}` se a leitura de `services` falhar ou passar de 5 segundos.
 
-- Monitor externo a cada 5 minutos em `https://bank-nif-portugal.alttavia-relocation.com/api/health`, alerta para o seu e-mail [A CONFIRMAR: serviço].
+**Monitor externo: adiado para depois do lançamento.** Nenhum plano serve hoje (decisão de 28/09/2026), por isso nada chama `/api/health` de forma regular. Abra-o à mão quando algo parecer parado, depois de cada publicação e antes de apagar uma chave antiga (secções 8 e 10). Quando o monitor voltar: a cada 5 minutos em `https://bank-nif-portugal.alttavia-relocation.com/api/health`, com alerta para o seu e-mail. Até lá, os alertas abaixo são a vigia.
+
+**Alertas por e-mail** (desde 28/09/2026; código em `src/lib/ops/`):
+
+- **O quê.** Erros do servidor numa página, numa rota da API ou no proxy: assunto `Server error: <tipo> <rota>`, com o método, o caminho sem a parte depois de `?`, o erro, o `Digest` e as primeiras linhas do stack. E o webhook do Stripe recusado ou falhado (secção 9): `Stripe webhook refused: STRIPE_WEBHOOK_SECRET is not set` (503), `Stripe webhook refused: the signature did not verify` (400) e `Stripe webhook: a payment could not be recorded` (500).
+- **Antes de publicar.** A migração `0019_ops_alerts.sql` foi aplicada a 28/09, antes de este código chegar a qualquer deploy. Sem ela, cada instância do servidor conta os alertas sozinha: uma rajada de pedidos manda um e-mail por instância, e as recusas do webhook não geram e-mail nenhum.
+- **Para onde.** `ALERTS_TO`; sem ela, `FEEDBACK_TO`. As duas vão na Netlify, nos contextos Production e Branch deploys [A CONFIRMAR: `ALERTS_TO` definida nos dois].
+- **De onde.** Do contexto da Netlify, que o `next.config.ts` copia para o código no momento da build (`NETLIFY_BUILD_CONTEXT`): `[production]` no deploy de produção, `[staging]` no branch deploy. Não há variável a definir. `OPS_ENVIRONMENT` só serve para forçar outro valor e fica sem definir. Depois do deploy, confirme no staging: um pedido ao webhook com um segredo errado e um cabeçalho no formato do Stripe deve trazer um e-mail `[staging]`.
+- **Quando.** Só uma build de produção envia, e staging também é uma: o assunto começa por `[production]` ou `[staging]`. Em `npm run dev` fica uma linha no registo.
+- **Quantos.** No máximo um e-mail por alerta (a mesma rota, a mesma falha do webhook, o mesmo pedido que não ficou pago) a cada 30 minutos, 20 por hora e 30 por dia no total, contados à parte em produção e em staging. As duas recusas do webhook que qualquer pessoa pode provocar (assinatura, segredo em falta) repetem-se no máximo a cada 6 horas. O limite por dia deixa folga à quota diária da Resend, que os códigos de acesso e os e-mails dos clientes partilham. Os repetidos não se perdem: o e-mail seguinte do mesmo alerta diz `N more since the last email.` Se a Resend recusar um alerta, ele volta a tentar 5 minutos depois.
+- **O que não leva.** Endereços de e-mail (passam a `[email]`), o que vem depois de `?` nos caminhos, tokens e chaves, nomes e dados de passaporte.
+
+**Quando chega um alerta:**
+
+1. Veja o prefixo. `[staging]` só afeta testes: trate no horário normal. `[production]`: siga os passos abaixo já.
+2. `Server error`: abra a rota indicada (com a conta de suporte, se for do painel) e `/api/health`. 503 é a base (secção 11). Procure o `Digest` nos registos da Netlify; é o mesmo que a página de erro mostra ao cliente como "Reference". Se a rota falha para todos logo depois de uma publicação, volte ao deploy anterior (secção 10) e corrija no staging.
+3. `STRIPE_WEBHOOK_SECRET is not set`: a variável falta nesse contexto. Defina-a na Netlify, faça um deploy novo (secção 8) e reenvie os eventos falhados (secção 9).
+4. `the signature did not verify`: veja **Claimed event**. Se for um id `evt_...` que existe no Stripe da firma, com falhas, o segredo não bate com o endpoint (chave trocada, ou de outro modo): acerte `STRIPE_WEBHOOK_SECRET`, deploy, reenvie (secções 8 e 9). Com `Not readable`, ou um evento que o Stripe não conhece, é um pedido de fora: nada a fazer se não se repetir. Este alerta repete-se no máximo a cada 6 horas: depois de mudar o segredo, confirme no painel do Stripe que os eventos seguintes passam, em vez de esperar o e-mail seguinte.
+5. `a payment could not be recorded`: o Stripe cobrou e o pedido não ficou pago. Cada pedido tem o seu e-mail. **Open the order** e `/api/health`. O Stripe repete o evento sozinho; se o pedido continuar em **Awaiting payment**, secção 9 e, em último caso, secção 3.
+6. Vários alertas seguidos: o limite segura o volume. Veja primeiro o que mudou (publicação, variável, base) e responda à causa, não a cada e-mail.
+
+Sem alerta não quer dizer que está tudo bem: o que o código trata sem erro (um e-mail que não saiu, um contrato por preparar) só fica nos registos da Netlify.
+
 - Stripe: falhas do webhook. Resend: devoluções e quota. Supabase: avisos de pausa e uso.
 - Registos da Netlify: `second payment on a paid order`, `markOrderPaid`, `Resend answered`, `EMAIL_TEAM_INBOX not set`, `firm/signature.png`, linhas `[admin]`.
 - O token pessoal da Supabase expira a 11/10/2026.

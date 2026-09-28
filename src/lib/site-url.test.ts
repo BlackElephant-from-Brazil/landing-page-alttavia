@@ -17,6 +17,7 @@ function request(url: string, headers: Record<string, string> = {}): Request {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
   vi.stubEnv("CONTEXT", "");
+  vi.stubEnv("NETLIFY_BUILD_CONTEXT", "");
 });
 
 afterEach(() => {
@@ -79,6 +80,13 @@ describe("siteOrigin", () => {
   it("throws on Netlify's production deploy when NEXT_PUBLIC_SITE_URL is missing", () => {
     vi.stubEnv("CONTEXT", "production");
     expect(() => siteOrigin(request("https://bank-nif-portugal.alttavia-relocation.com/"))).toThrow(/NEXT_PUBLIC_SITE_URL must be set/);
+  });
+
+  it("reads the build time copy of CONTEXT when the function has none at run time", () => {
+    vi.stubEnv("NETLIFY_BUILD_CONTEXT", "production");
+    expect(() => siteOrigin(request("https://bank-nif-portugal.alttavia-relocation.com/"))).toThrow(/NEXT_PUBLIC_SITE_URL must be set/);
+    vi.stubEnv("NETLIFY_BUILD_CONTEXT", "branch-deploy");
+    expect(siteOrigin(request("https://staging--alttavia.netlify.app/"))).toBe("https://staging--alttavia.netlify.app");
   });
 
   it("keeps the request fallback on deploy previews and branch deploys", () => {

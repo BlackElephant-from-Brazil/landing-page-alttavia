@@ -49,7 +49,13 @@ Read before writing any code:
   service agreement."; the click is the acceptance, `POST /api/checkout`
   refuses a body without `acceptTerms: true` and records
   `terms_accepted_at` and `terms_version` on the order before any Stripe URL
-  (section 8, section 12).
+  (section 8, section 12). `TERMS_VERSION` is "2026-09-28" since the
+  service terms were rewritten that day.
+- **Legal pages published before Patrícia's review** (2026-09-28, the
+  owner's approval of that day). The privacy notice went live at
+  `/en/privacy` and the corrected service terms at `/en/service-terms`;
+  Patrícia reviews every legal document after launch and her corrections
+  come in a later update (section 12).
 - **One unit per purchase** (2026-09-14, `0007_one_unit_poa.sql`,
   `docs/documents-contract.md` section 1). `services.supports_quantity` and
   `user_services.quantity` are gone; `total_cents = price_cents`;
@@ -99,6 +105,14 @@ Read before writing any code:
   to the team, once per review round. Best effort: nothing in `notify.ts`
   throws, so an email can never undo a payment or an upload, and
   `notify.ts` imports nothing from the contract code.
+- **Operations alerts by email, no uptime monitor yet** (2026-09-28, the
+  owner's decision). A server error and a Stripe webhook that was refused or
+  could not record a payment email `ALERTS_TO` (else `FEEDBACK_TO`), at most
+  one per alert (the same route, the same webhook failure, the same order)
+  every 30 minutes, 20 an hour and 30 a day in all per environment; the two
+  webhook refusals anyone can set off are held for 6 hours and never sent
+  without the shared throttle (section 13, "Operations alerts"). The external uptime monitor that was to call
+  `GET /api/health` is postponed until after launch: no plan fits today.
 - **A client changes a file while the order sits on the documents stage,
   and only there** (2026-09-22, section 10 "Sending a file"). A file waiting
   for review can be replaced or removed there; an approved one cannot; once
@@ -153,6 +167,8 @@ S3_ENDPOINT / S3_REGION=auto / S3_BUCKET / S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_K
 EMAIL_API_KEY / EMAIL_FROM / EMAIL_REPLY_TO  # Resend
 EMAIL_TEAM_INBOX=                            # 2026-09-21: team notices, one address; locally the test inbox
 FEEDBACK_TO=                                 # 2026-09-21: admin feedback notes; locally the test inbox
+ALERTS_TO=                                   # 2026-09-28: operations alerts; empty falls back to FEEDBACK_TO
+OPS_ENVIRONMENT=                             # 2026-09-28: optional override ("production" / "staging" / "local"); leave unset
 ADMIN_SUPPORT_EMAIL / ADMIN_SUPPORT_PASSWORD # 2026-09-21: .env.local only, written by admin:create -- --support
 ADMIN_SUPPORT_TOTP_SECRET=                   # 2026-09-25: .env.local only, written by admin:totp
 ADMIN_REQUIRE_MFA=                           # 2026-09-25: "1" asks every admin for the second factor
@@ -161,16 +177,32 @@ NEXT_PUBLIC_SITE_URL=                        # empty locally: use request origin
 
 `EMAIL_TEAM_INBOX` unset skips the team emails with one log line (the
 client email still goes); `FEEDBACK_TO` unset skips the feedback email (the
-note is still saved). The site never reads `ADMIN_SUPPORT_EMAIL`,
+note is still saved). `ALERTS_TO` (2026-09-28) receives the operations
+alerts (section 13); unset, they go to `FEEDBACK_TO`, and with neither set
+each alert is one warn line in the log. Set it on Netlify in both the
+Production and the Branch deploys contexts. `OPS_ENVIRONMENT` is an optional
+override and stays unset (see `CONTEXT` below). The site never reads `ADMIN_SUPPORT_EMAIL`,
 `ADMIN_SUPPORT_PASSWORD` and `ADMIN_SUPPORT_TOTP_SECRET`: they are for
 scripts and test runs (`docs/admin-contract.md` section 4) and are never set
 on Netlify. `ADMIN_REQUIRE_MFA` is read by the site: only the exact value
 `1` asks every admin for the second factor, and it goes on Netlify only
 after every admin account has enrolled (`docs/admin-contract.md` section 2).
-`CONTEXT` is set by Netlify on every build and function (`production`,
-`deploy-preview`, `branch-deploy`, `dev`), never by hand and never in
-`.env.local`; only `production` changes behaviour, by making
-`NEXT_PUBLIC_SITE_URL` required (section 13).
+`CONTEXT` is set by Netlify (`production`, `deploy-preview`,
+`branch-deploy`, `dev`), never by hand and never in `.env.local`; only
+`production` changes behaviour, by making `NEXT_PUBLIC_SITE_URL` required
+(section 13). Netlify documents it as a build variable: its functions get
+only `URL`, `SITE_NAME` and `SITE_ID` at run time (docs.netlify.com,
+"Functions: environment variables", read on 2026-09-28), so a check that
+reads it inside a request may never see `production` there. So
+`next.config.ts` copies it into the server code at build time as
+`NETLIFY_BUILD_CONTEXT` (2026-09-28), and `src/lib/site-url.ts` and the
+operations alerts read `CONTEXT` and, when it is missing, that copy. The
+alerts read `OPS_ENVIRONMENT` before both, as an optional override that
+stays unset. The environment names an alert's subject
+(`[production]`, `[staging]`, `[local]`) and keys its throttle and caps
+(`branch-deploy` and `deploy-preview` read as staging); only a build that
+somehow had no context at all would read as `[local]`, and then production
+and staging would share one throttle and one set of caps.
 
 `scripts/stripe-setup.mjs` shows how scripts read `.env.local` (a small
 parser, CRLF safe). Reuse that pattern; never add `dotenv`.
@@ -475,8 +507,36 @@ one joint deed for both persons (section 10, "Deed slots"); and
 `0017_couple_contract.sql` adds `couple` to the checks on
 `services.contract_template` and `user_service_contracts.template` and sets
 it on the couple service. None changes a grant or an RLS policy except
-0015's function. The migrations run from `0001` to `0017`, and the live
-project has run all of them.
+0015's function.
+
+The go-live round (2026-09-28): `0018_close_trigger_functions.sql` revokes
+EXECUTE on `public.handle_auth_user()` and on Supabase's own
+`public.rls_auto_enable()` from `public`, `anon` and `authenticated` (their
+triggers keep firing: PostgreSQL checks EXECUTE when a trigger is created,
+never when it fires; a DO block skips a missing `rls_auto_enable` and raises
+a NOTICE when the revoke did not take), and pins `set_updated_at()`'s
+`search_path` to empty. `is_admin()` keeps EXECUTE for `authenticated` on
+purpose, RLS needs it. `0019_ops_alerts.sql` adds the table below, the
+throttle of the operations alerts (section 13), with RLS on, no policy and
+every grant revoked from `anon` and `authenticated`:
+
+```sql
+create table public.ops_alerts (
+  key           text primary key,          -- '<environment>:<kind>:<key>', 'cap:<environment>:00' to ':19' (hour), 'day:<environment>:00' to ':29' (day)
+  last_sent_at  timestamptz not null,      -- when the key last claimed an email
+  suppressed    integer not null default 0, -- occurrences held since, reported by the next email
+  created_at    timestamptz not null default now()
+);
+```
+
+The migrations run from `0001` to `0019`. The live project ran `0001` to
+`0017` by 2026-09-25; `0018` and `0019` were written and applied on
+2026-09-28, in order, after a `db:dump` and before this code reached any
+deploy, each with its `schema_migrations` row. 0019 was the hard one: without
+`ops_alerts`, a server error or a payment that could not be recorded is
+throttled only in each serverless instance's memory, so a burst that starts
+many instances sends one email per instance, and the webhook's signature
+and secret refusals are logged only. Nothing in the code depends on 0018.
 
 ### Row level security
 
@@ -493,6 +553,7 @@ Enable RLS on every table above. Policies, and nothing beyond them:
 | user_service_deliverables | none | `select` where the order is own |
 | user_service_applicants (0007) | none | `select` where the order is own; admins `select` all through `public.is_admin()`; all write grants revoked, so nothing is written through PostgREST |
 | user_service_contracts (0009) | none (every grant revoked) | `select` where the order is own (`user_service_contracts_select_own`); admins `select` all through `public.is_admin()` (`user_service_contracts_select_admin`); only `select` is granted, so nothing is written through PostgREST |
+| ops_alerts (0019) | none (every grant revoked) | none, admins included: no policy and every grant revoked; only the server's admin client reads and writes it (`authz:matrix` wants 42501 for anon and every admin session, counts any select that succeeds, even with no row, as a LEAK, and reads its grants, RLS and policies from the catalogue) |
 
 All inserts and updates on `user_answers`, `user_services`, `user_documents`,
 `user_service_events`, `user_service_applicants`, `user_service_contracts` happen through the admin client in route handlers,
@@ -795,6 +856,41 @@ modal, `admin-user.ts`, the login and settings pages, and the scripts
 `auth-config`, `authz-matrix`, `contract-preview`, `generate-contracts`,
 `poa-preview`, `seed-demo` and `seed-history`.
 
+Go-live round (2026-09-28, the owner's answers of that day; section 12 for
+the legal pages, section 13 for the alerts):
+
+```
+supabase/migrations/0018_close_trigger_functions.sql   section 4
+supabase/migrations/0019_ops_alerts.sql     section 4
+src/app/[locale]/privacy/page.tsx           the privacy notice, /en/privacy (section 12)
+src/content/privacy.ts                      the notice's text, privacyText()
+src/content/privacy-link.ts                 PRIVACY_PATH, the link words and the short lines under the forms
+src/content/service-terms.ts                the service terms' text and date line, serviceTermsText()
+src/components/ui/privacy-note.tsx          PrivacyLink and PrivacyNote, the muted "Privacy notice" link
+src/instrumentation.ts                      onRequestError, Node.js runtime only (section 13)
+src/lib/ops/request-error.ts                one server error into one alert; the platform's waitUntil
+src/lib/ops/alerts.ts                       sendOpsAlert, server only
+src/lib/ops/throttle.ts                     the key windows, the hour and day caps, giving a claim back, the memory, ops_alerts
+src/lib/ops/format.ts                       environment (OPS_ENVIRONMENT, then CONTEXT), redaction, stack lines, Lisbon time
+```
+
+The same round changed: `src/app/[locale]/service-terms/page.tsx` and
+`src/content/terms-version.ts` (section 12), `src/app/sitemap.ts` (lists
+`/en/privacy`), `src/content/bank-nif.ts` (the footer's links, Privacy and
+Service terms, and `REGISTERED_OFFICE`),
+`src/components/apply/account-screens.tsx` (the line under the email step),
+`src/components/auth/login-flow.tsx`, `src/components/dashboard/pay-terms-note.tsx`
+and `src/components/dashboard/documents/applicant-details-form.tsx` (the
+privacy link), `src/content/brand.ts` and `src/components/bank/site-footer.tsx`
+(the legal identity, ALTTAVIA RELOCATION, Unipessoal Lda., and the office
+line), `src/content/apply.ts` (the children note), `src/lib/email/templates.ts`
+(`opsAlert`; the layout's button is optional, the footnote names the
+window), `src/app/api/stripe/webhook/route.ts` (the alerts, section 8),
+`src/lib/users/accounts.ts` and the delete dialog of `/admin/users` (an
+account with a paid order is not deleted, `docs/admin-contract.md`),
+`scripts/authz-matrix.mjs` (section 13) and `.env.example` (`ALERTS_TO`,
+`OPS_ENVIRONMENT`).
+
 Nobody edits another agent's files. Shared files that more than one stage
 touches (`package.json`, `.env.example`, `CLAUDE.md`) are edited only by the
 foundation agent and by the orchestrator.
@@ -912,7 +1008,8 @@ callers decide whether to fall back).
    buyer gets any URL (a reused session, a new one or a Payment Link),
    `recordTermsAcceptance` writes `terms_accepted_at` (now) and
    `terms_version` (`TERMS_VERSION` from `src/content/terms-version.ts`,
-   "2026-09-25" for the first wording) with a conditional update on
+   "2026-09-25" for the first wording, "2026-09-28" since the service terms
+   were rewritten that day) with a conditional update on
    `paid_at is null` and the owner. It is rewritten on **every Pay click
    while the order is unpaid**, so the record is the click that led to the
    payment, and frozen once the order is paid; a database error throws, so
@@ -957,6 +1054,19 @@ ignored with 200 (retrying would never pass), and since 2026-09-21
 `verifyPaidSession` hands that order back as `mismatchedOrder` so the
 webhook emails the team "Paid amount does not match the order". Only the
 webhook sends it, once per Stripe event, never the dashboard return.
+
+Since 2026-09-28 the webhook also sends an **operations alert** (section 13,
+"Operations alerts") through `after()`, so Stripe's answer never waits and
+every status code and body stays as it was: on a missing
+`STRIPE_WEBHOOK_SECRET` (503, "Stripe webhook refused:
+STRIPE_WEBHOOK_SECRET is not set"), on a signature that does not verify
+(400, "Stripe webhook refused: the signature did not verify", with the event
+id and type the unverified body claims only when they have Stripe's own
+format, which tells a rotated secret from a stranger's request) and on a
+payment it could not record (500, "Stripe webhook: a payment could not be
+recorded", with the event, the session and the order id, plus an "Open the
+order" button when that id is a UUID, never an email address or a name). A request without a
+signature header is a 400 logged only.
 
 ### Client routes added since
 
@@ -1476,10 +1586,71 @@ The firm's contract models arrived on 2026-09-21 (`docs/terms/`, three
 contracts and Annex I; a fourth contract, the Couple package, derived from
 the package model on 2026-09-25) and the post-payment contract was built on
 them the same day: `docs/agreement-contract.md`, and section 9
-above for the flow. The `/en/service-terms` page itself is unchanged;
-`docs/legal/service-terms-changes.md` (2026-09-21, section 13) lists the
-sentences on it that are no longer true and proposes new ones, for the firm
-to approve.
+above for the flow. Until 2026-09-28 the `/en/service-terms` page itself
+stayed as it was; `docs/legal/service-terms-changes.md` (2026-09-21,
+section 13) listed the sentences on it that were no longer true and
+proposed new ones.
+
+**Since 2026-09-28** (the owner's approval of that day; Patrícia reviews
+every legal document after launch):
+
+- **`/en/service-terms` is rewritten** from that file (its section 0 says
+  which proposal went in as written and which was adapted). It opens by
+  saying it is a summary and the service agreement prevails; it names the
+  seller, ALTTAVIA RELOCATION, Unipessoal Lda., NIPC 518 856 984, at the
+  registered office of the agreement models; it describes the acceptance
+  line under Pay and the record on the order, the details and the signed
+  agreement after payment, the Couple package's one agreement and joint
+  bank deed, and withdrawal through Annex I; it reads "Last updated: 28
+  September 2026". It stays noindex and disallowed in `robots.ts`. Questions
+  2, 5, 8 and 10 of that file are still open and the page says nothing about
+  them. After the review the same day, where the record leaves a point open
+  the page points at the agreement instead of settling it: the NIF power of
+  attorney names the tax representative, and the 14 days run "of concluding
+  your agreement, as Annex I of your agreement sets out" (that file's
+  section 0). The text lives in `src/content/service-terms.ts` and
+  `src/content/service-terms.test.ts` holds it to the house rules, keeps the
+  corrected claims out and fails when its date line and `TERMS_VERSION`
+  name different days.
+- **`TERMS_VERSION` is "2026-09-28"**, so every Pay click from then on
+  records the new wording; a paid order keeps the version of the click that
+  paid it (section 8).
+- **The privacy notice is live at `/en/privacy`**
+  (`src/app/[locale]/privacy/page.tsx`, text in `src/content/privacy.ts`,
+  drawn with the same `LegalPage` as the service terms). The controller is
+  ALTTAVIA RELOCATION, Unipessoal Lda. It is indexable, with its canonical
+  on `/en/privacy`, and listed in `src/app/sitemap.ts`, the one legal page
+  there; `/pt/privacy` and `/es/privacy` redirect to it.
+  `src/content/privacy.test.ts` fails on a leftover draft marker, a broken
+  house rule, a claim of automatic deletion, a controller without its
+  registered office, and session storage keys that no longer match what the
+  wizard writes. `docs/legal/privacy-proposal.md`, section "Published on
+  2026-09-28", says item by item what the page says for each marker of the
+  draft and what was left out because the code cannot prove it.
+- **Where it is linked**: the landing footer's "Privacy" (it went to the
+  main site's general policy before), on every page that uses that footer,
+  and the application form's email step, which carries "We use your name and
+  email to send your sign in code and run your order." followed by a
+  "Privacy notice" link in a new tab. Since the review of the same day also
+  under the email form of `/en/login` ("We use your email to send your sign
+  in code."), under the details form of the client area ("We print these
+  details on your documents.") and after the line under every Pay button,
+  the purchase drawer's Confirm purchase included; all through
+  `src/components/ui/privacy-note.tsx`, words in `src/content/privacy-link.ts`.
+  The document upload slots carry none. The footer's "Terms" link to the
+  main site's terms of use is gone; the footer links "Privacy" and "Service
+  terms".
+- **The legal identity matches**: the footer reads "ALTTAVIA RELOCATION,
+  Unipessoal Lda. · NIPC 518 856 984", then `REGISTERED_OFFICE`
+  (`src/content/bank-nif.ts`, "Av. António Augusto Aguiar, 24, 1st floor
+  right, Office 3, 1050-016 Lisbon, Portugal"), the line both legal pages
+  print, and "© {year} ALTTAVIA RELOCATION, Unipessoal Lda. All rights
+  reserved."; the JSON-LD `legalName` is the same (`brand.legalEntity`,
+  `src/content/brand.ts`), and its street, `brand.address`, carries
+  "Escritório 3".
+- Section 3 of `service-terms-changes.md` lists the claims on the landing,
+  the application form and the service catalogue that still say otherwise;
+  they were not part of this change.
 
 ## 13. Environments, hardening and operations (2026-09-21)
 
@@ -1541,7 +1712,8 @@ to approve.
 - **`src/app/robots.ts`** also disallows `/admin`, `/api`, `/en/dashboard`
   and `/en/login`, next to `/pt`, `/es`, `/en/service-terms` and
   `/en/apply`. Robots only asks: the pages themselves are noindex or behind
-  a session.
+  a session. `/en/privacy` (2026-09-28) is left out of that list on
+  purpose: it is indexable and in the sitemap (section 12).
 - **Stripe mode**: `sk_live_` and `rk_live_` (a restricted key, which
   production may hold) are live, anything else is test
   (`src/lib/stripe/client.ts`). `scripts/stripe-setup.mjs` still recognises
@@ -1558,7 +1730,79 @@ to approve.
   an old answer. It reads nothing from the request and writes nothing. It is
   meant for an uptime monitor calling it every few minutes, which also sees
   at once when the Supabase project has paused, as its current plan does
-  after seven idle days.
+  after seven idle days. **No monitor calls it yet** (2026-09-28): the
+  external uptime monitor is postponed until after launch because no plan
+  fits today. Until then the route serves manual checks
+  (`docs/entrega/runbook.md` sections 8, 10, 11 and 14), the operations
+  alerts below cover server errors and the webhook, and a paused project is
+  noticed by a person or by the alerts its failures raise.
+- **Operations alerts** (2026-09-28). What used to reach only Netlify's
+  function log now also comes by email:
+  - **Server errors.** `src/instrumentation.ts` exports `onRequestError`,
+    which Next.js calls for every server error it catches in a page, a route
+    handler, a server action or the proxy; on the Node.js runtime only it
+    hands the error to `src/lib/ops/request-error.ts`, keyed by route type
+    and file route (`/[locale]/dashboard`, not the address typed), subject
+    "Server error: {route type} {route}", with the method, the path without
+    its query string, the error's name, message and digest, and its first
+    stack lines. Next.js awaits `onRequestError` before it answers, so the
+    alert goes to the platform's `waitUntil` when there is one (the request
+    context Next.js reads for `after()`, which Netlify provides) and the 500
+    leaves at once; without one it is awaited, five seconds at most. It
+    never reads the headers Next.js hands over: they hold the session
+    cookies.
+  - **The Stripe webhook**, section 8: a missing secret, a failed signature,
+    a payment it could not record. The first two are what anyone on the
+    internet can set off with a POST, so they are held for 6 hours per
+    environment and pass `failOpen: false` (below); a failed signature
+    alerts only when the header has Stripe's own shape (`t=` within five
+    minutes of now, a `v1=` of 64 hex digits), which a real Stripe event
+    signed with another secret always has, and is logged only otherwise. A
+    payment that could not be recorded is keyed by its order
+    (`record_failed:<order id>`), so two orders failing in the same half
+    hour each get their email. The log line of a failed verification
+    carries the error's name and message only: Stripe's error object holds
+    the whole payload, with the buyer's email and address.
+  - **`sendOpsAlert`** (`src/lib/ops/alerts.ts`, server only) never throws
+    and resolves within five seconds whatever the database or Resend do. It
+    emails only in a production build (staging is one too, so it alerts,
+    marked `[staging]` when `OPS_ENVIRONMENT` or `CONTEXT` says so, section
+    3); under `next dev` and in the tests it is one `console.info` line. It
+    sends to `ALERTS_TO`, else `FEEDBACK_TO` (section 3). Every value goes
+    through `src/lib/ops/format.ts` first: email addresses become
+    `[email]`, query strings, tokens and keys go, a Postgres row dump is cut
+    to the end of its line whatever parentheses its values hold, each value
+    is cut to 300 characters, at most five stack frames are kept; every
+    alert adds "Environment" and "Time in Lisbon". Template `opsAlert` in
+    `src/lib/email/templates.ts` (team audience, facts table, "First stack
+    lines", a button only when there is an admin link, the line "Repeats of
+    the same alert are held for {30 minutes, or 6 hours} and counted in the
+    next email.").
+  - **Throttle** (`src/lib/ops/throttle.ts`): one email per key every 30
+    minutes (or the caller's `windowMs`), at most 20 per rolling hour and 30
+    per rolling day in all, per environment, shared by every serverless
+    instance through `public.ops_alerts` (section 4). The day cap keeps the
+    alerts well under the Resend plan's daily quota, which the sign in codes
+    and the client emails share. Keys are `<environment>:<kind>:<key>` and
+    each environment has its own cap slots (`cap:` for the hour, `day:` for
+    the day), because staging and production share the database: a flood
+    on staging never silences production. A claim is one conditional insert
+    or update, so of two instances one wins; the next email for a key says
+    how many were held ("N more since the last email"). A repeat this
+    instance already knows to be held skips the database. Each database
+    call gives up after two seconds and all the calls of one decision share
+    2.5 seconds, so the email still starts inside the five second deadline.
+    An email Resend refuses gives its claim back: the cap slots at once, the
+    key five minutes later, the occurrence counted. When the table cannot
+    be read (the alert may be about the database itself, or 0019 is not
+    applied) a server error or a payment that could not be recorded is
+    decided by the same rules in the instance's memory and sent, while the
+    webhook's signature and secret refusals (`failOpen: false`) are logged
+    only: every new instance starts with an empty memory, so a burst of
+    requests would otherwise send one email per instance. At most ten
+    alerts run at once per instance; beyond that one is logged and dropped.
+  - There is no recursion: nothing in the alert path goes through a Next.js
+    handler, and a failure while alerting is one log line.
 - **Error pages.** `src/app/error.tsx`, for anything below the root layout
   (landing, wizard, client area and admin alike): the logo, "Something did
   not load.", a line with the contact email, **Try again** (`unstable_retry`
@@ -1639,7 +1883,26 @@ never print a secret, a key or a row.
   the routes and by PostgREST; without the secret the admin column runs at
   `aal1` and the run says so. The checkout probes send `acceptTerms: true`,
   the deed probe picks a deed slot only (never the agreement slot), and
-  `GET /api/health` is probed as a public route.
+  `GET /api/health` is probed as a public route. Since 2026-09-28 a
+  "PostgREST rpc" table comes first (before Ana's sign out ends the
+  sessions): a read only `GET /rest/v1/rpc/<fn>` for `handle_auth_user`,
+  `rls_auto_enable` and `is_admin` as anon, own, admin-code, admin-aal1 and
+  admin. The HTTP answer alone cannot tell (PostgREST answers PGRST202 for
+  a trigger function whatever its grants, and 0A000 for `rls_auto_enable`),
+  so the catalogue is read first (`has_function_privilege`, one SELECT
+  through the Management API with `SUPABASE_ACCESS_TOKEN`, a warn when it
+  cannot be read): a function that runs, or EXECUTE held by `anon` or
+  `authenticated` on a function that role may not call, is a LEAK whatever
+  the call answered. `is_admin` must not run for anon and must answer false
+  for own, admin-code and admin-aal1 (true is a LEAK) and true for admin (a
+  warn otherwise). The RLS probe judges `ops_alerts` on its grants, never
+  on its rows (it is empty until the first alert, and RLS with no policy
+  answers 0 rows either way): anon, admin-code, admin-aal1 and admin must
+  each get 42501, any select that succeeds is a LEAK even with no row, and
+  the catalogue must show no SELECT, INSERT, UPDATE or DELETE for `anon`
+  and `authenticated`, RLS on and no policy. Before 0018 is applied, expect
+  `handle_auth_user` and `rls_auto_enable` to show a LEAK in every column;
+  before 0019, `ops_alerts` shows "not checked: no such table".
 - Also added the same day, on the admin side: `npm run auth:config` and
   `npm run admin:create -- --support` (`docs/admin-contract.md` section 4).
 - Added on 2026-09-25: `npm run contracts:edit` (the firm's models from the
@@ -1653,15 +1916,20 @@ never print a secret, a key or a row.
 ### Drafts for the firm
 
 Written 2026-09-21 from the code, for Patrícia to approve by Thursday
-24 September 2026, 12:00 Lisbon time. Nothing in them is wired into a page.
+24 September 2026, 12:00 Lisbon time. On 2026-09-28, with the owner's
+approval, the first two were published (section 12); Patrícia reviews each
+published text after launch.
 
-- `docs/legal/privacy-proposal.md`: a privacy notice for a future
-  `/en/privacy`, with **[TO CONFIRM]** on assumptions and **PROPOSAL** on
-  what only the firm decides (retention periods among them). The footer's
-  "Privacy" link still points at the main site's general policy.
+- `docs/legal/privacy-proposal.md`: the privacy notice, published at
+  `/en/privacy` on 2026-09-28. The draft's **[TO CONFIRM]** and
+  **PROPOSAL** markers were resolved before publishing; its section
+  "Published on 2026-09-28" lists each one with what the page says, so the
+  review can go item by item. The footer's "Privacy" link opens the page.
 - `docs/legal/service-terms-changes.md`: the sentences of `/en/service-terms`
-  that are no longer true, the proposed text, and questions on how the page
-  relates to the agreement and Annex I.
+  that were no longer true, the proposed text, and questions on how the page
+  relates to the agreement and Annex I. Applied on 2026-09-28 (its section
+  0); questions 2, 5, 8 and 10 stay open, and its section 3 lists the claims
+  elsewhere still to correct.
 - `docs/legal/fatos-para-patricia.md`: the facts behind both, in Portuguese
   (what data, where it lives, who handles it).
 - `docs/treinamento/roteiro-sessao-1.md`: the script of the first training

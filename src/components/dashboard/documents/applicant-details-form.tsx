@@ -4,7 +4,9 @@ import { X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent, type SyntheticEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { PrivacyNote } from "@/components/ui/privacy-note";
 import { lockBodyScroll } from "@/components/ui/scroll-lock";
+import { DETAILS_PRIVACY_NOTE } from "@/content/privacy-link";
 import { cn } from "@/lib/cn";
 import { MAX_SIGNING_PLACE_LENGTH, parseSigningPlace } from "@/lib/contracts/signing-place";
 import type { ApplicantGender, UserServiceApplicantRow } from "@/lib/db/types";
@@ -702,8 +704,10 @@ export function ApplicantDetailsForm(props: Props) {
             )}
           </div>
 
-          {/* Cancel first in the markup so the primary button ends up on the right, both aligned to that edge. */}
+          {/* Cancel first in the markup so the primary button ends up on the right, both aligned to that edge.
+              The privacy line comes before them and takes the left edge (mr-auto), or its own row on a phone. */}
           <div className="flex flex-wrap items-center justify-end gap-3 border-t border-navy/10 bg-white px-6 py-4 sm:px-8">
+            <PrivacyNote note={DETAILS_PRIVACY_NOTE} className="mr-auto" />
             <Button type="button" variant="ghost" onClick={handleClose} disabled={pending}>
               {copy.cancel}
             </Button>

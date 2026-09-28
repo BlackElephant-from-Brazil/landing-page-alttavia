@@ -1,6 +1,6 @@
 # Privacy notice for /en/privacy: proposal
 
-**Status:** PROPOSAL for Patrícia Viana to correct and approve by **Wednesday, September 23, 2026**; Thursday, September 24, 12:00 Lisbon time, is the last slot. Not wired into any page. Written on September 21, 2026 from the code on branch `main-split-bank-and-nif`, and reviewed again the same day after that day's changes (commit `e3c5fbb`).
+**Status:** Published on **2026-09-28** at `/en/privacy`, with the owner's approval, and awaiting Patrícia Viana's review after launch. Every marker of the draft below was resolved before publishing; the section "Published on 2026-09-28" lists each one and what the page says for it, so the review can go item by item. The published text lives in `src/content/privacy.ts` (checked by `src/content/privacy.test.ts`); "The notice" below is kept as the draft it was made from. Written on September 21, 2026 from the code on branch `main-split-bank-and-nif`, reviewed again the same day after that day's changes (commit `e3c5fbb`), and checked against the code again on September 28, 2026 before publishing.
 
 This is a factual draft prepared by the developer for the lawyer's review. It is not legal advice from us.
 
@@ -13,6 +13,133 @@ How to read it:
 - Once approved, `/en/privacy` should be linked from the landing footer (today its "Privacy" link goes to `https://alttavia-relocation.com/en/privacy-policy`, the main site's general policy, which does not describe this platform) and from the client area. That footer also shows on the application form, the success page and `/en/login`. The client area links no privacy text today, although the details form and the document uploads collect the most data; place the link next to them. The purchase drawer links only the service terms.
 - The same footer carries the legal identity, on every page built with `LegalPage` too, so `/en/privacy` would show it. It reads "Alttavia Relocation · Viana Consultancy · NIPC 518 856 984", prints Av. António Augusto Aguiar 24, 1º direito, 1050-016 Lisboa, and ends "© {year} Viana Consultancy. All rights reserved." (`brand.legalEntity` and `brand.address` in `src/content/brand.ts`). The landing's JSON-LD gives search engines `legalName: "Viana Consultancy"` (`src/components/bank/structured-data.tsx`). Before this page goes live, both must name the controller chosen in "Who we are".
 - These changes are outside this file.
+
+## Published on 2026-09-28
+
+The owner approved publishing the notice on September 28, 2026, with Patrícia Viana to review every legal document after launch. The rules applied: every PROPOSAL retention value and legal basis became the published value; a fact outside the code was published only when the owner or Patrícia gave it; anything else the code could not prove was left out, never guessed. Nothing bracketed, no "PROPOSAL" and no "[N]" reached the page, which `src/content/privacy.test.ts` enforces together with the house rules.
+
+Where it shows: `src/app/[locale]/privacy/page.tsx` (the `LegalPage` shell of `/en/service-terms`, indexable, canonical `/en/privacy`, listed in `src/app/sitemap.ts`; `/pt/privacy` and `/es/privacy` redirect to it). The landing footer's "Privacy" link now opens it (`src/content/bank-nif.ts`), so do the other pages built with that footer (the application form, its success page, `/en/login`, `/en/service-terms`), and the email step of the application form carries the line "We use your name and email to send your sign in code and run your order." with the link "Privacy notice" (`src/components/apply/account-screens.tsx`).
+
+### Read first, for Patrícia after launch
+
+Raised by the review of the published pages on 2026-09-28. The pages now say only what the record holds on each point; the decisions are Patrícia's.
+
+1. **Who the tax representative is** (fatos item 1 e, item 26 below). The powers of attorney appoint Patrícia Soares Viana personally, for a NIF as tax representative, and the privacy notice says so. The service terms used to say "we act as your tax representative"; they now say "Your NIF power of attorney names your tax representative in Portugal", so the two pages agree with the deeds. The agreement's models still have the company accept the role.
+2. **Consent** (item 25). The notice says "We do not rely on your consent for anything today", while the agreement's Sixteenth Clause, 2 has the client "expressly authorise" the processing. Unchanged on both sides.
+3. **When the 14 days start, and the request to start at once** (fatos item 16, service-terms-changes.md question 2). The service terms no longer say the days count from payment, that work starts at the client's request, or that the right ends once the service is performed; they say "you can withdraw within 14 days of concluding your agreement, as Annex I of your agreement sets out", and that Annex I explains when the right ends. Before the next `TERMS_VERSION` bump, either link the blank models before Pay or add the request to start at once to the line under Pay.
+4. **Transfers** (item 39). The published sentence named standard contractual clauses and the EU-US Data Privacy Framework, which nothing records. It now reads: "Supabase stores our database in London, United Kingdom, which the European Commission recognises as giving adequate protection. Where another provider handles data outside the European Economic Area, we rely on the safeguards the GDPR allows. Write to us for details." Still to settle: a data processing agreement with guyshore.com and the account holders (item 29), and the country of guyshore.com and of its backup computer (item 37).
+5. **The signed service agreement's period.** It was listed both among "Your documents" (12 months after the service) and with the agreement (10 years). Now: "Your documents (except your signed service agreement) ..." for 12 months, and "Your service agreement, as we prepared it and as you signed it, ..." for 10 years. Confirm the 10 years covers the signed copy.
+6. **Bank Account only delivers nothing in the platform today.** A read only query of the live catalogue on 2026-09-28 found no `service_deliverables` row for `bank-only` (bundle 3, couple 3, nif-only 2); the 0002 seed gave it "Your Portuguese IBAN" and "Summary", and 0007 did not remove them, so they were probably removed in /admin/services. The notice now says "What we deliver. Depending on the service: ...". If the removal was not intended, add "Your Portuguese IBAN" back on Bank Account only in /admin/services (service-terms-changes.md section 3).
+
+### Changed on 2026-09-28, after the review
+
+- "Who we are" prints the seller from `brand.legalEntity` and `REGISTERED_OFFICE` (`src/content/bank-nif.ts`), the one line the service terms and the site footer now print too. The footer used the Portuguese form without the office number.
+- "Technical records" names the operations alerts: "When something fails on our server or a payment cannot be recorded, an alert is emailed to our team and to the developer. It holds the page address, which can include the reference of your order or account, and the error, with email addresses removed. For a payment, it also holds the order reference and Stripe's references." (`src/lib/ops/`, `ALERTS_TO`, else `FEEDBACK_TO`.)
+- The conditionals about the agreement went ("For services that come with a service agreement", "if your service has one"): every service has a contract template on the live catalogue.
+- Items 4, 5 and 6 of "Read first" above.
+- Outside the page: the footer's "Terms" link to the main site's terms of use is gone (another website's text); the footer keeps "Privacy" and "Service terms". A "Privacy notice" link now also sits under the email form of `/en/login`, under the details form of the client area, and after the line under every Pay button, the purchase drawer's "Confirm purchase" included (`src/components/ui/privacy-note.tsx`, words in `src/content/privacy-link.ts`). The document upload slots carry none.
+
+`LegalPage` has paragraphs, headings and lists only: the bold labels of "What we collect and why" became the short first sentence of each paragraph ("Your account. …"), and the two tables became lists.
+
+### Each marker and what was published
+
+Line numbers are those of this file on September 28, 2026, before this section was added (add 108 to find them now).
+
+**Title and who we are**
+
+1. L21 `[publication date]`: "Last updated: 28 September 2026".
+2. L27 `[TO CONFIRM: address]`: "Av. António Augusto Aguiar, 24, 1st floor right, Office 3, 1050-016 Lisbon, Portugal", the registered office Patrícia gave for the service agreements on 2026-09-24. Not checked against the certidão permanente.
+3. L29 name and address against the certidão permanente: published "ALTTAVIA RELOCATION, Unipessoal Lda., NIPC 518 856 984". The site footer and the landing's JSON-LD were aligned the same day (`brand.legalEntity` in `src/content/brand.ts`, the name the firm's service agreement models give this NIPC): the footer now reads "ALTTAVIA RELOCATION, Unipessoal Lda. · NIPC 518 856 984" and "© {year} ALTTAVIA RELOCATION, Unipessoal Lda.", and `legalName` follows. Still different, outside the code: the Stripe account's public name reads "Consulting".
+4. L31 who the controller is: the company alone. "We decide how your data is used. Under the GDPR, that makes us the controller." Patrícia Soares Viana stays under "Who receives your data" as the attorney the powers of attorney appoint.
+5. L33 data protection officer: none named; the clause is gone and the page keeps "For anything in this notice, write to info@alttavia-relocation.com."
+
+**What we collect and why**
+
+6. L37 PROPOSAL, the application form: published "steps you ask for before a contract (GDPR Article 6(1)(b))".
+7. L39 PROPOSAL, your account: published "contract (Article 6(1)(b))". Added from the code: "Our team can also open an account for you, with your name, your email address and, if you give it, your phone number." (the New user dialog of `/admin/users`, 2026-09-22).
+8. L41 PROPOSAL, your payment: published "contract, and our legal duty to keep accounting and tax records (Article 6(1)(c))". Added from the code: "We also record when you accepted the service terms, and which version you accepted." (`terms_accepted_at` and `terms_version`, migration 0014).
+9. L43 PROPOSAL, your documents: published "contract". Added from the code: "your signed service agreement" in the list (the `signed_agreement` slot of migration 0013, on all four services).
+10. L43 anti money laundering as a second basis: left out. Only "contract" is stated.
+11. L45 PROPOSAL, details for the documents: published "contract".
+12. L45 fatos item 15, launching without agreements: the platform launches with them (every service has a contract template, the Couple package since 0017), so every mention stays.
+13. L47 fatos item 17, how cards and credentials reach the client and whether a copy is kept: left out. The sentence "the bank may also give us cards, access codes or online banking credentials for you, and we pass them on" stays as drafted.
+14. L47 PROPOSAL, what we deliver: published "contract".
+15. L49 PROPOSAL, order history: published "contract".
+16. L51 legal basis for the partner's data (none proposed): the sentence is left out. The page states no legal basis for the partner. For Patrícia.
+17. L51 how the firm informs the partner (Article 14): left out. "Please show them this notice before you share their data." stays.
+18. L53 the children paragraph as a whole: kept only what the code shows. "The form asks only whether your children also need a NIF, yes or no. Children's NIFs are arranged on request, outside this platform: you tell us how many on WhatsApp and we quote them separately."
+19. L53 the form's note "we add them to the order": left out of the page. The form's note (`childrenNifs` in `src/content/apply.ts`) was changed the same day to match: "Children's NIFs on request. Tell us how many on WhatsApp and we quote them separately."
+20. L55 WhatsApp as a provider row: no. WhatsApp is named only under "Messages".
+21. L55 PROPOSAL, messages: published "contract, or steps before a contract".
+22. L57 PROPOSAL, technical records: published "our legitimate interest (Article 6(1)(f))".
+23. L61 Article 22 judgment: paragraph kept as drafted ("A person, not a computer, makes every decision about you." and the form only suggests a service).
+24. L61 kept narrow on purpose: kept as drafted.
+25. L63 consent and the agreement's Sixteenth Clause, 2: published "We do not rely on your consent for anything today." plus the analytics sentence as drafted. The agreement's "expressly authorises" wording is unchanged.
+
+**Who receives your data**
+
+26. L70 Patrícia as recipient or controller, the tax representative, landing house rule 2: kept as drafted, as a recipient. The page still says her powers of attorney appoint her as tax representative for a NIF, while the agreement has the company accept that role (fatos item 1 e). For Patrícia.
+27. L71 fatos item 9, who is bound by professional secrecy: "Our team, bound by professional confidentiality." No staff are named.
+28. L71 the two administrator accounts: not listed as such. The developer's access, its administrator account included, is described in the guyshore.com entry. On 2026-09-28 one of the two administrator accounts has a verified second factor.
+29. L72 fatos item 7, who acts only on instructions, the contract chain, who holds each account: "Except where this notice says otherwise, they handle data only on our instructions." kept as drafted. No data processing agreement is named; the accounts have not moved to the company.
+
+**Service providers and where your data is stored** (a list on the page)
+
+30. L80 Resend region and retention: no region or period stated. Added from the code: the team notices "can carry the signed service agreement you upload as an attachment" (`notifySignedAgreement`, live orders, 8 MB at most).
+31. L81 Stripe's contracting entity and the account holder: neither stated.
+32. L82 Netlify region and log period: neither stated.
+33. L83 the mailbox provider: "Google (Google Workspace), our mailbox at alttavia-relocation.com. It holds the emails you send us and our team's notices about your order." The MX record of alttavia-relocation.com answered `smtp.google.com` on 2026-09-28.
+34. L83 where the mailbox data is: not stated.
+35. L84 guyshore.com's legal name: none. "guyshore.com, the developer that builds and maintains the platform", with the access as drafted.
+36. L84 the legal person that holds each account: "The Supabase project above sits in its organization, and the Cloudflare account and the Netlify team above are held on its side, not ours."
+37. L84 country of the business and of the backup computer: not stated.
+38. L86 Stripe's own purposes: kept as drafted.
+39. L88 transfers, per provider: one sentence, no mechanism per provider. "Some of these providers are based outside the European Economic Area and handle data there under safeguards the GDPR accepts, such as the European Commission's standard contractual clauses or the EU-US Data Privacy Framework." The draft's "Ask us and we will send you a copy of the safeguards" was dropped with the rest of the paragraph; Article 13(1)(f) usually expects a way to obtain that copy. For Patrícia.
+
+**How long we keep it**
+
+40. L92 the PROPOSAL note on the periods: replaced by "Nothing on our platform deletes your data automatically. When a period below ends, we delete the data by hand, in our systems and in our backup copies."
+41. L94 PROPOSAL, an account that never pays: 12 months after the last sign in, or after creation if the account never signed in.
+42. L95 PROPOSAL `[N]`, documents, details and delivered files: until the service ends plus 12 months.
+43. L95 not tied to the tax representation: not tied.
+44. L95 when an order "ends", and any longer period under anti money laundering or professional rules: not stated. The page says "until your service ends".
+45. L96 PROPOSAL, replaced files and earlier agreement versions: "Files we asked you to replace, and earlier versions of your agreement: deleted with the rest of your documents." Added from the code (2026-09-22): "A file you replace or remove yourself before our review is deleted when you do so."
+46. L96 "or sooner": not sooner.
+47. L97 PROPOSAL, the agreement and the payment and order records of paid orders: 10 years.
+48. L97 "the period Portuguese law sets for accounting records": kept. For Patrícia to confirm the statute.
+49. L98 PROPOSAL `[N]`, backups: 90 days.
+50. L99 PROPOSAL, emails: as long as the order they belong to.
+51. L99 Resend's period and attachments: "The providers that send and hold our emails keep their own records for their own periods." No numbers.
+52. L100 PROPOSAL `[N]`, sign in records: 12 months.
+53. L100 provider log periods: "Server logs are kept as long as our hosting, database and file storage providers keep them." No numbers.
+54. L100 PROPOSAL `[N]`, the team's notes about the platform: no value was decided, so the sentence is left out. The page names the notes under "Technical records" and gives them no period. For Patrícia.
+55. L100 nothing deletes the notes (fatos item 5): left out with the sentence above.
+56. L102 PROPOSAL, delete or anonymize at the end of a period: replaced by the deletion by hand sentence of item 40. Anonymizing is not mentioned.
+57. L102 no tool does it (fatos items 6 and 10): the page says the deletion is by hand, in the platform and in the backups.
+
+**Complaints, cookies, security**
+
+58. L118 complaints: the CNPD sentence kept as drafted.
+59. L126 to L128 the cookie table: names checked against `@supabase/ssr` 0.12.7 and `@supabase/auth-js` 2.116.0 as installed, `src/lib/supabase/client.ts`, `server.ts`, `src/proxy.ts`, and the sessionStorage keys `alttavia_apply_v1`, `alttavia_apply_checkout_v1` and `alttavia_apply_name_v1`. The `[id]` of the per flow cookie is printed as "…". Nothing uses localStorage; `alttavia_locale` is set only by the unused language switcher, so it is not listed. The session storage keys are also removed when the visitor starts the form again ("start over").
+60. L127 lifetime of the code verifier cookies: up to 400 days, the `@supabase/ssr` default, removed on sign out.
+61. L132 strictly necessary, no consent asked: kept as drafted, with the Google Tag Manager sentence. `NEXT_PUBLIC_GTM_ID` must stay unset until a consent banner exists.
+62. L136 two step sign in: not stated. The page says "Our team signs in to the admin area with a password." On 2026-09-28 one of the two administrator accounts has a verified second factor, and whether `ADMIN_REQUIRE_MFA` is set on Netlify is not recorded here. Once both are enrolled and it is set, the sentence can say "with a password and a second step".
+63. L136 public access off on the bucket: "Your files sit in private storage." kept; the Cloudflare setting was not checked.
+
+**Also changed from the draft, from the code as it stands on 2026-09-28**
+
+- "Your rights": "You can remove a file yourself until we review it" while the order is collecting documents (`DELETE /api/documents/[id]`, 2026-09-22); "delete a file" left the list of things to write to us about.
+- "Security": "(see guyshore.com above)", since the providers table is a list.
+
+**Outside the page, done on 2026-09-28**
+
+- The footer's legal identity and the JSON-LD `legalName` now name ALTTAVIA RELOCATION, Unipessoal Lda. (item 3).
+- The form's children note now says the children's NIFs are quoted separately (item 19).
+
+**Outside the page, not done on 2026-09-28**
+
+- The document upload slots link no privacy text (the details form, `/en/login` and every Pay line do since the review, see above).
+- The Stripe account's public name ("Consulting").
 
 ## The notice
 
@@ -141,7 +268,7 @@ When what we do changes, we update this notice and the date at the top.
 
 ## Where each statement comes from
 
-For the reviewer. Paths are relative to the repository root.
+For the reviewer. Paths are relative to the repository root. **Kept as of 2026-09-21; where it differs, the section "Published on 2026-09-28" and the code win.** Known to be out of date: the Couple package has had its own contract model since 2026-09-25 (0017), and contract files are stored as `contracts/{orderId}/v{n}-{nonce}.pdf`; the registered office in the contracts is Av. António Augusto Aguiar, 24 since 2026-09-25 (Elias Garcia survives only in the untouched originals), and the letterhead is drawn on page 1 of the PDF; besides `DELETE /api/admin/users/[id]` (which since 2026-09-28 refuses an account with a paid order), a client removes a file waiting for review with `DELETE /api/documents/[id]`, and a confirmed replacement drops the file it supersedes; a `pending` row no longer holds its slot for 15 minutes, the retry takes it over (2026-09-22).
 
 - **Form answers.** `src/lib/apply/types.ts` (`Answers`: `residence`, `applicants`, `childrenNifs` as a boolean, `hasNif`, `bank`, `passport`, `visa`). Before sign in they live only in sessionStorage (`src/lib/apply/storage.ts`, `src/components/apply/checkout-storage.ts`). `POST /api/apply/submit` writes them to `public.user_answers` and `user_services.answers_snapshot`. The wizard's exit screens open `wa.me` with a prefilled text that names the situation (address already in Portugal, more than two adults, separate accounts, NIF already held) and adds "We also need NIFs for children." when that box was ticked (`src/components/apply/exit-screen.tsx`, `applyCopy.exits` in `src/content/apply.ts`); the visitor sends it. `whatsappMessage`, which wrote the applicant count, proof of address country and visa, is no longer called by any screen. The success page and the dashboard help box open WhatsApp with a generic help message. The sessionStorage keys are cleared when the order is saved or on "start over" (`src/components/apply/apply-wizard.tsx`); `alttavia_apply_checkout_v1` holds the product and the email the code was sent to (`checkout-storage.ts`).
 - **Account.** "First name" and "Email address" in `src/components/auth/email-step.tsx`; the name goes to `public.users.full_name` after the code is verified (`src/components/apply/account-screens.tsx`). Both the application form and `/en/login` call `signInWithOtp` with `shouldCreateUser: true` (`email-step.tsx`, `code-step.tsx`, `login-flow.tsx`), so asking for a code creates the auth user, and the trigger in `0001_schema.sql` copies its email into `public.users`. `public.users.phone` exists, but no form fills it. No screen lets a client change their email, and the column grant in `0006_admin_hardening.sql` blocks it in `public.users`. [TO CONFIRM: whether email change is switched off in the Supabase Auth settings. If it is not, a signed in client could change it through the Auth API, and the trigger in `0001_schema.sql` would copy it to the profile.]

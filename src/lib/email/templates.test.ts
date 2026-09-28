@@ -5,6 +5,7 @@ import {
   documentRejected,
   documentsReady,
   newPaidOrder,
+  opsAlert,
   orderCompleted,
   paymentMismatch,
   paymentReceived,
@@ -67,6 +68,28 @@ function all(): [string, EmailContent][] {
       }),
     ],
     ["paymentMismatch", paymentMismatch(MISMATCH)],
+    [
+      "opsAlert webhook with a button",
+      opsAlert({
+        prefix: "[production]",
+        kind: "webhook",
+        subject: "Stripe webhook: a payment could not be recorded",
+        facts: [{ label: "Order", value: ORDER_ID }],
+        stack: ["Error: boom", "at handler (route.ts:10:5)"],
+        moreSince: 3,
+        link: { label: "Open the order", url: ADMIN_URL },
+      }),
+    ],
+    [
+      "opsAlert server error without a button",
+      opsAlert({
+        prefix: "[staging]",
+        kind: "server_error",
+        subject: "Server error: route /api/checkout",
+        facts: [{ label: "Route", value: "/api/checkout" }],
+        moreSince: 0,
+      }),
+    ],
   ];
 }
 

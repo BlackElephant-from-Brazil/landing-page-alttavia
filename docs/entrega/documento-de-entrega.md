@@ -45,7 +45,7 @@ Uma plataforma para vender e prestar os serviços de NIF e de conta bancária em
 | Produção | https://bank-nif-portugal.alttavia-relocation.com |
 | Staging (testes) | https://staging--bank-and-nif-in-portugal.netlify.app |
 
-Caminhos iguais nos dois: vendas `/en`, formulário `/en/apply`, entrada do cliente `/en/login`, área do cliente `/en/dashboard`, termos `/en/service-terms`, painel `/admin/login`. O seu painel: **https://bank-nif-portugal.alttavia-relocation.com/admin/login**.
+Caminhos iguais nos dois: vendas `/en`, formulário `/en/apply`, entrada do cliente `/en/login`, área do cliente `/en/dashboard`, termos `/en/service-terms`, privacidade `/en/privacy`, painel `/admin/login`. O seu painel: **https://bank-nif-portugal.alttavia-relocation.com/admin/login**.
 
 **Painel.** Duas contas têm acesso: a sua, info@alttavia-relocation.com, e a de suporte do desenvolvedor, business+admin@guyshore.com. Entra-se com a senha e, a partir de hoje, com o código do app autenticador. A sua senha é a que você definiu em 22/09 por **Forgot your password?**; o app fica registado na chamada das 18:00. Um código por e-mail nunca abre o painel. Telemóvel perdido: o suporte confirma a sua identidade por telefone e retira o fator. Você entra com a senha e regista o telemóvel novo em **Settings**.
 
@@ -95,18 +95,17 @@ Hoje: 0 USD por mês, fora as taxas do Stripe e o domínio. Com Supabase Pro e R
 
 ## 6. Decisões em aberto
 
-1. **Textos legais.** Aprovar a proposta de aviso de privacidade e as mudanças aos termos. Por decisão de 25/09, o site vai ao ar com a página de termos atual, e o link **Privacy** do rodapé leva à política do site principal. Das 19 decisões no fim do documento de fatos legais ("Textos legais da plataforma: fatos para a sua revisão"), continuam abertas, entre outras:
-   - responsável pelo tratamento e quem vende (1);
-   - prazos de conservação (5);
-   - transferências para fora da UE (8);
-   - parceiro e filhos (11);
-   - Livro de Reclamações e resolução de litígios (13);
-   - qual texto governa e quando o cliente o vê, incluindo a aceitação sob o botão Pay e a Parte A do Anexo I (14);
-   - entrega por e-mail e cartões do banco (17);
-   - promessas da página de termos (19).
+1. **Textos legais.** A 28/09, aprovados para o lançamento, foram publicados o aviso de privacidade (`/en/privacy`, aberto pelo link **Privacy** do rodapé, por uma linha no passo do e-mail do formulário e da entrada do cliente, pelo formulário de dados da área do cliente e pela linha sob cada botão de pagar) e os termos corrigidos (`/en/service-terms`, "Last updated: 28 September 2026"). Os dois nomeiam a ALTTAVIA RELOCATION, Unipessoal Lda. como responsável pelo tratamento e como quem vende, com a mesma morada, e o rodapé do site passou a dizer o mesmo; o link **Terms** do rodapé, que levava aos termos de uso do site principal, saiu. O que o código não mostrava ficou de fora, sem nada adivinhado. Você revê cada texto depois do lançamento, e as suas correções entram numa atualização. Para ler primeiro (a lista "Read first, for Patrícia after launch" da proposta de aviso de privacidade): quem é o representante fiscal (as procurações nomeiam você; os termos agora dizem só que a procuração do NIF o nomeia); o consentimento da Cláusula Décima Sexta; desde quando contam os 14 dias de desistência (os termos agora remetem para o Anexo I); as transferências para fora da UE; o prazo do contrato assinado (10 anos); e o **Bank Account only**, que hoje não tem nenhum arquivo a entregar na plataforma. Das 19 decisões no fim do documento de fatos legais ("Textos legais da plataforma: fatos para a sua revisão"), ficam para essa revisão, entre outras:
+   - prazos de conservação (5): publicados os valores propostos;
+   - transferências para fora da UE (8): uma frase no aviso;
+   - parceiro e filhos (11): a base legal dos dados do parceiro ficou de fora; os NIF dos filhos são orçados à parte;
+   - Livro de Reclamações e resolução de litígios (13): os termos ainda não têm o link nem a entidade;
+   - qual texto governa e quando o cliente o vê, incluindo a aceitação sob o botão Pay e a Parte A do Anexo I (14): os termos dizem que o contrato prevalece, e cada pedido regista a versão aceite;
+   - entrega por e-mail e cartões do banco (17): a página de vendas e o formulário ainda falam de cartão de débito e de envio dos documentos no pagamento;
+   - promessas da página de termos (19): corrigidas; os termos não dizem ainda como chegam o NIF e os códigos, nem o que o cliente recebe se desistir.
 2. **Texto do Couple package.** Aprovar a redação para duas pessoas no contrato e na procuração bancária, alínea d) incluída. Nas contas conjuntas de **Bank Account only** e **NIF + Bank Account**, o contrato cobre os dois titulares? [A CONFIRMAR]
 3. **Endereço de site no timbre.** Os modelos citam https://visas.vianaconsultancy.com/. Mantém ou troca pelo da plataforma?
-4. **Valores fixos do contrato.** "1 (one)" banco, "12 (twelve) months" de representação fiscal e os saltos de numeração das cláusulas [A CONFIRMAR: se já respondidos].
+4. **Valores fixos do contrato.** "1 (one)" banco, "12 (twelve) months" de representação fiscal e os saltos de numeração das cláusulas: respondidos a 24/09 e aplicados a 25/09 (os dois valores ficam, a numeração foi corrigida nos modelos).
 5. **Planos pagos.** Supabase Pro e Resend Pro, e em nome de quem fica a cobrança.
 6. **Contas e subcontratação.** Passar as contas para a firma, ou mantê-las e assinar o acordo de subcontratação (o rascunho vai em anexo; item 7 dos fatos).
 7. **Acesso de suporte e staging.** A conta business+admin@guyshore.com continua no painel, e o staging continua na base da produção (item 9)?
@@ -118,7 +117,8 @@ Hoje: 0 USD por mês, fora as taxas do Stripe e o domínio. Com Supabase Pro e R
 
 | O quê | Quando |
 |---|---|
-| Publicar a privacidade e as mudanças dos termos | Quando você aprovar [A CONFIRMAR: data] |
+| A sua revisão do aviso de privacidade e dos termos, publicados a 28/09 | Depois do lançamento, texto a texto. As correções entram numa atualização |
+| Monitor externo, que confirma a cada poucos minutos que o site e a base de dados respondem | Depois do lançamento: nenhum plano serve hoje. Até lá, o suporte recebe por e-mail os erros do servidor e os avisos de pagamento do Stripe que o site recusou ou não conseguiu registar |
 | A sua assinatura digitalizada no contrato | Quando você a enviar. Até lá, a linha de assinatura da firma sai em branco. Os contratos de pedidos reais já preparados recebem a assinatura com **Regenerate and resend**; os de teste nunca a recebem |
 | Conferir o Stripe contra o painel e desativar os quatro links de pagamento antigos | Segunda, 28/09 [A CONFIRMAR] |
 | Primeira atualização: o feedback que ficou para depois e as respostas do Novo Banco | Terça, 29/09, 08:00 |

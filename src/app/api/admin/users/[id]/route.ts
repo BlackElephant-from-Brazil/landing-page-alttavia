@@ -24,7 +24,8 @@ import { INVALID_BODY, audit, errorResponse, isUuid, readJson, refuse } from "..
  * DELETE, body `{ email }`: removes the client and everything they own, in
  * the order src/lib/users/accounts.ts documents, after the typed email has
  * matched the account. Refuses an administrator and the caller's own
- * account with 403. Answers `{ deleted: true, counts }`. One audit line
+ * account with 403, and since 2026-09-28 an account with a paid order with
+ * 409 (its records are kept for 10 years). Answers `{ deleted: true, counts }`. One audit line
  * with the counts, which is the only record left of what went.
  *
  * The checks run in one order on every method: the id has to be a uuid, the

@@ -45,6 +45,28 @@
  * pages (which read through RLS) go blank: warn. A table the project does
  * not have yet (a migration not applied) is noted.
  *
+ * A server only table (ops_alerts, 0019_ops_alerts.sql) is judged on its
+ * grants, not on the rows it happens to hold (it is empty until the first
+ * alert, and RLS with no policy answers 0 rows either way): anon and every
+ * admin session must be refused with 42501, and any select that succeeds,
+ * even with no row, is a LEAK. The catalogue then confirms it (one SELECT
+ * through the Management API with SUPABASE_ACCESS_TOKEN): no SELECT,
+ * INSERT, UPDATE or DELETE for anon or authenticated, RLS on, no policy.
+ *
+ * Before the routes (Ana's sign out ends her session), every session, anon
+ * included, calls the security definer functions through /rest/v1/rpc
+ * (2026-09-28, 0018_close_trigger_functions.sql). handle_auth_user and
+ * rls_auto_enable run from their triggers only: a LEAK when anon or any
+ * signed in session can run them. is_admin must refuse anon (LEAK) and
+ * answer false to Ana, to the code session and to the aal1 session (true is
+ * a LEAK); the admin's password session should get true (warn otherwise).
+ * The HTTP answer is not enough: PostgREST leaves functions returning
+ * `trigger` out of its schema cache (404 PGRST202 whatever the grants), and
+ * rls_auto_enable, which returns `event_trigger`, answers 0A000. So the
+ * catalogue is read first (has_function_privilege, the same Management API
+ * SELECT), and any EXECUTE held by a role that may not call a function is
+ * a LEAK whatever the call answered; a warn when it cannot be read.
+ *
  * Routes are discovered from the file tree (route.ts files, with the methods
  * each one exports), so a route added later is called too. Known routes have
  * a probe written for them below; an unknown one gets a generic probe (its
@@ -84,7 +106,8 @@
  * Reads .env.local (the readEnvFile pattern of scripts/stripe-setup.mjs):
  * NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
  * SUPABASE_SECRET_KEY, and optionally ADMIN_SUPPORT_EMAIL,
- * ADMIN_SUPPORT_PASSWORD and ADMIN_SUPPORT_TOTP_SECRET.
+ * ADMIN_SUPPORT_PASSWORD, ADMIN_SUPPORT_TOTP_SECRET and SUPABASE_ACCESS_TOKEN
+ * (read only use: the catalogue query of the function probes).
  */
 
 import { randomUUID } from "node:crypto";
@@ -743,7 +766,42 @@ const RLS_TABLES = [
   { table: "user_service_applicants", columns: "id, user_service_id", own: (row, mine) => mine.orderIds.has(row.user_service_id) },
   { table: "user_service_contracts", columns: "id, user_service_id", own: (row, mine) => mine.orderIds.has(row.user_service_id) },
   { table: "admin_feedback", columns: "id", own: () => false },
+  // Only the server reads the alert throttle (admin client, 0019_ops_alerts.sql):
+  // no policy and no grant, so every API role is refused with 42501, admins included.
+  { table: "ops_alerts", columns: "key", own: () => false, serverOnly: true },
 ];
+
+/**
+ * What the catalogue says about a server only table: any SELECT, INSERT,
+ * UPDATE or DELETE that anon or authenticated holds, RLS off, or a policy on
+ * it is a problem. Answers { problems } or { note } when it cannot be read.
+ */
+async function tableCatalogue(url, table) {
+  if (!/^[a-z_]+$/.test(table)) return { note: `unexpected table name ${table}` };
+  const query =
+    "select r.role, p.priv, has_table_privilege(r.role, c.oid, p.priv) as can, c.relrowsecurity as rls, " +
+    "(select count(*)::int from pg_catalog.pg_policies pol where pol.schemaname = 'public' and pol.tablename = c.relname) as policies " +
+    "from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace " +
+    "cross join (values ('anon'), ('authenticated')) as r(role) " +
+    "cross join (values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) as p(priv) " +
+    `where n.nspname = 'public' and c.relname = '${table}'`;
+  const answer = await managementQuery(url, query);
+  if (answer.note) return { note: answer.note };
+  if (answer.rows.length === 0) return { note: "the table is not in the catalogue" };
+  const problems = answer.rows.filter((row) => row.can === true).map((row) => `${row.role} holds ${row.priv} (is 0019_ops_alerts.sql applied?)`);
+  if (answer.rows[0].rls !== true) problems.push("row level security is off");
+  const policies = Number(answer.rows[0].policies) || 0;
+  if (policies > 0) problems.push(`${policies} ${policies === 1 ? "policy" : "policies"} on a table only the server reads`);
+  return { problems };
+}
+
+/** One select a server only table must refuse: "refused" on 42501, "read" when it succeeded (any row count), else "error". */
+async function serverOnlySelect(client, spec) {
+  const res = await client.from(spec.table).select(spec.columns).limit(1);
+  if (res.error?.code === "42501") return { kind: "refused" };
+  if (res.error) return { kind: "error", message: res.error.message ?? "no message" };
+  return { kind: "read", rows: (res.data ?? []).length };
+}
 
 /**
  * Reads each table with the secret key (the truth), with the admin's code
@@ -765,6 +823,9 @@ async function rlsProbe(url, publishable, secretClient, sessions, adminId) {
   const codeClient = asSession(sessions.adminCode);
   const passwordClient = asSession(sessions.admin);
   const aal1Client = sessions.adminAal1 ? asSession(sessions.adminAal1) : null;
+  const anonClient = createClient(url, publishable, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
 
   const rows = [];
   const findings = [];
@@ -778,6 +839,53 @@ async function rlsProbe(url, publishable, secretClient, sessions, adminId) {
     }
     const foreign = (data) => (data ?? []).filter((row) => !spec.own(row, mine)).length;
     const total = foreign(truth.data);
+
+    if (spec.serverOnly) {
+      // Judged on the grants, never on the row count: the table can be empty,
+      // and RLS with no policy answers 0 rows whether or not the grants went.
+      const probes = [
+        ["anon", anonClient],
+        ["adminCode", codeClient],
+        ...(aal1Client ? [["adminAal1", aal1Client]] : []),
+        ["admin", passwordClient],
+      ];
+      const seen = {};
+      let verdict = "";
+      for (const [role, client] of probes) {
+        const result = await serverOnlySelect(client, spec);
+        seen[role] = result;
+        if (result.kind === "read") {
+          verdict = "LEAK";
+          findings.push(
+            `LEAK PostgREST ${spec.table} as ${role}: the select succeeded (${result.rows} row(s)); ` +
+              "only the server may read it (expected 42501; is 0019_ops_alerts.sql applied?)",
+          );
+        } else if (result.kind === "error") {
+          verdict ||= "warn";
+          findings.push(`warn PostgREST ${spec.table} as ${role}: ${result.message.slice(0, 80)} (expected 42501)`);
+        }
+      }
+      const catalogue = await tableCatalogue(url, spec.table);
+      if (catalogue.note) {
+        verdict ||= "warn";
+        findings.push(`warn catalogue ${spec.table}: ${catalogue.note}; its grants are unchecked`);
+      } else {
+        for (const problem of catalogue.problems) {
+          verdict = "LEAK";
+          findings.push(`LEAK catalogue ${spec.table}: ${problem}`);
+        }
+      }
+      const cell = (result) => (result.kind === "refused" ? "refused" : result.kind === "read" ? `read ${result.rows}` : "error");
+      rows.push([
+        spec.table,
+        String(total),
+        cell(seen.adminCode),
+        ...(aal1Client ? [cell(seen.adminAal1)] : []),
+        cell(seen.admin),
+        verdict,
+      ]);
+      continue;
+    }
     const code = await codeClient.from(spec.table).select(spec.columns).limit(PROBE_ROWS);
     const password = await passwordClient.from(spec.table).select(spec.columns).limit(PROBE_ROWS);
     const codeSeen = code.error ? null : foreign(code.data);
@@ -815,6 +923,184 @@ async function rlsProbe(url, publishable, secretClient, sessions, adminId) {
       passwordSeen === null ? "refused" : String(passwordSeen),
       verdict,
     ]);
+  }
+  return { rows, findings };
+}
+
+// ---------------------------------------------------------------------------
+// Functions, straight through PostgREST's /rpc
+// ---------------------------------------------------------------------------
+
+/**
+ * The security definer functions in public (0018_close_trigger_functions.sql).
+ * `callers` are the matrix roles that may execute one. The two trigger
+ * functions run from their triggers and never from the API, so nobody may.
+ * is_admin() keeps EXECUTE for authenticated because every *_select_admin
+ * policy calls it; anon may not, and `answer` is what it must return to each
+ * session: true only for the admin's password session.
+ */
+const RPC_FUNCTIONS = [
+  { fn: "handle_auth_user", callers: [] },
+  { fn: "rls_auto_enable", callers: [] },
+  {
+    fn: "is_admin",
+    callers: ["own", "adminCode", "adminAal1", "admin"],
+    answer: { own: false, adminCode: false, adminAal1: false, admin: true },
+  },
+];
+
+/** The Postgres role PostgREST switches to for each matrix role. */
+const PG_ROLE = { anon: "anon", own: "authenticated", adminCode: "authenticated", adminAal1: "authenticated", admin: "authenticated" };
+
+/**
+ * One call to /rest/v1/rpc/<fn> with the publishable key, and the session's
+ * token when there is one. GET, so PostgREST runs it in a read only
+ * transaction. Answers what came back, sorted:
+ *   ran       2xx, the function ran (`value` holds its answer)
+ *   refused   42501, permission denied for function
+ *   absent    PGRST202, not in PostgREST's schema cache: nobody can call it
+ *             through the API (functions returning `trigger` are left out)
+ *   reached   any other refusal from the database, such as 0A000 for an
+ *             event trigger function: the call got past PostgREST, and the
+ *             answer alone does not say whether EXECUTE was checked
+ *   error     no answer, or a 5xx
+ * Tokens are never printed.
+ */
+async function rpcCall(url, publishable, fn, session) {
+  const headers = { apikey: publishable, Accept: "application/json" };
+  if (session) headers.Authorization = `Bearer ${session.access_token}`;
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+      method: "GET",
+      headers,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const text = await res.text();
+    let body = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = null;
+    }
+    if (res.ok) return { status: res.status, kind: "ran", code: "", value: body, message: "" };
+    const code = typeof body?.code === "string" ? body.code : "";
+    const message = typeof body?.message === "string" ? body.message : "";
+    let kind = "reached";
+    if (code === "42501") kind = "refused";
+    else if (code === "PGRST202") kind = "absent";
+    else if (res.status >= 500) kind = "error";
+    return { status: res.status, kind, code, value: undefined, message };
+  } catch (error) {
+    return { status: 0, kind: "error", code: "", value: undefined, message: error.name === "TimeoutError" ? "timeout" : error.message };
+  }
+}
+
+/**
+ * One read only SELECT on the catalogue through the Supabase Management API
+ * (SUPABASE_ACCESS_TOKEN, the same endpoint scripts/db-migrate.mjs posts
+ * to). Answers { rows } or { note } when it cannot be read. The token is
+ * never printed.
+ */
+async function managementQuery(url, query) {
+  const token = env("SUPABASE_ACCESS_TOKEN");
+  if (!token) return { note: "SUPABASE_ACCESS_TOKEN is not in .env.local" };
+  const ref = new URL(url).hostname.split(".")[0];
+  try {
+    const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const rows = await res.json().catch(() => null);
+    if (!res.ok || !Array.isArray(rows)) return { note: `the catalogue could not be read (HTTP ${res.status})` };
+    return { rows };
+  } catch (error) {
+    return { note: `the catalogue could not be read (${error.name === "TimeoutError" ? "timeout" : error.message})` };
+  }
+}
+
+/**
+ * Who holds EXECUTE on the probed functions, read from the catalogue once,
+ * before any call: the HTTP answer alone cannot tell (PGRST202 for a
+ * trigger function whatever its grants, 0A000 for an event trigger one).
+ * Answers { can(fn, pgRole) } or { note } when it cannot be read.
+ */
+async function functionGrants(url) {
+  const names = RPC_FUNCTIONS.map((spec) => `'${spec.fn}'`).join(", ");
+  const query =
+    "select p.proname as fn, r.role, has_function_privilege(r.role, p.oid, 'EXECUTE') as can " +
+    "from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace " +
+    "cross join (values ('anon'), ('authenticated')) as r(role) " +
+    `where n.nspname = 'public' and p.pronargs = 0 and p.proname in (${names})`;
+  const answer = await managementQuery(url, query);
+  if (answer.note) return { note: answer.note };
+  const map = new Map(answer.rows.map((row) => [`${row.fn}:${row.role}`, row.can === true]));
+  return { can: (fn, role) => map.get(`${fn}:${role}`) };
+}
+
+/**
+ * Calls each function in RPC_FUNCTIONS as every session the matrix holds.
+ * A LEAK is a function that ran for a role that may not call it, or a
+ * catalogue that grants that role EXECUTE, whatever the call answered; or
+ * is_admin() answering true to a session that is not the admin's password
+ * session. Answers the table rows and the findings, in the route table's
+ * finding format.
+ */
+async function rpcProbe(url, publishable, sessions, roles) {
+  const grants = await functionGrants(url);
+  const rows = [];
+  const findings = [];
+  if (grants.note) {
+    findings.push(
+      `warn catalogue functions: ${grants.note}; EXECUTE on ${RPC_FUNCTIONS.map((spec) => spec.fn).join(", ")} is unchecked`,
+    );
+  }
+  for (const spec of RPC_FUNCTIONS) {
+    const cells = [];
+    for (const role of roles) {
+      const session = role === "anon" ? null : sessions[role];
+      if (role !== "anon" && !session) {
+        cells.push("skip");
+        continue;
+      }
+      const result = await rpcCall(url, publishable, spec.fn, session);
+      const allowed = spec.callers.includes(role);
+      const seen = `${result.status || "no answer"}${result.code ? ` ${result.code}` : ""}`;
+      let verdict = "";
+      let why = "";
+      if (!allowed) {
+        const can = grants.can ? grants.can(spec.fn, PG_ROLE[role]) : undefined;
+        if (result.kind === "ran") {
+          verdict = "LEAK";
+          why = "the function ran";
+        } else if (can === true) {
+          verdict = "LEAK";
+          why = `${PG_ROLE[role]} holds EXECUTE in the catalogue (is 0018_close_trigger_functions.sql applied?)`;
+        } else if (result.kind === "reached" && can === undefined) {
+          verdict = "warn";
+          why = `reached the database, and whether ${PG_ROLE[role]} holds EXECUTE is unknown: ${grants.note ?? "the function is not in the catalogue"}`;
+        } else if (result.kind === "error") {
+          verdict = "warn";
+          why = result.message ? result.message.slice(0, 80) : "no answer";
+        }
+      } else if (result.kind !== "ran") {
+        verdict = "warn";
+        why = `${PG_ROLE[role]} must be able to call it (every *_select_admin policy does)`;
+      } else if (result.value !== spec.answer[role]) {
+        verdict = result.value === true ? "LEAK" : "warn";
+        why = `answered ${JSON.stringify(result.value)}, expected ${JSON.stringify(spec.answer[role])}`;
+      }
+      const shown = result.kind === "ran" ? `${result.status} ${JSON.stringify(result.value)}` : seen;
+      cells.push(`${shown}${verdict ? ` ${verdict}` : ""}`);
+      if (verdict) {
+        findings.push(
+          `${verdict.padEnd(4)} PostgREST rpc/${spec.fn} as ${role}: ${seen}` +
+            `${result.message && result.kind !== "ran" ? ` (${result.message.slice(0, 80)})` : ""}; ${why}`,
+        );
+      }
+    }
+    rows.push([spec.fn, ...cells]);
   }
   return { rows, findings };
 }
@@ -927,6 +1213,15 @@ async function main() {
   if (adminNote) console.warn(`\n  ! ${adminNote}`);
   if (mfaNote) console.warn(`\n  ! ${mfaNote}`);
 
+  // --- Functions through PostgREST, before the routes: Ana's sign out ends her session ---
+  const rpcRoles = ["anon", "own", "adminCode", ...(adminSessions.adminAal1 ? ["adminAal1"] : []), "admin"];
+  const rpc = await rpcProbe(
+    url,
+    publishable,
+    { own: ownSession, admin: adminSessions.admin, adminCode: adminSessions.adminCode, adminAal1: adminSessions.adminAal1 },
+    rpcRoles,
+  );
+
   // --- Plan -------------------------------------------------------------------
   const routes = discoverRoutes();
   const known = knownProbes(fx);
@@ -1035,8 +1330,15 @@ async function main() {
     for (const row of rls.rows) console.log(rlsLine(row));
   }
 
+  const rpcHeaders = ["PostgREST rpc", ...rpcRoles.map((role) => LABELS[role] ?? role)];
+  const rpcWidths = rpcHeaders.map((h, i) => Math.max(h.length, ...rpc.rows.map((r) => String(r[i]).length)));
+  const rpcLine = (cols) => cols.map((c, i) => String(c).padEnd(rpcWidths[i])).join("  ").trimEnd();
+  console.log(`\n${rpcLine(rpcHeaders)}`);
+  console.log(rpcWidths.map((w) => "-".repeat(w)).join("  "));
+  for (const row of rpc.rows) console.log(rpcLine(row));
+
   // --- Findings ---------------------------------------------------------------
-  const findings = [...(rls?.findings ?? [])];
+  const findings = [...(rls?.findings ?? []), ...rpc.findings];
   const skips = new Set();
   for (const { route, cells } of results) {
     for (const role of roles) {

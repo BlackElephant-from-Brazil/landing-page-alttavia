@@ -1,6 +1,8 @@
 # /en/service-terms: sentences that are no longer true
 
-**Status:** PROPOSAL for Patrícia Viana to correct and approve by **Wednesday, September 23, 2026**; Thursday, September 24, 12:00 Lisbon time, is the last slot. Questions 1 to 4 (fatos item 14) are needed on Wednesday, when the acceptance line at Pay is built; that line also waits for point 1 of the contract samples message. The page is not edited: this file only proposes text. Written on September 21, 2026, and reviewed again the same day after that day's changes (commit `e3c5fbb`).
+**Status:** APPLIED on **2026-09-28** to `src/app/[locale]/service-terms/page.tsx`, with the owner's approval, and `TERMS_VERSION` (`src/content/terms-version.ts`) moved to "2026-09-28" the same day, so orders accepted from then on record the new wording. Patrícia reviews this page after launch, like every legal document. Her answers of 2026-09-24 (built on 2026-09-25, `docs/agreement-contract.md` section 8) govern where they apply. Section 0 below says which proposal went in as written and which was adapted, and why; each proposal also carries an **Applied** line. Section 3 was out of that change: those claims are still on the landing, the application form and the service catalogue. Questions 2, 5, 8 and 10 of section 4 are still open, and the page is silent on them. The rest of this file, outside section 0 and the Applied lines, is the proposal as written on September 21, kept as the record.
+
+**Original status (2026-09-21):** PROPOSAL for Patrícia Viana to correct and approve by **Wednesday, September 23, 2026**; Thursday, September 24, 12:00 Lisbon time, is the last slot. Questions 1 to 4 (fatos item 14) are needed on Wednesday, when the acceptance line at Pay is built; that line also waits for point 1 of the contract samples message. The page is not edited: this file only proposes text. Written on September 21, 2026, and reviewed again the same day after that day's changes (commit `e3c5fbb`).
 
 This is a factual draft prepared by the developer for the lawyer's review. It is not legal advice from us.
 
@@ -9,6 +11,35 @@ The page is `src/app/[locale]/service-terms/page.tsx` (unchanged since `f126e38`
 **Launch without agreements.** These replacements assume the service agreements are live on launch day. If the contract models are not approved by Thursday, September 24, 12:00 Lisbon time, the platform goes live on Friday without sending them. The sentences in 1.1, 1.3 and 1.6 that mention "your service agreement" or Annex I, and the "agreement prevails" line in question 1, would then describe a document the client never receives. 1.5 and 2.1 take content from the agreement (First Clause, 6; Fourth Clause, 5) without naming it, so they read the same either way. The Couple package never gets one (it has no model), so 1.3 and 1.6 need a version for it in any case. [TO CONFIRM, fatos item 15: which version to publish on Friday: wait for the agreements, or publish without those references.]
 
 Questions 6, 7 and 9 below overlap with the contract samples message for Patrícia (its points 7, 3 and 4), and 2.1 depends on its point 2. They are answered once, there; this file only adds what that message does not ask. Question 4 is asked here in full: point 1 of the message asks how the client signs the agreement, but not about Annex I, Part A.
+
+## 0. Applied on 2026-09-28
+
+**Patrícia's answers of 2026-09-24 that the page now follows.** The service agreement, prepared after payment from the firm's models, is the contract, and the page is a short summary that says so (question 1). The client accepts the service terms and the agreement before paying, with the line under every Pay button, recorded on the order (questions 3 and 4). After paying, the client confirms passport details, receives the agreement by email and in the client area, signs it by hand and uploads the signed copy in the "Signed service agreement" slot (question 4). The Couple package has one agreement naming both persons and one joint bank power of attorney both sign (question 6, for that package). Prices include VAT, but house rule 5 keeps VAT off the page (question 7). The seller is ALTTAVIA RELOCATION, Unipessoal Lda., NIPC 518 856 984, Av. António Augusto Aguiar, 24, 1st floor right, Office 3, 1050-016 Lisbon (question 9). The twelve months of representation are confirmed. "Launch without agreements" above no longer applies: the agreements went live on 2026-09-25, the Couple package included.
+
+**Still open, and the page says nothing about them:** question 2 (no link to the blank models before payment), question 5 (the page does not say how the NIF, the codes or a bank refusal reach the client), question 8 (the page does not say what a withdrawal gives back), question 10 (no Livro de Reclamações link, no entidade RAL). The second half of question 6 is also unanswered: a joint Bank Account only or NIF + Bank Account order has two applicants, and its agreement still names applicant 0 only (`src/lib/contracts/ensure.ts`); the page does not mention those orders.
+
+| Proposal | Applied | Why |
+|---|---|---|
+| 1.1 What we need, when and what | Adapted | Every service now has an agreement (the Couple model since 0017), so "for most services" went. Added from question 4: confirm passport details, the agreement by email and in the client area, signed by hand, the signed copy in the "Signed service agreement" slot (0013). The document list is as written, checked against the live `service_docs` on 2026-09-28 (NIF only 4 slots, Bank Account only 8, NIF + Bank Account 8, Couple 8 with the joint bank deed and the agreement once). Split in two paragraphs: the agreement, then the documents. |
+| 1.2 The third sentence | As written | The in person and notarization sentences went in; the sentence house rule 6 forbids is gone. The optional line on the Fourth Clause, 5 extra fee was a question, not a proposal, and was not added. |
+| 1.3 Missing documents | As written | The Couple package now has an agreement, so "as your service agreement sets out" holds for every order. "And we remind you" was not added: the platform emails a rejected file, never a missing one. |
+| 1.4 The bank account | As written | |
+| 1.5 Approval | As written | With the narrow last sentence. Both gaps in the form are still there on 2026-09-28 (the "nothing to buy" exit shows no `bankUnlikely` warning; `validProducts` still lists bank products), so the wider promise would not be true. "Nationality" is no longer on this page. |
+| 1.6 Cancellation | Adapted | Question 8 is open, so the page takes that question's own fallback: "Annex I of your agreement explains what you pay if you withdraw and includes a withdrawal form." Dropped with it: "If you withdraw after it has started, you pay for the phases already started" and "We keep the fees for the work already started", which both imply that the rest comes back. "Fully delivered" became "fully performed", the agreement's word, since question 5 (what counts as delivery) is open. "You can also end your agreement at any time by writing to us" stays, with "as your agreement sets out". The Couple caveat is moot. |
+| 1.7 Your documents | Adapted | "In the European Union" dropped, by the proposal's own rule: copies leave the bucket (the agreement PDF as a Resend attachment, the signed copy attached to the team's email up to 8 MB, `db:dump -- --with-files`). The privacy notice sentence went in as written, with "linked at the foot of this page" because the page's blocks carry no links: the notice at `/en/privacy` was published the same day and the footer's "Privacy" link points at it. If that notice is ever withdrawn, the fallback is the Sixteenth Clause, 3: "We keep them for as long as our legal and professional duties require, as your service agreement sets out. To ask for a copy or for their deletion, write to us." |
+| 1.8 Getting in touch | As written | Without "within one business day". |
+| 1.9 The date line | As written | "Last updated: 28 September 2026". |
+| 2.1 The NIF | As written | The opening words "we act as your tax representative" stay: the agreement has the Second Party accept the role; the NIF power of attorney naming Patrícia personally is still fatos item 1 e. |
+| 2.2 Timelines | No change | As proposed. |
+
+**Added from the answers, not in sections 1 and 2:** the opening paragraph (question 1), "Who you buy from" (question 9), "Accepting these terms" (questions 3 and 4, the order records the date and the version), and a Couple package item under "What you are buying" (question 6). The old "Combined and couple packages" item became "NIF + Bank Account", since the Couple package now has its own.
+
+**Changed the same day, after the review of the published page** (same date line and same `TERMS_VERSION`, since nothing had been published or paid under the first wording). The text moved to `src/content/service-terms.ts`, with `src/content/service-terms.test.ts` holding it to the house rules, to the corrected claims and to `TERMS_VERSION` (the date line must name the same day). Where the record leaves a point open, the page now points at the agreement instead of settling it:
+
+- 2.1 The NIF: "we act as your tax representative" became "we file your application with Finanças and send you the official document. Your NIF power of attorney names your tax representative in Portugal." The privacy notice says the deeds appoint Patrícia personally; the agreement has the company accept the role. Fatos item 1 e, first on Patrícia's list.
+- 1.6 Cancellation: "They count from the date on your service agreement, the day you paid", "Work starts right after payment, at your request" and "Once the service is fully performed, the right to withdraw ends" went. Now: "you can withdraw within 14 days of concluding your agreement, as Annex I of your agreement sets out. ... Annex I also explains when the right to withdraw ends, what you pay if you withdraw after work has started, and includes a withdrawal form." The only request made before payment is the line under Pay, and the client cannot read the agreement before paying (question 2); fatos item 16 is not among the answers of 2026-09-24. Before the next `TERMS_VERSION` bump, either link the blank models before Pay or add the request to start at once to the Pay line.
+- Accepting these terms: "every Pay or Confirm purchase button" (the purchase drawer's button reads "Confirm purchase"), and the order records "which version of these terms and of the agreement models applied" (`TERMS_VERSION` is bumped for either).
+- Who you buy from: the office line is `REGISTERED_OFFICE` (`src/content/bank-nif.ts`), the one the privacy notice and the footer print.
 
 ## 1. No longer true
 
@@ -20,6 +51,8 @@ Questions 6, 7 and 9 below overlap with the contract samples message for Patríc
 
 **Proposed:** "After payment, you confirm your details and upload your documents in your client area. We print your details on the powers of attorney we prepare and, for most services, on your service agreement. For a NIF: your passport, a proof of address, and the NIF power of attorney, signed by hand. For a bank account: your passport, a proof of address, the tax number from your country and proof of your profession. Add bank statements or an annual income statement. Sign the bank power of attorney by hand. If you already have a NIF, add your NIF document. A package asks for both powers of attorney. Your client area shows the exact list for your order."
 
+**Applied (2026-09-28):** adapted, see section 0.
+
 ### 1.2 "What we need from you": the third sentence
 
 **Now:** the sentence names the one thing house rule 6 in `src/content/bank-nif.ts` says the copy never mentions, then adds "and no appointment".
@@ -27,6 +60,8 @@ Questions 6, 7 and 9 below overlap with the contract samples message for Patríc
 **Why:** it breaks a house rule, and the agreement mentions meetings and calls (Eighth Clause, 2 and 3), so a flat "none" is no longer safe.
 
 **Proposed:** drop it, and add what the agreement requires (Ninth Clause, 1; bank and package models, Seventh Clause, 3, where the client acknowledges that banks may require their personal presence): "For a NIF, you do not need to travel to Portugal. For a bank account, the bank may ask to see you in person, and we tell you if it does. If Finanças or the bank asks for the power of attorney to be notarized or apostilled, that is done at your cost, and we tell you when it is needed." [TO CONFIRM, fatos item 19: how often either happens in practice. Separately, the bank model's Fourth Clause, 5 sets a separate fee, agreed in advance in writing, when the bank needs us to attend in person more than once or when we approach a further bank after a refusal. Should this page say so, for example "Extra visits by us, or a second bank after a refusal, are quoted separately"?] The landing says the opposite of "in person" in three places (section 3).
+
+**Applied (2026-09-28):** as written.
 
 ### 1.3 "What we need from you": missing documents
 
@@ -36,6 +71,8 @@ Questions 6, 7 and 9 below overlap with the contract samples message for Patríc
 
 **Proposed:** "If a file is unreadable or is not the right one, we tell you why in your client area and by email. Your client area always shows which documents are still missing. The timeline pauses until they arrive. After 30 days without them we may pause your file, and after 60 days we may close it, as your service agreement sets out." [TO CONFIRM, fatos items 19 and 16: add "and we remind you" only if the team will send reminders by hand; the platform sends an email for a rejected file (`documentRejected` in `src/lib/email/templates.ts`) and none for a missing one. A Couple package order has no agreement, so for it the 30 and 60 days would rest on this page alone: keep them here without "as your service agreement sets out", or leave them out for that package?]
 
+**Applied (2026-09-28):** as written, with "as your service agreement sets out" for every order.
+
 ### 1.4 "What you are buying": the bank account
 
 **Now:** "…and open an account with one of our banking partners. You receive an IBAN, a debit card and online banking access."
@@ -43,6 +80,8 @@ Questions 6, 7 and 9 below overlap with the contract samples message for Patríc
 **Why:** the agreement says the firm does not guarantee the opening, the bank's approval, or the cards and access codes (First Clause, 4, bank and package models). It passes on the account details, matrix card, access codes and security credentials the bank issues, where the bank makes them available to the attorney (Second Clause, 2 h in the bank model; 2 o in the package model). The platform's only bank deliverable is "Your Portuguese IBAN"; a debit card the bank mails to the client is not something the firm passes on.
 
 **Proposed:** "Bank account: we prepare a limited power of attorney, build your compliance file in Portuguese, and submit it to one of our banking partners. The bank decides after its own review. When it opens the account, we pass on your account details and the cards, codes and online banking access the bank gives us for you." [TO CONFIRM, fatos item 17: how the cards and codes reach the client, and whether the firm keeps a copy. The platform delivers only "Your Portuguese IBAN"; the privacy proposal's "What we deliver" waits for the same answer.]
+
+**Applied (2026-09-28):** as written.
 
 ### 1.5 "Approval"
 
@@ -52,6 +91,8 @@ Questions 6, 7 and 9 below overlap with the contract samples message for Patríc
 
 **Proposed:** "Finanças assigns the NIF, and the bank decides on the account after its own compliance review. Neither decision is ours, so we promise the work and not the outcome. Your fee pays for that work, whatever the decision." The page's last sentence ("Where your nationality or circumstances make an account unlikely, we tell you before you buy rather than after.") does not stay as it is. It holds only for visa status and only in the application form: the nationality list is empty (`BANK_UNSUPPORTED_NATIONALITIES` in `src/lib/apply/rules.ts`), and a purchase from the client area's Services drawer asks no questions (`POST /api/orders` takes a service code only). It does not hold in every case of the form either. A visitor who already has a NIF, wants an account and would be refused it for the visa lands on the "nothing to buy" exit ("You already have what this page sells."), which shows no warning (`src/lib/apply/recommend.ts` returns the `bankUnlikely` note, but `src/components/apply/exit-screen.tsx` reads only the children note). A visitor who still needs a NIF does get the warning and a NIF recommendation, but a package with the account stays listed under "Other options that fit your answers" and can be bought (`validProducts` in `recommend.ts` ignores the warning; `src/components/apply/result-card.tsx`). Proposed last sentence, limited to what happens: "If our form finds an account unlikely while you still need a NIF, it tells you and suggests the NIF first." [TO CONFIRM, fatos item 19: keep this narrow sentence, or have the developer fix both gaps before publication (show the warning on the exit screen, drop bank products from the options when it applies) and keep a wider promise. Also fill the nationality list, or drop "nationality" here and in the landing FAQ "Do you work with my nationality?".]
 
+**Applied (2026-09-28):** as written, with the narrow last sentence.
+
 ### 1.6 "Cancellation"
 
 **Now:** "Tell us before we begin work on your file and the order is cancelled. Once your documents have been submitted to Finanças or to a bank, the work has been performed and cannot be withdrawn."
@@ -59,6 +100,8 @@ Questions 6, 7 and 9 below overlap with the contract samples message for Patríc
 **Why:** work starts right after payment (Fourth Clause, 2; Fifth Clause, 8), so there is no window before work begins. A consumer who buys online may withdraw within 14 days of the agreement (Fifth Clause, 1; Annex I, Part B). Having asked for an immediate start, they pay in proportion to the phases already started (Fifth Clause, 4; Eleventh Clause). The right ends when the service is fully performed (Fifth Clause, 5 and 6), not when documents are submitted. The agreement is dated with the payment date (`src/content/contracts/variables.ts`), but it is only prepared when the client confirms their details, which can be days later; Part B counts the 14 days "from the day of conclusion", and Fourth Clause, 2 has the contract enter into force on cleared payment. So "14 days of your service agreement" could be read as starting from the later date. The page also says nothing about a client who is not a consumer, or who is past the 14 days: Thirteenth Clause, 1 lets the client end the agreement by email at any time, and Thirteenth Clause, 5 keeps the fees for the work already started. The email address is right: the agreement prints `CONTACT.email` as the Second Party's.
 
 **Proposed:** "If you buy as a consumer, you can withdraw within 14 days. They count from the date on your service agreement, the day you paid. You do not need to give a reason. Write to info@alttavia-relocation.com. Work starts right after payment, at your request. If you withdraw after it has started, you pay for the phases already started, as your agreement sets out. Once the service is fully delivered, the right to withdraw ends. Annex I of your agreement explains all of this and includes a withdrawal form. You can also end your agreement at any time by writing to us. We keep the fees for the work already started." [TO CONFIRM, fatos item 16: the date the 14 days run from; the last two sentences, from the Thirteenth Clause. A Couple package order gets no agreement, no Annex I and no withdrawal form: which date its 14 days run from, and where that client finds the withdrawal form, until a model exists (contract samples message, point 7)?] See questions 4 and 8.
+
+**Applied (2026-09-28):** adapted for question 8, see section 0.
 
 ### 1.7 "Your documents"
 
@@ -70,6 +113,8 @@ The uploaded files live in the EU (R2 bucket, EU jurisdiction). Copies can leave
 
 **Proposed:** "You upload them in your client area over an encrypted connection. They are kept in private storage in the European Union, handled under professional confidentiality, and used only for the service you ordered. Our privacy notice explains who handles them, how long we keep them and how to ask for a copy or their deletion." ("privacy notice" links to `/en/privacy`, see `privacy-proposal.md`.) [TO CONFIRM, fatos item 10: keep "in the European Union" only if every copy stays there, backups of the files included; otherwise drop those words.] [TO CONFIRM, fatos item 9: "professional confidentiality" binds whom at the firm, and on what basis for staff who are not lawyers and for the developer's support admin account.]
 
+**Applied (2026-09-28):** adapted, without "in the European Union", see section 0.
+
 ### 1.8 "Getting in touch"
 
 **Now:** "…from the address or number used on the order. We reply within one business day."
@@ -78,6 +123,8 @@ The uploaded files live in the EU (R2 bucket, EU jurisdiction). Copies can leave
 
 **Proposed:** "Write to info@alttavia-relocation.com from the email address on your account, or message +351 934 548 395 on WhatsApp. We reply on business days." [TO CONFIRM, fatos item 19: keep "within one business day" if the firm wants to promise it.]
 
+**Applied (2026-09-28):** as written.
+
 ### 1.9 The date line under the title
 
 **Now:** "Applies to all orders placed through this page"
@@ -85,6 +132,8 @@ The uploaded files live in the EU (R2 bucket, EU jurisdiction). Copies can leave
 **Why:** no order is placed through this page. Orders are placed through the application form and the client area.
 
 **Proposed:** "Last updated: {publication date}"
+
+**Applied (2026-09-28):** as written, "Last updated: 28 September 2026".
 
 ## 2. True, but not in step with the agreement
 
@@ -96,9 +145,13 @@ The uploaded files live in the EU (R2 bucket, EU jurisdiction). Copies can leave
 
 **Proposed:** "…Twelve months of tax representation are included, counted from the day the NIF is assigned. Your tax representative receives Finanças letters for you and passes them on, and does not manage your assets. You also get your Portal das Finanças access. Renewal after the first year is €99 and is optional." [TO CONFIRM, fatos item 19: €99 is still the renewal price. The twelve months are not the firm's text: the platform prints them as [REPRESENTATION PERIOD] from a constant copied from the landing, which the contract samples message asks about (point 2).] [TO CONFIRM, fatos item 1 e: who the tax representative is. The agreement has the company, as Second Party, accept the role (Second Clause, 2 e; Fourth Clause, 5; Ninth Clause, 2), while the NIF power of attorney appoints Patrícia personally ("expressly appointing this attorney as tax representative", `src/content/power-of-attorney.ts`). Until that is answered, the proposed sentence names no one; the page's opening words, "NIF: we act as your tax representative in Portugal", wait for the same answer.] [TO CONFIRM, fatos item 19: is representation included for everyone, EEA residents too? The NIF model says "where legally required" in Second Clause, 1, but its Second Clause, 2 e includes the role for the period agreed in the Fourth Clause with no condition. The package model's Second Clause, 1 has no such condition. Every NIF power of attorney appoints a tax representative. This page states it for everyone, and the application form tells EEA residents "It is included anyway" (`taxRepOptional` in `src/content/apply.ts`).]
 
+**Applied (2026-09-28):** as written; the opening words stay.
+
 ### 2.2 "Timelines"
 
 The paragraphs are consistent with the agreement (Second Clause, 3; Seventh Clause). Two nuances. "Working your file continuously and telling you where it stands whenever the position changes", and the shared sentence that forms the second paragraph under "Timelines", "we tell you the moment one of them moves" (`TIMING_DISCLAIMER` in `src/content/bank-nif.ts`, also on the landing's pricing footnote, FAQ and "Timelines, honestly" guarantee, and in the application form under the result screen and on the success page, `src/content/apply.ts`), promise more than the Eighth Clause ("updates at the relevant stages", on business days and during business hours, paragraph 1; paragraph 4). No change proposed unless the firm prefers the agreement's wording (fatos item 19).
+
+**Applied (2026-09-28):** no change.
 
 ## 3. The same claims elsewhere (not on this page, not changed here)
 
@@ -112,8 +165,9 @@ The paragraphs are consistent with the agreement (Second Clause, 3; Seventh Clau
 - Same file, the meta description "open a Portuguese bank account without leaving home" and the announcement "Portuguese NIF and bank accounts, opened remotely", plus the JSON-LD product name "Portuguese NIF and bank account, opened remotely" (`src/components/bank/structured-data.tsx`). Same as 1.2: the bank may ask to see the client in person (fatos item 19).
 - `src/content/apply.ts`, the application form and its success page: the bank question's hint "IBAN, debit card and online banking in …" and the included item "IBAN, debit card and online banking" on a joint Bank Account only order (same as 1.4); "12 months of tax representation included", for both adults on a Couple order and on a joint NIF + Bank Account order (same as 2.1); the result screen's "Have ready after payment" list, shorter than 1.1 for a bank account; and on the success page, "Within 1 business day" for the team's first check (same as 1.8), "Your NIF arrives by email" and "the IBAN, card and online banking come with it" (same as 1.4 and question 5).
 - The service catalogue in the client area's purchase drawer, right above "By purchasing you accept the Terms" (seeded by `supabase/migrations/0002_seed_services.sql`, editable in /admin/services): "IBAN, debit card and online banking" and "12 months of tax representation included". Same as 1.4 and 2.1.
-- `src/content/bank-nif.ts`, footer: "Privacy" links to the main site's general policy and "Terms" to the main site's terms of use. Neither describes this platform.
-- `src/components/bank/site-footer.tsx`, on the landing, the application form, the success page, the login page and this page: "Alttavia Relocation · Viana Consultancy · NIPC 518 856 984", the address Av. António Augusto Aguiar 24, 1º direito, 1050-016 Lisboa, and "© {year} Viana Consultancy. All rights reserved." (`brand.legalEntity`, `src/content/brand.ts`). The service agreement names ALTTAVIA RELOCATION, Unipessoal Lda., NIPC 518856984, registered office Av. Elias Garcia, 123-A. The landing's JSON-LD (`src/components/bank/structured-data.tsx`) tells search engines the legal name is "Viana Consultancy". Before payment, the client sees the footer's identity on our pages and the Stripe account's public name ("Consulting" today) on Stripe's payment page. See question 9.
+- `src/content/bank-nif.ts`, footer: "Privacy" links to the main site's general policy and "Terms" to the main site's terms of use. Neither describes this platform. **Done (2026-09-28):** "Privacy" now opens `/en/privacy`, and "Terms" is gone (the main site's terms of use, whose sibling privacy policy calls the firm "led by licensed attorneys"); the footer links "Privacy" and "Service terms".
+- The live catalogue, read on 2026-09-28: Bank Account only has **no** `service_deliverables` row (bundle 3, couple 3, nif-only 2). The 0002 seed gave it "Your Portuguese IBAN" and "Summary" and 0007 did not remove them, so they were probably removed in /admin/services. Nothing can be returned to a Bank Account only client in the platform, and the admin has no slot for the IBAN. For the owner or Patrícia: if not intended, add "Your Portuguese IBAN" back in /admin/services. The privacy notice now says "What we deliver. Depending on the service: ...".
+- `src/components/bank/site-footer.tsx`, on the landing, the application form, the success page, the login page and this page: "Alttavia Relocation · Viana Consultancy · NIPC 518 856 984", the address Av. António Augusto Aguiar 24, 1º direito, 1050-016 Lisboa, and "© {year} Viana Consultancy. All rights reserved." (`brand.legalEntity`, `src/content/brand.ts`). The service agreement names ALTTAVIA RELOCATION, Unipessoal Lda., NIPC 518856984, registered office Av. Elias Garcia, 123-A. The landing's JSON-LD (`src/components/bank/structured-data.tsx`) tells search engines the legal name is "Viana Consultancy". Before payment, the client sees the footer's identity on our pages and the Stripe account's public name ("Consulting" today) on Stripe's payment page. See question 9. **Done (2026-09-28), in part:** `brand.legalEntity` is now "ALTTAVIA RELOCATION, Unipessoal Lda.", so the footer reads "ALTTAVIA RELOCATION, Unipessoal Lda. · NIPC 518 856 984" and "© {year} ALTTAVIA RELOCATION, Unipessoal Lda.", and the JSON-LD `legalName` follows; the registered office in the models is Aguiar since 2026-09-25. After the review the same day, the footer's address line is `REGISTERED_OFFICE` ("Av. António Augusto Aguiar, 24, 1st floor right, Office 3, 1050-016 Lisbon, Portugal"), the line the legal pages print, and the copyright line no longer doubles the full stop after "Lda."; `brand.address.street` (the JSON-LD) gained "Escritório 3". The Stripe account's public name is the owner's to change.
 
 ## 4. Where the service agreement and Annex I meet this page: questions
 

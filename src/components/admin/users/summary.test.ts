@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AdminUserCounts } from "@/lib/db/types";
 
-import { NOTHING_STORED, describeDeletion, joinParts } from "./summary";
+import { NOTHING_STORED, deletionBlock, describeDeletion, joinParts } from "./summary";
 
 /** The line the delete dialog shows above the email field. */
 
@@ -40,5 +40,19 @@ describe("describeDeletion", () => {
 
   it("has a line for an account with nothing on it", () => {
     expect(describeDeletion(counts())).toBe(NOTHING_STORED);
+  });
+});
+
+describe("deletionBlock", () => {
+  it("lets an account without a paid order go", () => {
+    expect(deletionBlock(counts())).toBeNull();
+    expect(deletionBlock(counts({ orders: 2, files: 3 }))).toBeNull();
+  });
+
+  it("stops an account with a paid order, and says why", () => {
+    expect(deletionBlock(counts({ orders: 2, paidOrders: 1 }))).toBe(
+      "This client has 1 paid order. We keep their records for 10 years, so the account cannot be deleted.",
+    );
+    expect(deletionBlock(counts({ orders: 3, paidOrders: 2 }))).toContain("2 paid orders");
   });
 });

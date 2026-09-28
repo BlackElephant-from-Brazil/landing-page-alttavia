@@ -10,7 +10,7 @@ import { fieldClass, smallLabelClass, useAction } from "../order/use-action";
 import { usersCopy } from "./copy";
 import { AdminDialog, DialogForm } from "./dialog";
 import { getJson } from "./fetch-json";
-import { describeDeletion } from "./summary";
+import { deletionBlock, describeDeletion } from "./summary";
 import type { UserSummary } from "./types";
 
 /**
@@ -26,8 +26,10 @@ import type { UserSummary } from "./types";
  * checks it too: a click on the wrong row is caught twice.
  *
  * DELETE /api/admin/users/[id] removes the files in the bucket first, then
- * the rows, then the account. It refuses an administrator and the account
- * the admin is signed in with.
+ * the rows, then the account. It refuses an administrator, the account the
+ * admin is signed in with, and an account with a paid order, whose records
+ * are kept for 10 years: the dialog reads that from the counts and says so
+ * at once, with the button off.
  */
 
 export function DeleteUserDialog({ user, onClose }: { user: UserSummary; onClose: () => void }) {
@@ -52,10 +54,11 @@ export function DeleteUserDialog({ user, onClose }: { user: UserSummary; onClose
   }, [user.id]);
 
   const matches = typed.trim().toLowerCase() === user.email.toLowerCase();
+  const blocked = counts ? deletionBlock(counts) : null;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending || !matches) return;
+    if (pending || !matches || blocked) return;
     const ok = await run(() =>
       requestJson(`/api/admin/users/${user.id}`, { method: "DELETE", body: { email: typed.trim() } }),
     );
@@ -74,13 +77,13 @@ export function DeleteUserDialog({ user, onClose }: { user: UserSummary; onClose
         submitLabel={usersCopy.remove.submit}
         workingLabel={usersCopy.remove.working}
         cancelLabel={usersCopy.fields.cancel}
-        submitDisabled={!matches}
+        submitDisabled={!matches || Boolean(blocked)}
         tone="danger"
       >
         <div className="rounded-sm border border-clay/25 bg-clay/5 px-4 py-3.5">
           <p className="font-medium text-navy">{user.email}</p>
           <p id={summaryId} aria-live="polite" className="mt-1 text-[0.85rem] leading-relaxed text-navy-soft">
-            {summary}
+            {blocked ?? summary}
           </p>
         </div>
 

@@ -31,9 +31,14 @@ const HOST = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0
 /** Listen addresses that mean "every interface" and cannot be opened in a browser. */
 const UNSPECIFIED = new Set(["0.0.0.0", "[::]"]);
 
-/** Netlify sets CONTEXT to production, deploy-preview, branch-deploy or dev. */
+/**
+ * Netlify sets CONTEXT to production, deploy-preview, branch-deploy or dev
+ * while the site builds. Server functions do not get it at run time, so
+ * next.config.ts copies it into the server code as NETLIFY_BUILD_CONTEXT
+ * (2026-09-28); CONTEXT still wins when it is present.
+ */
 function isNetlifyProduction(): boolean {
-  return process.env.CONTEXT === "production";
+  return (process.env.CONTEXT || process.env.NETLIFY_BUILD_CONTEXT) === "production";
 }
 
 /** The first entry of a header that proxies may send as a comma separated list. */

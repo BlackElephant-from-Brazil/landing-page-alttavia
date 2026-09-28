@@ -28,6 +28,9 @@
  * Inline emphasis uses **bold** and *italic* markers, rendered by <RichText />.
  */
 
+import { PRIVACY_PATH } from "./privacy-link";
+import { SERVICE_TERMS_PATH } from "./terms-version";
+
 /**
  * Where every buy button goes: the /en/apply wizard, which asks a few
  * questions and recommends one of the four products before handing over to
@@ -173,6 +176,14 @@ export const CONTACT = {
   whatsapp: "https://wa.me/351934548395",
   nipc: "NIPC 518 856 984",
 } as const;
+
+/**
+ * The seller's registered office, as the service agreements print it since
+ * 2026-09-25 (Patrícia's instruction). The privacy notice, the service
+ * terms and the footer print this one line; the Portuguese form with
+ * "Escritório 3" is `brand.address` (src/content/brand.ts), for the JSON-LD.
+ */
+export const REGISTERED_OFFICE = "Av. António Augusto Aguiar, 24, 1st floor right, Office 3, 1050-016 Lisbon, Portugal";
 
 /**
  * The organic search terms this page is written to rank for, in priority order.
@@ -685,18 +696,14 @@ export const bankNif = {
     /** Required by Google Ads for this niche. Keep it visually bold. */
     disclaimer:
       "Alttavia Relocation is a private company and is not affiliated with AT/Finanças or any government body.",
+    /**
+     * This platform's own pages only. The main site's terms of use are not
+     * linked: they are another website's text, and the service terms govern a
+     * purchase here (removed 2026-09-28).
+     */
     links: [
-      {
-        label: "Terms",
-        href: "https://alttavia-relocation.com/en/terms-of-use",
-        external: true,
-      },
-      {
-        label: "Privacy",
-        href: "https://alttavia-relocation.com/en/privacy-policy",
-        external: true,
-      },
-      { label: "Service terms", href: "/en/service-terms", external: false },
+      { label: "Privacy", href: PRIVACY_PATH, external: false },
+      { label: "Service terms", href: SERVICE_TERMS_PATH, external: false },
     ],
   },
 

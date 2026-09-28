@@ -255,7 +255,7 @@ export const applyCopy = {
   } satisfies Record<ReasonId, string>,
 
   notes: {
-    childrenNifs: "Children's NIFs on request. Tell us how many on WhatsApp and we add them to the order.",
+    childrenNifs: "Children's NIFs on request. Tell us how many on WhatsApp and we quote them separately.",
     taxRepRequired: "12 months of tax representation are included, required while you live outside the EEA. Cancel once you are resident.",
     taxRepOptional: "You live inside the EEA, so tax representation is optional for you. It is included anyway, and you can drop it at any time.",
     bankUnlikely: "The bank asks for proof of a visa in progress before opening an account, and you told us you are not applying for one. We recommend the NIF now and the account once a visa process starts. Message us if your situation is different.",

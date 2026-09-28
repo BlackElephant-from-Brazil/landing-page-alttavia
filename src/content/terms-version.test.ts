@@ -50,6 +50,6 @@ describe("terms acceptance line", () => {
   it("names the version by a calendar day", () => {
     expect(TERMS_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(Number.isNaN(Date.parse(`${TERMS_VERSION}T00:00:00Z`))).toBe(false);
-    expect(TERMS_VERSION).toBe("2026-09-25");
+    expect(TERMS_VERSION).toBe("2026-09-28");
   });
 });
