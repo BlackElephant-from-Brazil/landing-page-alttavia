@@ -9,7 +9,9 @@
  * separate worlds in Stripe: separate products, prices, links and keys.
  *
  *   npm run stripe:setup            reads STRIPE_SECRET_KEY from .env.local
- *   npm run stripe:setup -- --live  same, for the live key
+ *   npm run stripe:setup -- --live  same, for the live key (sk_live_ or a
+ *                                   restricted rk_live_ with write access to
+ *                                   Products, Prices and Payment Links)
  *
  * Reading the key from .env.local rather than the command line keeps it out of
  * your shell history, and works the same in cmd, PowerShell and bash, none of
@@ -205,7 +207,9 @@ async function main() {
     console.error("then run: npm run stripe:setup");
     process.exit(1);
   }
-  const isLiveKey = KEY.startsWith("sk_live_");
+  // A restricted key (rk_live_ / rk_test_) works too, as long as it may write
+  // Products, Prices and Payment Links (2026-09-28: production uses one).
+  const isLiveKey = /^(sk|rk)_live_/.test(KEY);
   if (isLiveKey && !live) {
     console.error("That is a live key. Re-run with --live if you mean it:\n");
     console.error("  STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs --live");
