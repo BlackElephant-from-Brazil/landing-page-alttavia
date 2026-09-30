@@ -1,14 +1,16 @@
 # Proposta de suporte da plataforma
 
-**Modelo reutilizável da guyshore.com, preenchido para a Alttavia Relocation a 25/09/2026, dia da entrega.**
+**Modelo reutilizável da guyshore.com, preenchido para a Alttavia Relocation a 25/09/2026 e atualizado a 30/09/2026.**
 
-Esta proposta diz como a plataforma é mantida depois da entrega. Os campos entre [colchetes] preenchem-se para cada firma, e **[A CONFIRMAR]** marca o que ainda depende de uma decisão. O exemplo da secção 8 usa valores inventados.
+Esta proposta diz como a plataforma é mantida depois da entrega. Os campos entre [colchetes] preenchem-se para cada firma, e **[A CONFIRMAR: ...]** marca o que ainda depende de uma decisão. O exemplo da secção 8 usa valores inventados.
+
+**Para a Alttavia Relocation, este suporte é prestado sem custo (secção 9); os valores ficam como modelo para a próxima firma.**
 
 ## 1. Partes e vigência
 
 | | |
 |---|---|
-| Quem presta o suporte | guyshore.com (Guilherme Kodenvis) [A CONFIRMAR: entidade que assina e fatura] |
+| Quem presta o suporte | guyshore.com (Guilherme Kodenvis) [A CONFIRMAR: que entidade assina e fatura pela guyshore.com (nome legal, número fiscal, país)?] |
 | Firma | [nome da firma] |
 | Produção e ambiente de testes | [endereços]. O ambiente de testes fica no ar depois da entrega. |
 | Início e duração | [data do termo de aceite], por [12 meses], renovada [automaticamente]. Qualquer das partes termina com [30 dias] de aviso. |
@@ -19,7 +21,7 @@ Esta proposta diz como a plataforma é mantida depois da entrega. Os campos entr
 |---|---|---|---|
 | Correção de defeito | A plataforma não faz o que foi entregue e aceite. | O botão de pagamento não abre o Stripe. Um e-mail previsto não sai. | Sempre incluída. Sem contrato de suporte, vale uma garantia de [90 dias] depois do aceite. |
 | Pequeno ajuste | Uma mudança pequena no que já existe, até [2 horas] cada. | Trocar o texto de uma página ou de um e-mail. Mudar o preço de um serviço que já existe. | Incluído até [__ horas] por mês, que não passam para o mês seguinte. |
-| Trabalho novo | O que acrescenta uma função ou muda a forma de trabalhar. | Um serviço novo no formulário de candidatura. Outra língua. Assinatura digital do contrato. Passar as contas dos fornecedores para o nome da firma. | Orçamento em horas antes de começar. Só avança com o sim da firma. |
+| Trabalho novo | O que acrescenta uma função ou muda a forma de trabalhar. | Um serviço novo no formulário de candidatura. Outra língua. Assinatura digital do contrato. Passar as contas dos fornecedores para o nome da firma. | Estimativa em horas antes de começar. Só avança com o sim da firma. |
 
 **A firma faz sozinha:** em **Services**, as notas, os documentos pedidos, os entregáveis e as etapas; em **Users**, criar contas e atribuir compras.
 
@@ -32,7 +34,7 @@ Esta proposta diz como a plataforma é mantida depois da entrega. Os campos entr
 
 ## 3. Canais
 
-1. **O botão Feedback**, no canto de todas as páginas do painel. É o canal principal. Preencha **Which screen** (para uma página do cliente, cole o endereço), **What did you expect**, **What happened** e a prioridade em **How much does it matter**, uma nota por assunto. O andamento aparece em **Feedback**, no menu: **Open**, **Planned**, **Done** ou **Won't do**. Cada nota chega também por e-mail ao suporte [A CONFIRMAR: caixa que a recebe em produção].
+1. **O botão Feedback**, no canto de todas as páginas do painel. É o canal principal. Preencha **Which screen** (para uma página do cliente, cole o endereço), **What did you expect**, **What happened** e a prioridade em **How much does it matter**, uma nota por assunto. O andamento aparece em **Feedback**, no menu: **Open**, **Planned**, **Done** ou **Won't do**. Cada nota chega também por e-mail ao suporte (na Alttavia, em business@guyshore.com).
 2. **E-mail** para [endereço de suporte]: quando o painel não abre, ou para perguntas sobre custos e contas.
 3. **WhatsApp** para [número]: só para avisar de um **Blocks my work**. O detalhe fica na nota.
 
@@ -46,50 +48,50 @@ Dias úteis, das [09:00 às 18:00] de Lisboa, fora dos feriados [nacionais de Po
 |---|---|---|---|
 | **Blocks my work** | O trabalho ou as vendas param: ninguém consegue pagar, o painel não abre. | [__ horas úteis] | [__ dia útil] |
 | **Should change** | Funciona, mas está errado ou dificulta o dia a dia. | [__ dia útil] | Na atualização seguinte |
-| **Nice to have** | Uma melhoria. | [__ dias úteis] | Lista com data, ou orçamento |
+| **Nice to have** | Uma melhoria. | [__ dias úteis] | Lista com data, ou estimativa |
 
-Fora do horário: [sem cobertura, ou melhor esforço quando as vendas param] [A CONFIRMAR].
+Fora do horário: [sem cobertura, ou melhor esforço quando as vendas param].
 
-Cada mudança passa pelos testes automáticos e pelo ambiente de testes, e é publicada à mão numa janela fixa, [dia e hora de Lisboa]. Uma correção de **Blocks my work** sai assim que estiver testada, e uma publicação que corra mal volta à versão anterior em minutos. Atenção: o ambiente de testes usa a mesma base de dados da produção, só o Stripe está em modo de teste.
+Cada mudança passa pelos testes automáticos e pelo ambiente de testes, e é publicada à mão numa janela fixa, [dia e hora de Lisboa]. A produção tem a publicação automática travada. Uma correção de **Blocks my work** sai assim que estiver testada, e uma publicação que corra mal volta à versão anterior em minutos. Atenção: o ambiente de testes usa a mesma base de dados da produção, só o Stripe está em modo de teste.
 
 ## 5. Rotina mensal
 
 No [primeiro dia útil] de cada mês, o suporte verifica o mês anterior e manda à firma um resumo curto por e-mail.
 
-1. **Limites.** Supabase: 500 MB de base de dados, 5 GB de tráfego e 50 mil contas ativas por mês; o projeto pausa depois de 7 dias sem uso. Resend: 3 mil e-mails por mês e 100 por dia, códigos de entrada incluídos. Cloudflare R2: 10 GB. Netlify: 300 créditos por mês. Acima de [70 %] de um limite, o resumo traz a opção paga.
-2. **Verificação do site.** Um endereço do site, bank-nif-portugal.alttavia-relocation.com/api/health, responde se o site chega à base de dados. Um serviço externo abre-o a cada 5 minutos e avisa o suporte quando falha. Cada falha do mês fica explicada. [A CONFIRMAR: o serviço externo.]
-3. **Cópias de segurança.** Não há cópia automática. O suporte faz uma cópia de todas as tabelas (e dos documentos dos clientes, quando pedido) e confirma que ela se lê, sem repor nada. Guarda as [3] últimas no computador do desenvolvedor. Contêm dados pessoais. [A CONFIRMAR: frequência e um segundo local.]
-4. **Stripe contra o painel.** Em **Overview**, preencha **From** e **To** com o mês e clique **Apply**. Compare **Paid** e **Revenue** com os pagamentos do Stripe em modo real e, depois, pedido a pedido em **Orders**. Diferenças esperadas: os pedidos com **Already paid outside the platform** não estão no Stripe. Os pedidos do ambiente de testes e das contas de demonstração (demo.alttavia.invalid) estão no painel, porque a base é a mesma. Um pagamento devolvido no Stripe continua pago no painel. Outra diferença, ou um e-mail **Paid amount does not match the order**, trata-se como defeito.
+1. **Limites.** Supabase: 500 MB de base de dados, 5 GB de tráfego e 50 mil contas ativas por mês; o projeto pausa depois de 7 dias sem uso. Resend: 3 mil e-mails por mês e 100 por dia, códigos de entrada incluídos. Cloudflare R2: 10 GB. Netlify, no plano por créditos: 300 créditos por mês, e sem créditos o site fica fora do ar até ao mês seguinte. Acima de [70 %] de um limite, o resumo traz a opção paga.
+2. **Verificação do site.** Um endereço do site, bank-nif-portugal.alttavia-relocation.com/api/health, responde se o site chega à base de dados. O monitor externo que o abre a cada 5 minutos fica para depois do lançamento: nenhum plano serve hoje. Até lá, o suporte recebe por e-mail os erros do servidor e as falhas do webhook do Stripe, e abre o endereço à mão depois de cada publicação. Cada alerta do mês fica explicado no resumo.
+3. **Cópias de segurança.** Não há cópia automática. O suporte faz uma cópia de todas as tabelas (e dos documentos dos clientes, quando pedido) antes de cada atualização da base e confirma que ela se lê, sem repor nada. Guarda as [3] últimas no computador do desenvolvedor (na Alttavia, hoje ficam todas, seis a 30/09/2026, sem prazo). Contêm dados pessoais. [A CONFIRMAR: com que frequência regular se faz a cópia na Alttavia, e há um segundo local para a guardar?]
+4. **Stripe contra o painel.** Em **Overview**, preencha **From** e **To** com o mês e clique **Apply**. Compare **Paid** e **Revenue** com os pagamentos do Stripe em modo real e, depois, pedido a pedido em **Orders**. Diferenças esperadas: os pedidos com **Already paid outside the platform** não estão no Stripe. Os pedidos do ambiente de testes e das contas de demonstração (demo.alttavia.invalid) estão no painel, porque a base é a mesma e esses dados ficam. Um pagamento devolvido no Stripe continua pago no painel. Outra diferença, ou um e-mail **Paid amount does not match the order**, trata-se como defeito.
 5. **Feedback.** Uma nota **Open** há mais de [5 dias úteis] tem explicação no resumo.
-6. **Acessos.** As contas de administração e o segundo fator de cada uma. As chaves com prazo, como a chave pessoal com que o desenvolvedor acede à base de dados, que expira a 11/10/2026. As atualizações de segurança do código.
+6. **Acessos.** As contas de administração, e o segundo fator de quem o tiver ligado (no lançamento, só a conta de suporte). As chaves com prazo, como a chave pessoal com que o desenvolvedor acede à base de dados, que expira a 11/10/2026. As atualizações de segurança do código.
 
 ## 6. Fornecedores: quem paga e quanto
 
-Preços públicos de 25/09/2026, em dólares americanos. Podem mudar.
+Preços públicos de 30/09/2026, em dólares americanos (o Stripe em euros). Podem mudar.
 
 | Fornecedor | Para quê | Conta em nome de | Hoje | Opção paga |
 |---|---|---|---|---|
 | Supabase | Base de dados e entrada nas contas | guyshore.com | Plano de entrada, 0 USD | Pro, desde 25 USD por mês: sem pausa, cópia diária guardada 7 dias |
 | Cloudflare R2 | Documentos, contratos e entregas | Desenvolvedor | Até 10 GB, 0 USD | 0,015 USD por GB e por mês acima disso |
-| Netlify | Site e servidor | Desenvolvedor | Plano de entrada, 0 USD: 300 créditos por mês (cada publicação em produção gasta 15, cada GB de tráfego 20) | Personal, 9 USD por mês, ou Pro, 20 USD |
-| Resend | E-mails, de send.alttavia-relocation.com | [A CONFIRMAR] | 3 mil por mês, 0 USD | Pro, 20 USD por mês: 50 mil, sem limite diário |
-| Stripe | Pagamentos | A firma | Comissão por pagamento, sem mensalidade [A CONFIRMAR: tabela da conta] | Não se aplica |
-| Domínio e caixas de e-mail | Endereços da firma | [A CONFIRMAR] | [A CONFIRMAR] | Não se aplica |
+| Netlify | Site e servidor | Desenvolvedor | Plano de entrada, 0 USD. No plano por créditos, 300 créditos por mês (cada publicação em produção gasta 15, cada GB de tráfego 20, cada GB-hora do servidor 10, cada 10 mil pedidos 2); sem créditos, o site fica fora do ar até ao mês seguinte | Personal, 9 USD por mês, ou Pro, 20 USD |
+| Resend | E-mails, de send.alttavia-relocation.com | Desenvolvedor | 3 mil por mês, 0 USD | Pro, 20 USD por mês: 50 mil, sem limite diário |
+| Stripe | Pagamentos | A firma | Comissão por pagamento, sem mensalidade. Tabela pública em Portugal: 1,5 % + 0,25 € (cartões do EEE), 2,8 % + 0,25 € (cartões premium do EEE), 2,5 % + 0,25 € (Reino Unido), 3,15 % + 0,25 € (outros), mais 2 % com conversão de moeda | Não se aplica |
+| Domínio e caixas de e-mail | Endereços da firma | alttavia-relocation.com registado na GoDaddy até 13/01/2029, configuração na Netlify, e-mail no Google Workspace. [A CONFIRMAR: em nome de quem estão o registo do domínio e a sua configuração?] | Custo da firma, fora desta proposta | Não se aplica |
 
-Um plano pago é pago [pela firma, numa conta em nome dela] ou [pelo suporte, repassado sem margem] [A CONFIRMAR]. Recomendação: se a firma contratar um plano, o primeiro é o Supabase Pro, que traz a cópia diária que hoje não existe e acaba com a pausa. Passar as contas para o nome da firma é trabalho novo, de cerca de 3,5 horas [A CONFIRMAR].
+Um plano pago é pago [pela firma, numa conta em nome dela] ou [pelo suporte, repassado sem margem]. Recomendação: se a firma contratar um plano, o primeiro é o Supabase Pro, que traz a cópia diária que hoje não existe e acaba com a pausa. Passar as contas para o nome da firma é trabalho novo, com estimativa em horas antes de começar.
 
 ## 7. Valores
 
 | Campo | A preencher | Alttavia Relocation |
 |---|---|---|
 | Mensalidade | [__] € por mês [+ IVA] | 0 € |
-| Horas de pequenos ajustes incluídas | [__] por mês | Sem teto fixo [A CONFIRMAR] |
+| Horas de pequenos ajustes incluídas | [__] por mês | [A CONFIRMAR: há um teto de horas por mês para a Alttavia, ou fica sem teto?] |
 | Hora adicional ou de trabalho novo | [__] € por hora, ou orçamento fechado | 0 € |
 | Defeitos e rotina mensal | Incluídos | Incluídos |
-| Fornecedores | [diretos] ou [repassados ao custo] | 0 USD hoje. Planos pagos [A CONFIRMAR] |
+| Fornecedores | [diretos] ou [repassados ao custo] | 0 USD hoje. Planos pagos: decisão da firma (secção 9) |
 | Faturação e atualização dos valores | [mensal, a __ dias; uma vez por ano, com aviso] | Não se aplica |
-| Início e duração | [data], [12 meses] | 25/09/2026, [A CONFIRMAR: duração] |
-| Prazos da secção 4 | [valores] | **Blocks my work**: resposta em 2 horas úteis, solução em 1 dia útil; **Should change**: 1 dia útil; **Nice to have**: 3 dias úteis [A CONFIRMAR] |
+| Início e duração | [data], [12 meses] | 25/09/2026, [A CONFIRMAR: por quanto tempo vale o suporte sem custo à Alttavia?] |
+| Prazos da secção 4 | [valores] | **Blocks my work**: resposta em 2 horas úteis, solução em 1 dia útil; **Should change**: 1 dia útil; **Nice to have**: 3 dias úteis. [A CONFIRMAR: mantém estes prazos, o horário de 09:00 às 18:00 de Lisboa e nenhuma cobertura fora dele?] |
 
 ## 8. Exemplo, com valores inventados
 
@@ -105,16 +107,16 @@ Fatura do mês: 300 € + 480 € = 780 € + IVA, mais 45 USD de fornecedores. 
 
 ## 9. Alttavia Relocation
 
-Para a Alttavia Relocation, o suporte descrito nesta proposta é prestado sem custo, por decisão da guyshore.com. Por isso, para esta firma, os campos de valor ficam a zero: mensalidade 0 €, hora adicional 0 €, trabalho novo 0 €. Tudo o resto vale como está escrito (canais, prioridades, rotina mensal e classificação de cada pedido), para que a firma saiba sempre o que pediu e quando fica pronto. Os fornecedores custam hoje 0 USD; se a firma escolher um plano pago, quem o paga decide-se antes [A CONFIRMAR]. Produção: https://bank-nif-portugal.alttavia-relocation.com. Ambiente de testes permanente: https://staging--bank-and-nif-in-portugal.netlify.app. Primeira atualização prevista: terça, 29/09/2026, às 08:00 de Lisboa.
+Para a Alttavia Relocation, o suporte descrito nesta proposta é prestado sem custo, por decisão da guyshore.com. Por isso, para esta firma, os campos de valor ficam a zero: mensalidade 0 €, hora adicional 0 €, trabalho novo 0 €. Tudo o resto vale como está escrito (canais, prioridades, rotina mensal e classificação de cada pedido), para que a firma saiba sempre o que pediu e quando fica pronto. Os fornecedores custam hoje 0 USD; se a firma escolher um plano pago, decide-se antes quem o paga e em nome de quem fica a conta (documento de entrega, decisão 3). Produção: https://bank-nif-portugal.alttavia-relocation.com, publicada pelo desenvolvedor como último passo da entrega. Ambiente de testes permanente: https://staging--bank-and-nif-in-portugal.netlify.app, com os dados de teste e de demonstração. As correções combinadas com a firma entram antes da publicação. A primeira atualização depois dela traz a revisão dos textos legais pela firma.
 
 ## 10. O que falta confirmar
 
-1. A entidade que assina e fatura pela guyshore.com, e a duração para a Alttavia.
-2. O e-mail e o WhatsApp do suporte, e a caixa que recebe as notas de **Feedback** em produção.
-3. O horário, os feriados, a cobertura fora de horas, os prazos da secção 4 e a janela das atualizações.
-4. O serviço externo que vigia bank-nif-portugal.alttavia-relocation.com/api/health, e a frequência e o segundo local das cópias de segurança.
-5. O titular da conta Resend e do domínio.
-6. Quem paga um plano pago, e se as contas passam para o nome da firma.
-7. Se a conta de suporte business+admin@guyshore.com continua administradora depois da entrega (item 9 dos fatos legais).
+1. A entidade que assina e fatura pela guyshore.com, e por quanto tempo vale o suporte sem custo à Alttavia.
+2. O e-mail e o WhatsApp do suporte (secção 3).
+3. O horário, os feriados, a cobertura fora de horas, os prazos da secção 4 e a janela das atualizações, e se há um teto de horas de ajustes.
+4. A frequência regular e o segundo local das cópias de segurança.
+5. Em nome de quem estão o registo do domínio alttavia-relocation.com e a sua configuração.
+6. Quem paga um plano pago, e se as contas passam para o nome da firma (documento de entrega, decisões 3 e 4).
+7. A aceitação escrita da firma para a conta de suporte business+admin@guyshore.com continuar administradora e para o staging na base da produção (item 9 dos fatos legais).
 
 **Aceite.** Pela firma: ______________________ Data: ____/____/______ · Pela guyshore.com: ______________________ Data: ____/____/______

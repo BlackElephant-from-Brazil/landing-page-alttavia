@@ -32,7 +32,9 @@
  *                { scroll: target, block? }           scroll it into view
  *                { wait: ms }
  *   ready      what must be on screen before anything else (default: the
- *              first highlight)
+ *              first highlight). It is waited for before the `before`
+ *              steps, so a dialog opened by a click has the button here,
+ *              never the dialog
  *   scroll     what to scroll into view before the shot (default: the first
  *              highlight; false for none)
  *   highlight  [{ target, arrow?: "left"|"right"|"top"|"bottom", label? }]:
@@ -40,10 +42,16 @@
  *              label is the number of the chapter's step the mark shows
  *              (docs/guia/capitulos/00: a circle matches the step with the
  *              same number), so it may skip numbers ("2", "4"); a mark
- *              with no step gets no label, only its rectangle
+ *              with no step gets no label, only its rectangle. Also
+ *              arrowLength, pad, and badge ("top", "left", "right", ...:
+ *              where the circle sits on a mark with no arrow, default the
+ *              top left corner). Keep arrows and circles off the screen's
+ *              text: a short arrow into an empty gap, or a circle with no
+ *              arrow. A mark or circle outside the print fails the scene
  *   mask       extra targets to blur. Email addresses are always blurred,
  *              except on the demo, example and firm domains (KEEP_DOMAINS)
- *   shot       "viewport" (default), "full", or { clip: target(s), pad }
+ *   shot       "viewport" (default), "full", or { clip: target(s), pad }: pad in
+ *              pixels, or { top, right, bottom, left }
  *   keepFocus  true to leave the focused field focused (default: blurred)
  *   pending    a note: the screen is being built. The capture checks for it
  *              and takes the print once it exists, else skips with the note
@@ -64,18 +72,24 @@ import { DEMO_DOMAIN } from "./session.mjs";
 export const KEEP_DOMAINS = [DEMO_DOMAIN, "example.com", "alttavia-relocation.com", "vianaconsultancy.com", "adv.oa.pt"];
 
 /**
- * The demo accounts of `npm run demo:history -- --apply` (scripts/seed-history.mjs),
- * the same names as the founder's checklist. `service` picks the order.
+ * The demo accounts of `npm run demo:history -- --apply` (scripts/seed-history.mjs)
+ * and `npm run demo:seed` (ana@), the same names as the founder's checklist.
+ * `service` picks the order. The notes say the state each scene relies on,
+ * as the demo data stood on 2026-09-30, after Patrícia's homework and the
+ * training sessions had moved some orders on (Margaret's is past its
+ * documents, Priya's is complete, Oliver's account is gone). When a scene
+ * fails with "not found", read the order in /admin and pick another demo
+ * order in the state the note names; never reset the demo data for it.
  */
 export const PEOPLE = {
-  margaret: { email: `margaret.hill@${DEMO_DOMAIN}`, service: "bundle", note: "NIF + Bank Account, documents stage, 7 files to review" },
-  thomas: { email: `thomas.reed@${DEMO_DOMAIN}`, service: "bank-only", note: "Bank Account only, documents, 2 empty slots" },
-  priya: { email: `priya.nair@${DEMO_DOMAIN}`, service: "nif-only", note: "NIF only, NIF ready, nothing returned yet" },
-  daniel: { email: `daniel.okafor@${DEMO_DOMAIN}`, service: "couple", note: "Couple package, two applicants" },
+  margaret: { email: `margaret.hill@${DEMO_DOMAIN}`, service: "bundle", note: "NIF + Bank Account, paid, every document approved, Submitted" },
+  thomas: { email: `thomas.reed@${DEMO_DOMAIN}`, service: "bank-only", note: "Bank Account only, documents stage, 5 files to review and 3 empty slots (a deed and the signed agreement among them)" },
+  callum: { email: `callum.ferris@${DEMO_DOMAIN}`, service: "nif-only", note: "NIF only, NIF ready (the stage before the last), one file of two returned, no report" },
+  ana: { email: `ana@${DEMO_DOMAIN}`, service: "bank-only", note: "Bank Account only, paid, details given for the deed, agreement not prepared yet" },
+  daniel: { email: `daniel.okafor@${DEMO_DOMAIN}`, service: "couple", note: "Couple package, two applicants, documents stage" },
   hannah: { email: `hannah.brooks@${DEMO_DOMAIN}`, service: "bundle", note: "NIF + Bank Account, completed with deliverables and report" },
-  lucas: { email: `lucas.ferreira@${DEMO_DOMAIN}`, service: "nif-only", note: "NIF only, awaiting payment" },
-  oliver: { email: `oliver.grant@${DEMO_DOMAIN}`, service: null, note: "an account with no order" },
-  emma: { email: `emma.larsen@${DEMO_DOMAIN}`, service: "bank-only", note: "Bank Account only, with the bank" },
+  lucas: { email: `lucas.ferreira@${DEMO_DOMAIN}`, service: "nif-only", note: "NIF only, awaiting payment, the only order of the account" },
+  laura: { email: `laura.pemberton@${DEMO_DOMAIN}`, service: null, note: "an account with no order" },
 };
 
 /**
@@ -203,6 +217,23 @@ const SCENES = [
     scroll: false,
   },
   {
+    id: "landing-footer",
+    role: "client",
+    session: "none",
+    path: "/en",
+    // Narrower than the desktop default, so the footer's small print stays readable on the A4 page.
+    viewport: { width: 1024, height: 900, deviceScaleFactor: 2, mobile: false },
+    ready: "footer",
+    scroll: { target: "footer", block: "end" },
+    shot: { clip: "footer", pad: 0 },
+    caption: "O rodapé do site: a empresa, o NIPC e a morada (1), o aviso de privacidade (2) e os termos do serviço (3).",
+    highlight: [
+      { target: { css: "footer p", text: "NIPC" }, label: "1" },
+      { target: { css: "footer a", text: "Privacy", exact: true }, label: "2" },
+      { target: { css: "footer a", text: "Service terms", exact: true }, label: "3" },
+    ],
+  },
+  {
     id: "apply-residence",
     role: "client",
     session: "none",
@@ -296,7 +327,7 @@ const SCENES = [
   {
     id: "dashboard-in-progress",
     role: "client",
-    session: "margaret",
+    session: "thomas",
     path: "/en/dashboard",
     caption: "Um pedido pago em curso: a barra de etapas, os documentos recebidos e See more.",
     highlight: [
@@ -307,8 +338,8 @@ const SCENES = [
   {
     id: "order-payment-received",
     role: "client",
-    session: "margaret",
-    path: (fx) => `/en/dashboard?order=${fx.order("margaret")}`,
+    session: "thomas",
+    path: (fx) => `/en/dashboard?order=${fx.order("thomas")}`,
     ready: DIALOG,
     scroll: { target: inDialog("li[aria-current='step']"), block: "start" },
     caption: "Os detalhes do pedido depois do pagamento: a etapa atual e a mensagem Payment received.",
@@ -320,8 +351,8 @@ const SCENES = [
   {
     id: "order-agreement",
     role: "client",
-    session: "margaret",
-    path: (fx) => `/en/dashboard?order=${fx.order("margaret")}`,
+    session: "thomas",
+    path: (fx) => `/en/dashboard?order=${fx.order("thomas")}`,
     ready: DIALOG,
     caption: "O cartão Your service agreement, com View e Download.",
     highlight: [
@@ -332,12 +363,10 @@ const SCENES = [
   {
     id: "order-agreement-details",
     role: "client",
-    session: "daniel",
-    path: (fx) => `/en/dashboard?order=${fx.order("daniel")}`,
+    session: "ana",
+    path: (fx) => `/en/dashboard?order=${fx.order("ana")}`,
     ready: { css: "button", text: "Confirm my details", within: DIALOG },
     before: [{ click: { css: "button", text: "Confirm my details", within: DIALOG }, expect: AGREEMENT_FORM }],
-    pending:
-      "Needs a demo order that waits for its agreement: the Couple package (daniel.okafor@) once its contract is set on 2026-09-25. Every other demo order already has one.",
     caption: "Os dados do passaporte que entram no contrato e nas procurações (passos 1 e 2), e Confirm and open my agreement (passo 3).",
     highlight: [
       { target: AGREEMENT_FORM, label: "1" },
@@ -348,8 +377,8 @@ const SCENES = [
   {
     id: "order-documents",
     role: "client",
-    session: "margaret",
-    path: (fx) => `/en/dashboard?order=${fx.order("margaret")}`,
+    session: "thomas",
+    path: (fx) => `/en/dashboard?order=${fx.order("thomas")}`,
     ready: CLIENT_DOCS,
     scroll: { target: inDialog("#documents-heading"), block: "start" },
     caption: "A lista de documentos a enviar, com o contador de recebidos.",
@@ -361,35 +390,34 @@ const SCENES = [
   {
     id: "order-deed-slot",
     role: "client",
-    session: "margaret",
-    path: (fx) => `/en/dashboard?order=${fx.order("margaret")}`,
+    session: "thomas",
+    path: (fx) => `/en/dashboard?order=${fx.order("thomas")}`,
     ready: CLIENT_DOCS,
     caption: "Uma procuração (o quadro, sem número): Download to sign (passo 1) abre o PDF já preenchido; a linha sobre a assinatura (passo 2).",
     highlight: [
       { target: clientSlot("Download to sign") },
-      { target: { css: "button", text: "Download to sign", within: CLIENT_DOCS }, arrow: "right", label: "1" },
+      { target: { css: "button", text: "Download to sign", within: CLIENT_DOCS }, arrow: "left", label: "1" },
       { target: { css: "p", text: "Sign exactly as you signed your passport", within: CLIENT_DOCS }, label: "2" },
     ],
   },
   {
     id: "order-replace-remove",
     role: "client",
-    session: "margaret",
-    path: (fx) => `/en/dashboard?order=${fx.order("margaret")}`,
+    session: "thomas",
+    path: (fx) => `/en/dashboard?order=${fx.order("thomas")}`,
     ready: CLIENT_DOCS,
     caption: "Um arquivo enviado e ainda por rever: Replace file troca, Remove apaga.",
     highlight: [
-      { target: { css: "button", text: "Replace file", within: CLIENT_DOCS }, arrow: "left", label: "1" },
+      { target: { css: "label", text: "Replace file", within: CLIENT_DOCS }, arrow: "left", label: "1" },
       { target: { css: "button", text: "Remove", exact: true, within: clientSlot("Replace file") }, arrow: "right", label: "2" },
     ],
   },
   {
     id: "order-signed-agreement",
     role: "client",
-    session: "margaret",
-    path: (fx) => `/en/dashboard?order=${fx.order("margaret")}`,
+    session: "thomas",
+    path: (fx) => `/en/dashboard?order=${fx.order("thomas")}`,
     ready: CLIENT_DOCS,
-    pending: "Being built on 2026-09-25: the Signed service agreement slot in the documents list.",
     caption: "O quadro Signed service agreement: o contrato assinado à mão é enviado aqui.",
     highlight: [{ target: clientSlot("Signed service agreement"), arrow: "left", label: "1" }],
   },
@@ -399,11 +427,10 @@ const SCENES = [
     session: "lucas",
     path: (fx) => `/en/dashboard?order=${fx.order("lucas")}`,
     ready: DIALOG,
-    pending: "Being built on 2026-09-25: the line under Pay, By paying you accept the service terms and your service agreement.",
     caption: "Antes de pagar: a frase sob o botão diz que pagar aceita os termos e o contrato.",
     highlight: [
       { target: inDialog({ css: "button", text: "Pay" }), label: "1" },
-      { target: inDialog({ css: "p", text: "By paying you accept" }), arrow: "bottom", label: "2" },
+      { target: inDialog({ css: "p", text: "By paying you accept" }), arrow: "right", label: "2" },
     ],
   },
   {
@@ -425,9 +452,11 @@ const SCENES = [
     session: "margaret",
     path: "/en/dashboard/services",
     caption: "A página Services: cada serviço com See details e Buy.",
+    // Short arrows from the left: the circles sit in the gap between the menu
+    // and the first card, clear of the buttons and of the card below.
     highlight: [
-      { target: { css: "a, button", label: "See details of" }, arrow: "bottom", label: "1" },
-      { target: { css: "a, button", label: "Buy " }, arrow: "bottom", label: "2" },
+      { target: { css: "a, button", label: "See details of" }, arrow: "left", arrowLength: 50, label: "1" },
+      { target: { css: "a, button", label: "Buy " }, arrow: "left", arrowLength: 50, label: "2" },
     ],
   },
   {
@@ -435,8 +464,8 @@ const SCENES = [
     role: "client",
     session: "margaret",
     path: "/en/dashboard/services",
+    ready: { css: "a, button", label: "See details of" },
     before: [{ click: { css: "a, button", label: "See details of" }, expect: DIALOG }],
-    ready: DIALOG,
     caption: "O painel lateral de um serviço: Confirm purchase (passo 2) e, sem número, a frase dos termos por baixo.",
     highlight: [
       { target: inDialog({ css: "button", text: "Confirm purchase" }), arrow: "left", label: "2" },
@@ -449,9 +478,11 @@ const SCENES = [
     session: "margaret",
     path: "/en/dashboard/purchases",
     caption: "My purchases: todos os pedidos da conta, com Open para ver os detalhes.",
+    // The service name is a link too, and its aria-label starts with "Open":
+    // the visible Open link is the aria-hidden one in the last column.
     highlight: [
       { target: "table", label: "1" },
-      { target: { css: "a, button", label: "Open " }, arrow: "left", label: "2" },
+      { target: { css: "a[aria-hidden]", text: "Open", within: "table" }, arrow: "bottom", label: "2" },
     ],
   },
 
@@ -461,6 +492,8 @@ const SCENES = [
     role: "admin",
     session: "none",
     path: "/admin/login",
+    // The form and its heading only: the rest of the page is empty.
+    shot: { clip: [{ css: "h1", text: "Sign in" }, "main form"], pad: 122 },
     caption: "A entrada no painel: e-mail, senha e Sign in. Forgot your password? recupera a senha.",
     highlight: [
       { target: "input[type=email]", arrow: "left", label: "1" },
@@ -475,23 +508,12 @@ const SCENES = [
     session: "none",
     path: "/admin/login",
     before: [{ click: { css: "button", text: "Forgot your password?" }, expect: { css: "h2", text: "Reset your password" } }],
+    // The form and its heading only: the rest of the page is empty.
+    shot: { clip: [{ css: "h1", text: "Sign in" }, "main form"], pad: 122 },
     caption: "Recuperar a senha: o e-mail e Send the code. Chega um código de 6 dígitos.",
     highlight: [
       { target: "input[type=email]", arrow: "left", label: "1" },
       { target: { css: "button[type=submit]", text: "Send the code" }, label: "2" },
-    ],
-  },
-  {
-    id: "admin-login-code",
-    role: "admin",
-    session: "admin-password-only",
-    path: "/admin/login",
-    pending:
-      "Being built on 2026-09-25: the authenticator code asked after the password. Needs the support admin to have its own authenticator (node scripts/admin-totp.mjs) and ADMIN_SUPPORT_TOTP_SECRET in .env.local, so take it after admin-settings-second-factor, which needs the opposite.",
-    caption: "O segundo passo da entrada: o código de 6 dígitos da aplicação autenticadora.",
-    highlight: [
-      { target: "input[autocomplete='one-time-code']", arrow: "left", label: "1" },
-      { target: "button[type=submit]", label: "2" },
     ],
   },
 
@@ -514,9 +536,11 @@ const SCENES = [
     session: "admin",
     path: "/admin?range=year",
     caption: "Os períodos do Overview: os atalhos e as datas From e To.",
+    // Circles to the left of each box, in the empty gaps: an arrow from below
+    // would cross the numbers of the tiles.
     highlight: [
-      { target: "nav[aria-label='Range']", arrow: "bottom", label: "1" },
-      { target: "form[aria-label='Custom dates']", arrow: "bottom", label: "2" },
+      { target: "nav[aria-label='Range']", badge: "left", label: "1" },
+      { target: "form[aria-label='Custom dates']", badge: "left", label: "2" },
     ],
     scroll: false,
   },
@@ -525,11 +549,37 @@ const SCENES = [
     role: "admin",
     session: "admin",
     path: "/admin?range=year",
-    scroll: { target: section("progress-heading"), block: "start" },
-    caption: "As tabelas In progress e Awaiting review: um clique na linha abre o pedido.",
+    // Each list can be taller than the window (31 orders in progress on 2026-09-30):
+    // the heading, its count line and the first rows, not the whole section.
+    ready: "#review-heading",
+    scroll: { target: "#review-heading", block: "center" },
+    caption: "A lista Awaiting review: os arquivos à espera, os mais antigos primeiro (1). Um clique numa linha abre o pedido (2).",
     highlight: [
-      { target: section("progress-heading"), label: "1" },
-      { target: section("review-heading"), label: "2" },
+      { target: { css: "div", text: "Awaiting review", within: section("review-heading"), closest: "div" }, label: "1" },
+      { target: { css: "tbody tr", within: section("review-heading") }, label: "2" },
+    ],
+    // Cut to the heading and the first three rows: the rest of the window is
+    // the end of In progress, and a shorter print keeps the chapter's last
+    // tip on the same page.
+    shot: {
+      clip: [
+        { css: "div", text: "Awaiting review", within: section("review-heading"), closest: "div" },
+        { css: "tbody tr", within: section("review-heading"), nth: 2 },
+      ],
+      pad: { top: 32, right: 32, bottom: 10, left: 32 },
+    },
+  },
+  {
+    id: "admin-overview-progress",
+    role: "admin",
+    session: "admin",
+    path: "/admin?range=year",
+    ready: "#progress-heading",
+    scroll: { target: "#progress-heading", block: "center" },
+    caption: "A lista In progress, com quantos pedidos estão em curso (1) e All orders (2), que abre Orders já filtrada.",
+    highlight: [
+      { target: { css: "div", text: "In progress", within: section("progress-heading"), closest: "div" }, label: "1" },
+      { target: { css: "a", text: "All orders", within: section("progress-heading") }, arrow: "top", label: "2" },
     ],
   },
 
@@ -542,7 +592,7 @@ const SCENES = [
     caption: "Orders em quadro Kanban: uma coluna por etapa, cada cartão é um pedido.",
     highlight: [
       { target: "nav[aria-label='Order views']", arrow: "left", label: "1" },
-      { target: { css: "article", text: "margaret.hill@" }, arrow: "bottom", label: "2" },
+      { target: { css: "article", text: "margaret.hill@" }, label: "2" },
     ],
     scroll: false,
   },
@@ -551,14 +601,15 @@ const SCENES = [
     role: "admin",
     session: "admin",
     path: ordersDemo,
-    ready: { css: "article", text: "priya.nair@" },
+    ready: { css: "article", text: "callum.ferris@", within: 'section[aria-label^="NIF ready,"]' },
     before: (fx) => [
-      // Priya's NIF only order dropped on its last column: the board asks first, nothing moves.
-      { drag: { css: "article", text: "priya.nair@" }, to: `section[aria-label^="${fx.terminalLabel("nif-only")},"]`, expect: KANBAN_CONFIRM },
+      // Callum's NIF only order dropped on its last column: the board asks first, nothing moves.
+      { drag: { css: "article", text: "callum.ferris@", within: 'section[aria-label^="NIF ready,"]' }, to: `section[aria-label^="${fx.terminalLabel("nif-only")},"]`, expect: KANBAN_CONFIRM },
       { scroll: `section[aria-label^="${fx.terminalLabel("nif-only")},"]`, block: "nearest" },
     ],
     scroll: false,
-    shot: "full",
+    // Tall enough for the board and the question under it, so the sticky sidebar is drawn once.
+    viewport: { width: 1440, height: 1240, deviceScaleFactor: 1, mobile: false },
     caption: "Largar um cartão na última etapa (passo 2): o quadro pergunta antes de concluir (passo 3).",
     highlight: (fx) => [
       { target: `section[aria-label^="${fx.terminalLabel("nif-only")},"] header`, arrow: "top", label: "2" },
@@ -581,12 +632,12 @@ const SCENES = [
     id: "admin-order-documents",
     role: "admin",
     session: "admin",
-    path: (fx) => `/admin/orders?order=${fx.order("margaret")}`,
+    path: (fx) => `/admin/orders?order=${fx.order("thomas")}`,
     ready: ADMIN_DOCS,
     scroll: { target: ADMIN_DOCS, block: "start" },
     caption: "Os documentos de um pedido: View abre numa aba nova, Download guarda no computador.",
     highlight: [
-      { target: { css: "a", label: "View ", within: ADMIN_DOCS }, arrow: "left", label: "1" },
+      { target: { css: "a", label: "View ", within: ADMIN_DOCS }, arrow: "bottom", label: "1" },
       { target: { css: "a[aria-label^='Download ']:not([aria-label^='Download deed'])", within: ADMIN_DOCS }, arrow: "right", label: "2" },
     ],
   },
@@ -594,7 +645,7 @@ const SCENES = [
     id: "admin-order-review",
     role: "admin",
     session: "admin",
-    path: (fx) => `/admin/orders?order=${fx.order("margaret")}`,
+    path: (fx) => `/admin/orders?order=${fx.order("thomas")}`,
     ready: ADMIN_DOCS,
     scroll: { target: ADMIN_DOCS, block: "start" },
     caption: "Rever um arquivo: Approve aceita, Reject pede um motivo.",
@@ -607,7 +658,7 @@ const SCENES = [
     id: "admin-order-reject-reason",
     role: "admin",
     session: "admin",
-    path: (fx) => `/admin/orders?order=${fx.order("margaret")}`,
+    path: (fx) => `/admin/orders?order=${fx.order("thomas")}`,
     ready: ADMIN_DOCS,
     before: [
       { click: { css: "button", text: "Reject", within: ADMIN_DOCS }, expect: { css: "textarea", within: ADMIN_DOCS } },
@@ -616,20 +667,23 @@ const SCENES = [
     caption: "O motivo da rejeição: a cliente lê este texto tal como está, no painel e por e-mail.",
     highlight: [
       { target: { css: "textarea", within: ADMIN_DOCS }, arrow: "left", label: "1" },
-      { target: { css: "button", text: "Reject and notify", within: ADMIN_DOCS }, arrow: "right", label: "2" },
+      { target: { css: "button", text: "Reject and notify", within: ADMIN_DOCS }, arrow: "left", label: "2" },
     ],
   },
   {
     id: "admin-order-stage-held",
     role: "admin",
     session: "admin",
-    path: (fx) => `/admin/orders?order=${fx.order("margaret")}`,
+    path: (fx) => `/admin/orders?order=${fx.order("thomas")}`,
     ready: ADMIN_STAGE,
     caption: "As etapas: Forward (1) fica desativado enquanto houver documentos por aprovar, com a frase que diz porquê (sem número); Back (2); Jump to (3).",
+    // No arrows: the row of stage names sits right above the buttons, and an
+    // arrow from above would cut through it. Each circle sits on the middle
+    // of its button's top edge, in the gap under the stage names.
     highlight: [
-      { target: { css: "button", text: "Forward", within: ADMIN_STAGE }, arrow: "top", label: "1" },
+      { target: { css: "button", text: "Forward", within: ADMIN_STAGE }, badge: "top", label: "1" },
       { target: { css: "p", text: "Approve every required document", within: ADMIN_STAGE } },
-      { target: { css: "button", text: "Back", exact: true, within: ADMIN_STAGE }, arrow: "top", label: "2" },
+      { target: { css: "button", text: "Back", exact: true, within: ADMIN_STAGE }, badge: "top", label: "2" },
       { target: { css: "label", text: "Jump to", within: ADMIN_STAGE }, label: "3" },
     ],
   },
@@ -637,9 +691,8 @@ const SCENES = [
     id: "admin-order-signed-agreement",
     role: "admin",
     session: "admin",
-    path: (fx) => `/admin/orders?order=${fx.order("margaret")}`,
+    path: (fx) => `/admin/orders?order=${fx.order("thomas")}`,
     ready: ADMIN_DOCS,
-    pending: "Being built on 2026-09-25: the Signed service agreement slot, reviewed like any other document.",
     caption: "O contrato assinado pelo cliente, revisto como qualquer outro documento.",
     highlight: [{ target: { css: "li", text: "Signed service agreement", within: ADMIN_DOCS }, arrow: "left", label: "1" }],
   },
@@ -647,7 +700,7 @@ const SCENES = [
     id: "admin-order-deeds",
     role: "admin",
     session: "admin",
-    path: (fx) => `/admin/orders?order=${fx.order("margaret")}`,
+    path: (fx) => `/admin/orders?order=${fx.order("thomas")}`,
     ready: ADMIN_DOCS,
     caption: "As procurações: Download deed gera o PDF com os dados que a cliente confirmou.",
     highlight: [
@@ -659,7 +712,7 @@ const SCENES = [
     id: "admin-order-agreement",
     role: "admin",
     session: "admin",
-    path: (fx) => `/admin/orders?order=${fx.order("margaret")}`,
+    path: (fx) => `/admin/orders?order=${fx.order("thomas")}`,
     ready: ADMIN_AGREEMENT,
     caption: "O contrato do pedido: a versão, Download e Regenerate and resend.",
     highlight: [
@@ -671,7 +724,7 @@ const SCENES = [
     id: "admin-order-deliverables",
     role: "admin",
     session: "admin",
-    path: (fx) => `/admin/orders?order=${fx.order("priya")}`,
+    path: (fx) => `/admin/orders?order=${fx.order("callum")}`,
     ready: ADMIN_DELIVERABLES,
     caption: "Entregar um arquivo à cliente: a secção (sem número) e Upload, o passo 4.",
     highlight: [
@@ -683,7 +736,7 @@ const SCENES = [
     id: "admin-order-report",
     role: "admin",
     session: "admin",
-    path: (fx) => `/admin/orders?order=${fx.order("priya")}`,
+    path: (fx) => `/admin/orders?order=${fx.order("callum")}`,
     ready: ADMIN_REPORT,
     caption: "O relatório para a cliente: escrever e Save report.",
     highlight: [
@@ -695,7 +748,7 @@ const SCENES = [
     id: "admin-order-completion",
     role: "admin",
     session: "admin",
-    path: (fx) => `/admin/orders?order=${fx.order("priya")}`,
+    path: (fx) => `/admin/orders?order=${fx.order("callum")}`,
     ready: ADMIN_STAGE,
     before: [
       // On NIF ready, Forward lands on the last stage, so it only asks; nothing moves.
@@ -713,10 +766,13 @@ const SCENES = [
     session: "admin",
     path: (fx) => `/admin/orders?order=${fx.order("daniel")}`,
     ready: ADMIN_DOCS,
-    caption: "Um pedido de casal: cada documento aparece uma vez por pessoa.",
+    // The documents list of a couple is taller than the window: mark rows, not the whole section.
+    scroll: { target: { css: "li", text: "poa-nif-sofia-okafor.pdf", within: ADMIN_DOCS }, block: "center" },
+    caption: "Um pedido de casal: a procuração do NIF uma vez por pessoa (1, Applicant 1 e Applicant 2), a do banco uma só vez, para os dois (2).",
     highlight: [
-      { target: ADMIN_DOCS, label: "1" },
-      { target: DEED_DETAILS, label: "2" },
+      { target: { css: "li", text: "poa-nif-daniel-okafor.pdf", within: ADMIN_DOCS }, label: "1" },
+      { target: { css: "li", text: "poa-nif-sofia-okafor.pdf", within: ADMIN_DOCS } },
+      { target: { css: "li", text: "poa-bank-daniel-okafor.pdf", within: ADMIN_DOCS }, label: "2" },
     ],
   },
   {
@@ -738,7 +794,8 @@ const SCENES = [
     caption: "Users: a lista de contas, New user e a coluna Actions.",
     highlight: [
       { target: { css: "button", text: "New user" }, arrow: "left", label: "1" },
-      { target: { css: "th", text: "Actions" }, arrow: "top", label: "2" },
+      // No arrow: from above it would cut the Clear link of the search.
+      { target: { css: "th", text: "Actions" }, label: "2" },
     ],
     scroll: false,
   },
@@ -756,16 +813,16 @@ const SCENES = [
     role: "admin",
     session: "admin",
     path: usersDemo,
+    ready: { css: "button", text: "New user" },
     before: [
       { click: { css: "button", text: "New user" }, expect: DIALOG },
       { set: inDialog("input[type=email]"), value: "ana.exemplo@example.com" },
       { set: inDialog("input:not([type=email]):not([type=tel]):not([type=hidden]):not([type=checkbox])"), value: "Ana Exemplo" },
     ],
-    ready: DIALOG,
     caption: "Criar uma conta à mão: e-mail, nome e telefone. Nenhum e-mail sai nesse momento.",
     highlight: [
       { target: inDialog("form"), label: "1" },
-      { target: inDialog({ css: "button", text: "Create the account" }), arrow: "left", label: "2" },
+      { target: inDialog({ css: "button", text: "Create the account" }), arrow: "right", label: "2" },
     ],
     scroll: false,
   },
@@ -773,13 +830,13 @@ const SCENES = [
     id: "admin-user-edit",
     role: "admin",
     session: "admin",
-    path: "/admin/users?q=oliver.grant",
-    before: [{ click: { css: "button[aria-label='Edit']", within: { css: "tr", text: "oliver.grant@" } }, expect: DIALOG }],
-    ready: DIALOG,
+    path: "/admin/users?q=laura.pemberton",
+    ready: { css: "button[aria-label='Edit']", within: { css: "tr", text: "laura.pemberton@" } },
+    before: [{ click: { css: "button[aria-label='Edit']", within: { css: "tr", text: "laura.pemberton@" } }, expect: DIALOG }],
     caption: "Corrigir o nome, o telefone ou o e-mail de um cliente.",
     highlight: [
       { target: inDialog("form"), label: "1" },
-      { target: inDialog({ css: "button", text: "Save changes" }), arrow: "left", label: "2" },
+      { target: inDialog({ css: "button", text: "Save changes" }), arrow: "right", label: "2" },
     ],
     scroll: false,
   },
@@ -787,14 +844,14 @@ const SCENES = [
     id: "admin-user-assign",
     role: "admin",
     session: "admin",
-    path: "/admin/users?q=oliver.grant",
-    before: [{ click: { css: "button[aria-label='Assign a purchase']", within: { css: "tr", text: "oliver.grant@" } }, expect: DIALOG }],
-    ready: DIALOG,
+    path: "/admin/users?q=laura.pemberton",
+    ready: { css: "button[aria-label='Assign a purchase']", within: { css: "tr", text: "laura.pemberton@" } },
+    before: [{ click: { css: "button[aria-label='Assign a purchase']", within: { css: "tr", text: "laura.pemberton@" } }, expect: DIALOG }],
     caption: "Atribuir uma compra: o serviço e, se já foi pago por fora, a opção Already paid outside the platform.",
     highlight: [
       { target: inDialog("select"), arrow: "left", label: "1" },
       { target: inDialog({ css: "label", text: "Already paid outside the platform" }), arrow: "left", label: "2" },
-      { target: inDialog({ css: "button", text: "Assign", exact: true }), arrow: "left", label: "3" },
+      { target: inDialog({ css: "button", text: "Assign", exact: true }), arrow: "right", label: "3" },
     ],
     scroll: false,
   },
@@ -802,13 +859,35 @@ const SCENES = [
     id: "admin-user-delete",
     role: "admin",
     session: "admin",
-    path: "/admin/users?q=oliver.grant",
-    before: [{ click: { css: "button[aria-label='Delete']", within: { css: "tr", text: "oliver.grant@" } }, expect: DIALOG }],
-    ready: DIALOG,
+    path: "/admin/users?q=laura.pemberton",
+    ready: { css: "button[aria-label='Delete']", within: { css: "tr", text: "laura.pemberton@" } },
+    before: [
+      { click: { css: "button[aria-label='Delete']", within: { css: "tr", text: "laura.pemberton@" } }, expect: DIALOG },
+      // The dialog says what goes with the account once GET /api/admin/users/[id] answers.
+      { waitFor: inDialog({ css: "p", text: "Nothing is stored" }) },
+    ],
     caption: "Apagar uma conta: escrever o e-mail para confirmar. Não se desfaz.",
     highlight: [
       { target: inDialog("input[type=text]"), arrow: "left", label: "1" },
-      { target: inDialog({ css: "button", text: "Delete this client" }), arrow: "left", label: "2" },
+      { target: inDialog({ css: "button", text: "Delete this client" }), arrow: "right", label: "2" },
+    ],
+    scroll: false,
+  },
+  {
+    id: "admin-user-delete-blocked",
+    role: "admin",
+    session: "admin",
+    path: "/admin/users?q=margaret.hill",
+    ready: { css: "button[aria-label='Delete']", within: { css: "tr", text: "margaret.hill@" } },
+    before: [
+      { click: { css: "button[aria-label='Delete']", within: { css: "tr", text: "margaret.hill@" } }, expect: DIALOG },
+      // The counts arrive from GET /api/admin/users/[id] a moment after the dialog opens.
+      { waitFor: inDialog({ css: "p", text: "cannot be deleted" }) },
+    ],
+    caption: "Uma conta com pedidos pagos: a janela diz logo que não se pode apagar, e o botão fica desligado.",
+    highlight: [
+      { target: inDialog({ css: "p", text: "cannot be deleted" }), arrow: "left" },
+      { target: inDialog({ css: "button", text: "Delete this client" }) },
     ],
     scroll: false,
   },
@@ -822,7 +901,9 @@ const SCENES = [
     caption: "Services: o catálogo. Cada linha abre o editor do serviço.",
     highlight: [
       { target: "table", label: "1" },
-      { target: { css: "a", label: "Edit " }, arrow: "left", label: "2" },
+      // The last row's Edit, with the arrow from below, where the page is
+      // empty: from the left it would sit on the Documents count.
+      { target: { css: "a", label: "Edit ", nth: -1 }, arrow: "bottom", label: "2" },
     ],
     scroll: false,
   },
@@ -832,11 +913,19 @@ const SCENES = [
     session: "admin",
     path: (fx) => `/admin/services/${fx.service("nif-only")}`,
     ready: { css: "label", text: "Service contract" },
-    caption: "O editor de um serviço: o contrato associado e Save service.",
-    highlight: [
-      { target: { css: "label", text: "Service contract" }, arrow: "left", label: "1" },
-      { target: { css: "button", text: "Save service" }, arrow: "left", label: "2" },
-    ],
+    caption: "O editor de um serviço: o contrato associado. Save service fica no fim da página (admin-service-save).",
+    highlight: [{ target: { css: "label", text: "Service contract" }, arrow: "left", label: "1" }],
+  },
+  {
+    id: "admin-service-save",
+    role: "admin",
+    session: "admin",
+    path: (fx) => `/admin/services/${fx.service("nif-only")}`,
+    ready: { css: "button", text: "Save service" },
+    caption: "O fim do editor: a parte Active e Save service, que grava tudo.",
+    highlight: [{ target: { css: "button", text: "Save service" }, arrow: "left", label: "1" }],
+    // Cut to the last part and the button, above the Feedback button.
+    shot: { clip: [{ css: "h2", text: "Active", exact: true }, { css: "button", text: "Save service" }], pad: 24 },
   },
   {
     id: "admin-service-editor-documents",
@@ -860,7 +949,8 @@ const SCENES = [
     caption: "As notas enviadas, com o filtro por estado.",
     highlight: [
       { target: "nav[aria-label='Filter by status']", arrow: "left", label: "1" },
-      { target: "main article", label: "2" },
+      // The notes (an <ol> of cards), or the line the page shows while there are none.
+      { target: "nav[aria-label='Filter by status'] ~ ol, nav[aria-label='Filter by status'] ~ p", label: "2" },
     ],
     scroll: false,
   },
@@ -878,8 +968,8 @@ const SCENES = [
     role: "admin",
     session: "admin",
     path: `${ordersDemo}&view=table`,
+    ready: { css: "button", text: "Feedback", exact: true },
     before: [{ click: { css: "button", text: "Feedback", exact: true }, expect: DIALOG }],
-    ready: DIALOG,
     caption: "A janela Send feedback: o que esperava, o que aconteceu e a prioridade.",
     highlight: [{ target: DIALOG, label: "1" }],
     scroll: false,
@@ -901,26 +991,9 @@ const SCENES = [
     session: "admin",
     path: "/admin/settings",
     ready: { css: "h2", text: "Second factor" },
-    pending:
-      "Being built on 2026-09-25: the Second factor card in Settings (QR code, first code). Set up shows only while the support admin has no factor: take this one BEFORE node scripts/admin-totp.mjs enrols it (capture.mjs --only admin-settings-second-factor), then admin-login-code and admin-settings-second-factor-on.",
-    caption: "O cartão Second factor: Set up mostra o código QR para a aplicação autenticadora.",
+    caption: "O cartão Second factor, opcional e desligado: é assim que a conta da firma o vê. Não é usado hoje.",
     highlight: [
-      { target: section("mfa-heading"), label: "1" },
-      { target: { css: "button", text: "Set up", within: section("mfa-heading") }, arrow: "right", label: "2" },
-    ],
-  },
-  {
-    id: "admin-settings-second-factor-on",
-    role: "admin",
-    session: "admin",
-    path: "/admin/settings",
-    ready: { css: "p", text: "On since", within: section("mfa-heading") },
-    pending:
-      "Being built on 2026-09-25: the Second factor card once a factor is on. Needs the support admin enrolled (node scripts/admin-totp.mjs) and ADMIN_SUPPORT_TOTP_SECRET in .env.local, so the session reaches the code; take it after admin-settings-second-factor.",
-    caption: "O segundo fator ativo: On since com a data (1) e Turn off (2).",
-    highlight: [
-      { target: { css: "p", text: "On since", within: section("mfa-heading") }, arrow: "left", label: "1" },
-      { target: { css: "button", text: "Turn off", within: section("mfa-heading") }, arrow: "right", label: "2" },
+      { target: section("mfa-heading") },
     ],
   },
 
@@ -1078,26 +1151,27 @@ const SCENES = [
     session: "none",
     path: "/en",
     viewport: "phone",
+    scroll: false,
     caption: "O site no telemóvel.",
     highlight: [{ target: { css: "#top a", text: "Start my application" }, label: "1" }],
   },
   {
     id: "phone-dashboard",
     role: "client",
-    session: "margaret",
+    session: "thomas",
     path: "/en/dashboard",
     viewport: "phone",
     caption: "A área do cliente no telemóvel.",
     highlight: [
       { target: { css: "article", within: IN_PROGRESS }, label: "1" },
-      { target: { css: "a", label: "See more about", within: IN_PROGRESS }, arrow: "top", label: "2" },
+      { target: { css: "a", label: "See more about", within: IN_PROGRESS }, arrow: "left", label: "2" },
     ],
   },
   {
     id: "phone-order",
     role: "client",
-    session: "margaret",
-    path: (fx) => `/en/dashboard?order=${fx.order("margaret")}`,
+    session: "thomas",
+    path: (fx) => `/en/dashboard?order=${fx.order("thomas")}`,
     viewport: "phone",
     ready: CLIENT_DOCS,
     caption: "Os documentos de um pedido no telemóvel: enviar uma foto tirada na hora funciona.",

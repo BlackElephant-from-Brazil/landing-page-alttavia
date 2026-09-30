@@ -6,7 +6,7 @@
 <p>A plataforma tem dois lados, com entradas diferentes.</p>
 <ul>
   <li>O lado do cliente: o site público, o formulário de candidatura (<b>Start my application</b>) e a área de cliente, com três entradas no menu: <b>Dashboard</b>, <b>Services</b> e <b>My purchases</b>. O cliente entra com o e-mail e um código de 6 dígitos que recebe por e-mail. Não tem senha.</li>
-  <li>O lado da firma: o painel de administração, com seis entradas no menu: <b>Overview</b>, <b>Orders</b>, <b>Users</b>, <b>Services</b>, <b>Feedback</b> e <b>Settings</b>. Você entra com o e-mail, a sua senha e o código do app autenticador (capítulo 2).</li>
+  <li>O lado da firma: o painel de administração, com seis entradas no menu: <b>Overview</b>, <b>Orders</b>, <b>Users</b>, <b>Services</b>, <b>Feedback</b> e <b>Settings</b>. Você entra com o e-mail da firma e a sua senha (capítulo 2).</li>
 </ul>
 <p>As páginas estão em inglês, porque os clientes leem em inglês. Neste guia, os nomes de botões e campos aparecem a negrito, escritos exatamente como na página.</p>
 
@@ -30,10 +30,21 @@
     <tr><td>Entrada do cliente</td><td>bank-nif-portugal.alttavia-relocation.com/en/login</td><td>staging--bank-and-nif-in-portugal.netlify.app/en/login</td></tr>
     <tr><td>Área do cliente</td><td>bank-nif-portugal.alttavia-relocation.com/en/dashboard</td><td>staging--bank-and-nif-in-portugal.netlify.app/en/dashboard</td></tr>
     <tr><td>Painel da firma</td><td>bank-nif-portugal.alttavia-relocation.com/admin/login</td><td>staging--bank-and-nif-in-portugal.netlify.app/admin/login</td></tr>
+    <tr><td>Aviso de privacidade</td><td>bank-nif-portugal.alttavia-relocation.com/en/privacy</td><td>staging--bank-and-nif-in-portugal.netlify.app/en/privacy</td></tr>
+    <tr><td>Termos do serviço</td><td>bank-nif-portugal.alttavia-relocation.com/en/service-terms</td><td>staging--bank-and-nif-in-portugal.netlify.app/en/service-terms</td></tr>
   </tbody>
 </table>
 <p>Todos os endereços começam por https://.</p>
 <aside class="dica"><p class="caixa-titulo">Dica</p><p>Guarde o endereço do painel de produção nos favoritos do navegador. É o que você vai abrir todos os dias.</p></aside>
+
+<h3>O rodapé do site e os textos legais</h3>
+<p>No fundo de cada página do site, o rodapé diz quem vende: ALTTAVIA RELOCATION, Unipessoal Lda., com o NIPC e a morada. Tem também os dois textos legais da plataforma: <b>Privacy</b>, o aviso de privacidade, e <b>Service terms</b>, os termos do serviço.</p>
+<figure data-scene="landing-footer">
+  <img src="prints/landing-footer.png" alt="Rodapé do site com a empresa, o NIPC, a morada e os links Privacy e Service terms marcados a vermelho" loading="lazy">
+  <figcaption>O rodapé do site. <span class="circulo-vermelho">1</span> A empresa, o NIPC e a morada. <span class="circulo-vermelho">2</span> <b>Privacy</b>, o aviso de privacidade. <span class="circulo-vermelho">3</span> <b>Service terms</b>, os termos do serviço.</figcaption>
+</figure>
+<p>O cliente encontra o link <b>Privacy notice</b> também por baixo de cada formulário que pede dados pessoais e por baixo de cada botão de pagar (capítulo 9). Os termos abrem-se a partir da linha que acompanha o botão de pagar.</p>
+<aside class="nota"><p class="caixa-titulo">Nota</p><p>Os dois textos foram publicados a 28/09/2026 tal como estão. Você revê-os depois do lançamento, e as correções entram numa atualização do site. O Livro de Reclamações Eletrónico e a entidade de resolução alternativa de litígios também entram depois do lançamento.</p></aside>
 
 <h3>Produção e staging</h3>
 <p>A produção é o site que os clientes usam. Os pagamentos são reais e passam pela conta Stripe da firma.</p>
@@ -41,10 +52,10 @@
 <aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Os dois usam <strong>a mesma base de dados</strong>. O que você grava no staging vale também na produção: uma mudança em <b>Services</b>, um cliente criado em <b>Users</b>, um documento aprovado. Os pedidos feitos no staging aparecem no painel da produção e entram nos números do <b>Overview</b>. Faça testes à vontade, mas nunca mude o catálogo no staging a pensar que é só um ensaio.</p></aside>
 <p>Há outras diferenças que convém saber:</p>
 <ul>
-  <li>No staging, os avisos para a equipa (pedido pago, documentos prontos, contrato assinado) vão para a caixa de testes do Guilherme. Na produção, vão para o info@ <span class="a-confirmar">[A CONFIRMAR]</span>.</li>
-  <li>Os botões dos e-mails da produção abrem a produção. Os dos e-mails enviados pelo staging também abrem a produção, salvo se o Guilherme tiver configurado o staging para os abrir no staging <span class="a-confirmar">[A CONFIRMAR]</span>.</li>
-  <!-- VERIFICAR: EMAIL_TEAM_INBOX no contexto Production da Netlify (info@alttavia-relocation.com) e no Branch deploys (caixa de testes); NEXT_PUBLIC_SITE_URL no Branch deploys (sem ela, dashboardUrl() em src/lib/email/templates.ts manda para a produção). Confirmados, tirar as duas marcas, aqui e no capítulo 10. -->
-  <li>O painel mostra clientes de demonstração, com contas terminadas em @demo.alttavia.invalid: 56 clientes fictícios, com pedidos espalhados pelos últimos dois anos. Servem para treinar, e nenhum e-mail sai para eles. Quando a firma quiser, o Guilherme apaga-os todos de uma vez.</li>
+  <li>No staging, os avisos para a equipa (pedido pago, documentos prontos, contrato assinado) vão para a caixa de testes do Guilherme. Na produção, vão para o info@.</li>
+  <li>Os botões dos e-mails abrem o sítio de onde o e-mail saiu: os da produção abrem a produção, os do staging abrem o staging.</li>
+  <!-- VERIFICAR depois de importar as variáveis de produção na Netlify: EMAIL_TEAM_INBOX=info@alttavia-relocation.com no contexto Production (modelo alttavia-production.env); no Branch deploys, EMAIL_TEAM_INBOX na caixa de testes e NEXT_PUBLIC_SITE_URL no endereço do staging (modelo alttavia-staging.env). Sem NEXT_PUBLIC_SITE_URL, dashboardUrl() em src/lib/email/templates.ts manda os botões do staging para a produção. -->
+  <li>O painel mostra clientes de demonstração, com contas terminadas em @demo.alttavia.invalid: cerca de 60 clientes fictícios, com pedidos espalhados pelos últimos dois anos. Ficam de propósito, para treinar e testar, e nenhum e-mail sai para eles (capítulo 10). Alguns pedidos deles já foram mexidos nas sessões de formação.</li>
 </ul>
 
 <h3>O que é um pedido</h3>
@@ -91,8 +102,11 @@
 </table>
 
 <h3>Os quatro serviços</h3>
-<p>A tabela mostra o catálogo como estava a 25/09/2026. O catálogo que vale é sempre o que está em <b>Services</b> (capítulo 7): o que você mudar lá muda aqui.</p>
-<table>
+<p>A tabela mostra o catálogo como estava a 30/09/2026. O catálogo que vale é sempre o que está em <b>Services</b> (capítulo 7): o que você mudar lá muda aqui.</p>
+<table class="larga">
+  <colgroup>
+    <col style="width: 15%"><col style="width: 10%"><col style="width: 20%"><col style="width: 28%"><col style="width: 14%"><col style="width: 13%">
+  </colgroup>
   <thead>
     <tr><th>Serviço</th><th>Preço</th><th>Etapas</th><th>Documentos pedidos ao cliente</th><th>Arquivos que a firma devolve</th><th>Contrato</th></tr>
   </thead>
@@ -131,7 +145,7 @@
     </tr>
   </tbody>
 </table>
-<!-- VERIFICAR ANTES DE ENVIAR O GUIA: o documento Signed service agreement nos quatro serviços (0013), a procuração do banco única no Couple package (0016) e o contrato Couple package (0017) entram com a atualização de 25/09/2026. A 25/09 às 15:00 o projeto Supabase ainda não tinha corrido 0013 a 0017 (runbook, secção 0, "Antes do Publish"). -->
+<!-- Conferido a 30/09/2026 contra a base de dados: 0013 a 0017 estão aplicadas, e o catálogo de Services é o desta tabela. -->
 <aside class="dica"><p class="caixa-titulo">Dica</p><p>O preço e o código de cada um destes quatro serviços estão fixos, porque o site e o formulário de candidatura os mostram. Para mudar um preço, fale com o Guilherme: muda no site e no Stripe ao mesmo tempo.</p></aside>
 
 <figure data-scene="dashboard-in-progress">

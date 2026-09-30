@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  acceptAttribute,
   acceptedTypesMessage,
+  DELIVERABLE_ACCEPTED_MIME,
   buildStorageKey,
   contentDisposition,
   extensionFor,
@@ -41,6 +43,15 @@ describe("buildStorageKey", () => {
     expect(() => buildStorageKey(ORDER, "pass/port", 0, "pdf")).toThrow();
     expect(() => buildStorageKey(ORDER, "passport", 2 as unknown as 0, "pdf")).toThrow();
     expect(() => buildStorageKey(ORDER, "passport", 0, "p.df")).toThrow();
+  });
+});
+
+describe("the deliverable types the admin form offers", () => {
+  it("offers only what the server accepts: PDF, JPG, PNG and DOCX", () => {
+    expect(acceptAttribute(DELIVERABLE_ACCEPTED_MIME)).toBe(".pdf,.jpg,.jpeg,.png,.docx");
+    expect(acceptedTypesMessage(DELIVERABLE_ACCEPTED_MIME)).toBe("This file type is not accepted. Use PDF, JPG, PNG or DOCX.");
+    expect(DELIVERABLE_ACCEPTED_MIME).not.toContain("image/webp");
+    expect(DELIVERABLE_ACCEPTED_MIME).not.toContain("application/msword");
   });
 });
 

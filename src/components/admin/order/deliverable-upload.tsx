@@ -5,7 +5,14 @@ import { useId, useRef, useState, type ChangeEvent, type FormEvent } from "react
 
 import type { ServiceDeliverableRow } from "@/lib/db/types";
 import { readFileBytes, sendBytes } from "@/lib/documents/upload-client";
-import { extensionFor, formatBytes, mimeForFileName } from "@/lib/r2/keys";
+import {
+  DELIVERABLE_ACCEPTED_MIME,
+  acceptAttribute,
+  acceptedTypesMessage,
+  extensionFor,
+  formatBytes,
+  mimeForFileName,
+} from "@/lib/r2/keys";
 
 import { requestJson } from "../lib/request";
 import { fieldClass, primaryActionClass, smallLabelClass, useAction } from "./use-action";
@@ -77,8 +84,8 @@ export function DeliverableUpload({
       return;
     }
     const mime = (next.type || mimeForFileName(next.name) || "").toLowerCase();
-    if (!extensionFor(mime)) {
-      setLocalError("This file type is not accepted. Use PDF, JPG, PNG, WebP, DOC or DOCX.");
+    if (!extensionFor(mime) || !DELIVERABLE_ACCEPTED_MIME.includes(mime)) {
+      setLocalError(acceptedTypesMessage(DELIVERABLE_ACCEPTED_MIME));
       setFile(null);
       event.target.value = "";
       return;
@@ -222,7 +229,7 @@ export function DeliverableUpload({
             ref={fileRef}
             id={fileId}
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+            accept={acceptAttribute(DELIVERABLE_ACCEPTED_MIME)}
             onChange={pickFile}
             disabled={pending}
             aria-describedby={messageId}

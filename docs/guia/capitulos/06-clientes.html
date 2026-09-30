@@ -94,10 +94,10 @@
   </tbody>
 </table>
 <aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Um pedido pago fora da plataforma não aparece no Stripe, mas conta no <b>Revenue</b> do <b>Overview</b>. E como o cliente não clicou no botão de pagar, a plataforma não regista nesse pedido a aceitação dos termos e do contrato.</p></aside>
-<p><span class="a-confirmar">[A CONFIRMAR]</span> Falta decidir: como é que a firma regista a aceitação dos termos e do contrato num pagamento feito fora da plataforma?</p>
+<p>Nesse pedido, a aceitação do cliente fica no contrato que ele assina à mão e envia em <b>Signed service agreement</b> (capítulo 5). Como esse documento é obrigatório, o pedido não sai de <b>Documents</b> sem a cópia assinada aprovada.</p>
 
 <h3>Apagar uma conta: Delete</h3>
-<p>Apagar remove a conta e tudo o que está guardado nela: os pedidos, os documentos enviados, os contratos, os arquivos entregues e as respostas do formulário. <strong>Não se desfaz.</strong></p>
+<p>Apagar remove a conta e tudo o que está guardado nela: os pedidos, os documentos enviados, os contratos, os arquivos entregues e as respostas do formulário. <strong>Não se desfaz.</strong> Só se apaga uma conta sem pedidos pagos (mais abaixo): na prática, uma conta de teste ou de alguém que nunca chegou a pagar.</p>
 <p>Clique o caixote do lixo. Abre-se a janela <b>Delete this client</b>, com o aviso e a contagem do que vai junto, por exemplo <b>2 orders, 9 files and 1 agreement go with it.</b> Leia com atenção. Depois:</p>
 <ol class="passos">
   <li>Em <b>Type the email to confirm</b>, escreva o e-mail da conta.</li>
@@ -108,13 +108,16 @@
   <figcaption>Apagar uma conta. Os círculos correspondem aos passos acima.</figcaption>
 </figure>
 <p>O painel recusa apagar uma conta de administração (<b>This is an administrator account. Change it in Settings.</b>) e a conta com que você entrou (<b>You cannot delete the account you are signed in with.</b>). Recusa também a conta de um cliente com pedidos pagos, porque a firma guarda esses registos por 10 anos: a janela avisa logo, por exemplo <b>This client has 1 paid order. We keep their records for 10 years, so the account cannot be deleted.</b>, e o botão fica desligado.</p>
-<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Apague apenas contas de teste, ou quando um cliente pedir que os dados dele sejam apagados. Antes de apagar um cliente real, confirme o que a firma tem de guardar por obrigação legal: depois do clique, nada se recupera.</p></aside>
+<figure data-scene="admin-user-delete-blocked">
+  <img src="prints/admin-user-delete-blocked.png" alt="Janela Delete this client de uma conta com um pedido pago, com o aviso de que não se pode apagar e o botão desligado" loading="lazy">
+  <figcaption>Uma conta com um pedido pago. A seta mostra o aviso; o botão <b>Delete this client</b>, também marcado, fica desligado.</figcaption>
+</figure>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Apague apenas contas de teste, ou quando alguém sem pedidos pagos pedir que os dados dele sejam apagados: depois do clique, nada se recupera. Se um cliente com pedidos pagos pedir o mesmo, a plataforma não deixa apagar a conta; fale com o Guilherme.</p></aside>
 
 <h3>Contas que você vai ver na lista</h3>
 <ul>
   <li>info@alttavia-relocation.com: a sua conta de administração.</li>
-  <li>business+admin@guyshore.com: a conta de suporte do Guilherme, também de administração. Serve para ele ver o que você vê quando pede ajuda.</li>
-  <li>Contas terminadas em @demo.alttavia.invalid: os clientes de demonstração (capítulo 1).</li>
+  <li>business+admin@guyshore.com: a conta de suporte do Guilherme, também de administração, e continua depois da entrega. Serve para ele ver o que você vê quando pede ajuda, e para os testes automáticos da plataforma.</li>
+  <li>Contas terminadas em @demo.alttavia.invalid: os clientes de demonstração (capítulo 1). Ficam de propósito, para treinar.</li>
   <li>Outras contas business+ em @guyshore.com: contas de teste do Guilherme.</li>
 </ul>
-<p><span class="a-confirmar">[A CONFIRMAR]</span> Falta decidir: a conta de suporte business+admin@guyshore.com continua a ser de administração depois da entrega?</p>

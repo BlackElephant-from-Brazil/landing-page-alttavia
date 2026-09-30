@@ -5,7 +5,6 @@
  *   node scripts/guide/pdf.mjs                  docs/guia/Guia-Alttavia.pdf
  *   node scripts/guide/pdf.mjs --out other.pdf  somewhere else
  *   node scripts/guide/pdf.mjs --html-only      only docs/guia/guia.build.html
- *   node scripts/guide/pdf.mjs --numbers        page numbers in the footer
  *   node scripts/guide/pdf.mjs --headful        watch Chrome do it
  *
  * The build: docs/guia/guia.html is the shell (cover, table of contents,
@@ -17,9 +16,17 @@
  * resolve, and can be opened in a browser to check a chapter before
  * printing. The table of contents is built by the shell's own script.
  *
- * The print: Page.printToPDF, A4, printBackground on, header and footer off
- * (unless --numbers), margins from the shell's @page rules (18 mm; none on
- * the cover). Before printing it waits for the fonts and for every image;
+ * The print: Page.printToPDF, A4, printBackground on, Chrome's own header
+ * and footer off, margins from the shell's @page rules (18 mm; none on the
+ * cover). The page number at the foot of every page but the cover comes
+ * from the shell's @page rules too (a margin box, Chrome 131 and later).
+ *
+ * Page numbers in the table of contents: Chrome cannot count pages for the
+ * page (no target-counter), so the guide is printed twice. The first print's
+ * outline (generateDocumentOutline: one entry per heading, with its page) is
+ * read with pdf-lib, each chapter's page is written into the table of
+ * contents, and the second print is the one kept. The table of contents sits
+ * on a page of its own, so the numbers cannot move a chapter. Before printing it waits for the fonts and for every image;
  * a print that does not exist yet shows as a dashed box with one plain line
  * for the reader ("Imagem a acrescentar na próxima versão do guia."), and is
  * listed here with the capture command that makes it.
@@ -30,6 +37,8 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+
+import { PDFArray, PDFDict, PDFDocument, PDFName } from "pdf-lib";
 
 import { openBrowser } from "./browser.mjs";
 import { scenes } from "./scenes.mjs";
@@ -64,6 +73,39 @@ export function chapterFiles(dir = CHAPTERS_DIR) {
   return readdirSync(dir)
     .filter((name) => name.toLowerCase().endsWith(".html"))
     .sort((a, b) => leading(a) - leading(b) || a.localeCompare(b));
+}
+
+const normTitle = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+
+/**
+ * The page each heading of the PDF's outline starts on, as a Map of the
+ * heading's text to its page number (1 is the cover). Chrome writes the h1
+ * of the cover as the outline's root entry and every h2 under it.
+ */
+export async function outlinePages(bytes) {
+  const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+  const pageRefs = doc.getPages().map((p) => p.ref.toString());
+  const outlines = doc.catalog.lookup(PDFName.of("Outlines"));
+  const found = new Map();
+  if (!(outlines instanceof PDFDict)) return found;
+  const walk = (ref, depth) => {
+    for (let node = ref; node && depth < 4; ) {
+      const item = doc.context.lookup(node, PDFDict);
+      const title = item.lookup(PDFName.of("Title"));
+      let dest = item.lookup(PDFName.of("Dest"));
+      if (!dest) dest = item.lookup(PDFName.of("A"))?.lookup?.(PDFName.of("D"));
+      if (dest instanceof PDFArray && title?.decodeText) {
+        const page = pageRefs.indexOf(dest.get(0).toString()) + 1;
+        const text = normTitle(title.decodeText());
+        if (page > 0 && !found.has(text)) found.set(text, page);
+      }
+      const first = item.get(PDFName.of("First"));
+      if (first) walk(first, depth + 1);
+      node = item.get(PDFName.of("Next"));
+    }
+  };
+  walk(outlines.get(PDFName.of("First")), 0);
+  return found;
 }
 
 const escapeAttr = (value) => String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -143,8 +185,7 @@ async function main() {
       fonts: [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "")),
     }));
 
-    const footer = has("--numbers");
-    const pdf = await page.pdf({
+    const print = () => page.pdf({
       paperWidth: A4.width,
       paperHeight: A4.height,
       marginTop: 0,
@@ -153,14 +194,37 @@ async function main() {
       marginRight: 0,
       preferCSSPageSize: true,
       printBackground: true,
-      displayHeaderFooter: footer,
-      headerTemplate: "<span></span>",
-      footerTemplate: footer
-        ? '<div style="width:100%;font-family:Inter,Arial,sans-serif;font-size:8px;color:#5B7199;text-align:center;"><span class="pageNumber"></span></div>'
-        : "<span></span>",
+      displayHeaderFooter: false,
       generateDocumentOutline: true,
       generateTaggedPDF: true,
     });
+
+    // First print: where each chapter starts. Then the numbers go into the
+    // table of contents and the second print is the one kept.
+    const first = await print();
+    const pagesByTitle = await outlinePages(first);
+    const unnumbered = await page.evaluate((entries) => {
+      const pages = new Map(entries);
+      const norm = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+      const left = [];
+      for (const link of document.querySelectorAll("#indice a")) {
+        const title = norm(link.querySelector(".t")?.textContent);
+        let cell = link.querySelector(".p");
+        if (!cell) {
+          cell = document.createElement("span");
+          cell.className = "p";
+          link.appendChild(cell);
+        }
+        cell.textContent = pages.has(title) ? String(pages.get(title)) : "";
+        if (!pages.has(title)) left.push(title);
+      }
+      return left;
+    }, [...pagesByTitle]);
+    if (unnumbered.length) console.warn(`  ! No page found for: ${unnumbered.join("; ")}`);
+    await page.settle(200);
+    const pdf = await print();
+    const moved = [...(await outlinePages(pdf))].filter(([title, n]) => pagesByTitle.has(title) && pagesByTitle.get(title) !== n);
+    if (moved.length) console.warn(`  ! The table of contents moved a chapter: ${moved.map(([t]) => t).join("; ")}. Run the build again.`);
     writeFileSync(OUT, pdf);
     const pages = (pdf.toString("latin1").match(/\/Type\s*\/Page(?!s)/g) ?? []).length;
     const fonts = [...new Set(report.fonts)];

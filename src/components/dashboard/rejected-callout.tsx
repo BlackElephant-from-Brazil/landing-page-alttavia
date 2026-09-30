@@ -33,7 +33,7 @@ export function RejectedCallout({ slots, applicants }: { slots: readonly Rejecte
             ))}
           </ul>
           <p className="mt-3 text-[0.85rem] leading-relaxed text-navy-muted">
-            Use the Replace file button on the slot below. The earlier file stays on record.
+            Send the new file with the button on that document below. The earlier file stays on record.
           </p>
         </div>
       </div>

@@ -45,7 +45,8 @@
   <img src="prints/apply-email.png" alt="Página para criar a conta com primeiro nome e e-mail" loading="lazy">
   <figcaption>Criar a conta. Os círculos correspondem aos passos 1 a 3. Não há senha.</figcaption>
 </figure>
-<p>Um cliente que já tem conta entra por <b>Log in</b>, no topo do site, ou em /en/login: escreve o e-mail, clica <b>Continue</b> e escreve o código.</p>
+<p>Por baixo do formulário, a linha <b>We use your name and email to send your sign in code and run your order.</b> termina no link <b>Privacy notice</b>, que abre o aviso de privacidade numa aba nova.</p>
+<p>Um cliente que já tem conta entra por <b>Log in</b>, no topo do site, ou em /en/login: escreve o e-mail, clica <b>Continue</b> e escreve o código. Também aqui há, por baixo, a linha <b>We use your email to send your sign in code.</b> com o link <b>Privacy notice</b>.</p>
 <figure data-scene="client-login">
   <img src="prints/client-login.png" alt="Página Sign in da área de cliente, só com o e-mail" loading="lazy">
   <figcaption>A entrada do cliente. <span class="circulo-vermelho">1</span> O e-mail. <span class="circulo-vermelho">2</span> <b>Continue</b>, que envia o código.</figcaption>
@@ -65,11 +66,11 @@
   <img src="prints/dashboard-welcome.png" alt="Área de cliente antes do pagamento, com Welcome. e o cartão do pedido com Pay" loading="lazy">
   <figcaption>Antes do primeiro pagamento. <span class="circulo-vermelho">1</span> O botão de pagar, no cartão do pedido.</figcaption>
 </figure>
-<p>Por baixo do botão de pagar, uma linha diz: <b>By paying you accept the service terms and your service agreement.</b> As palavras <b>service terms</b> abrem a página dos termos numa aba nova. Ao clicar em <b>Pay</b>, o pedido regista a data e a versão dos termos em vigor.</p>
+<p>Por baixo do botão de pagar, uma linha diz: <b>By paying you accept the service terms and your service agreement.</b>, seguida do link <b>Privacy notice</b>. As palavras <b>service terms</b> abrem os termos do serviço numa aba nova, e <b>Privacy notice</b> abre o aviso de privacidade. Ao clicar em <b>Pay</b>, o pedido regista a data e a versão dos termos em vigor.</p>
 <p>Decidido em 25/09: esta linha é a aceitação dos termos e do contrato, e a data e a versão aceites ficam registadas no pedido. A assinatura do contrato e do Anexo I é feita à mão: o cliente descarrega o contrato, assina e devolve a cópia no documento <b>Signed service agreement</b> (secção 6).</p>
 <figure data-scene="order-pay-acceptance">
   <img src="prints/order-pay-acceptance.png" alt="Linha By paying you accept the service terms and your service agreement. por baixo do botão de pagar" loading="lazy">
-  <figcaption><span class="circulo-vermelho">1</span> O botão de pagar. <span class="circulo-vermelho">2</span> A linha por baixo, sobre os termos e o contrato.</figcaption>
+  <figcaption><span class="circulo-vermelho">1</span> O botão de pagar, que diz o preço, por exemplo <b>Pay €149 and start</b>. <span class="circulo-vermelho">2</span> A linha por baixo, sobre os termos e o contrato, com o link <b>Privacy notice</b> no fim.</figcaption>
 </figure>
 <p>Enquanto a conta só tem pedidos por pagar, a secção <b>Get a service</b>, com os outros serviços, não aparece. Aparece depois do primeiro pagamento.</p>
 
@@ -99,7 +100,7 @@
     </ul>
   </li>
   <li>confere as duas linhas de baixo. <b>Your agreement is sent to</b> mostra o e-mail da conta, só para ler. <b>City and country you are in today</b> é opcional: sai ao lado da data no anexo do contrato, e em branco o cliente escreve-o à mão;</li>
-  <li>clica <b>Confirm and open my agreement</b>, à direita, com <b>Cancel</b> ao lado.</li>
+  <li>clica <b>Confirm and open my agreement</b>, à direita, com <b>Cancel</b> ao lado. No fundo da janela, a linha <b>We print these details on your documents.</b> tem o link <b>Privacy notice</b>.</li>
 </ol>
 <figure data-scene="order-agreement-details">
   <img src="prints/order-agreement-details.png" alt="Janela Your details for the service agreement com os campos do passaporte" loading="lazy">
@@ -165,8 +166,7 @@
 <p>Um arquivo aprovado não se troca. Quando o pedido sai de <b>Documents</b>, os documentos deixam de mostrar o botão de envio, também os vazios e os rejeitados. Só uma página que o cliente abriu antes disso ainda mostra o botão; se ele o usar, lê <b>This order has moved on. Write to us if you still need to send a file.</b> Para lhe deixar enviar de novo, volte o pedido a <b>Documents</b> com <b>Back</b> (capítulo 5).</p>
 
 <h4>Um arquivo rejeitado</h4>
-<p>No topo do pedido aparece <b>One file needs to be sent again</b> (ou quantos forem), e o documento mostra o seu motivo num quadro vermelho claro. O cliente envia o arquivo novo no mesmo documento, com o botão que lá aparece: <b>Choose file</b>, ou <b>Upload the signed copy</b> numa procuração ou no contrato. O arquivo antigo fica registado no painel, em <b>1 other upload</b> (capítulo 5).</p>
-<!-- VERIFICAR: o aviso do topo (src/components/dashboard/rejected-callout.tsx) diz "Use the Replace file button on the slot below.", mas num documento rejeitado o botão diz Choose file ou Upload the signed copy (slot-controls.ts). Correção de código pedida; quando entrar, confirmar que este parágrafo continua certo. -->
+<p>No topo do pedido aparece <b>One file needs to be sent again</b> (ou quantos forem), com a frase <b>Send the new file with the button on that document below.</b>, e o documento mostra o seu motivo num quadro vermelho claro. O cliente envia o arquivo novo no mesmo documento, com o botão que lá aparece: <b>Choose file</b>, ou <b>Upload the signed copy</b> numa procuração ou no contrato. O arquivo antigo fica registado no painel, em <b>1 other upload</b> (capítulo 5).</p>
 
 <h3>7. Comprar outro serviço: Get a service</h3>
 <p>Depois do primeiro pagamento, a página inicial mostra <b>Get a service</b> com os outros serviços e <b>See all services</b>. No menu, <b>Services</b> mostra todos, três por linha.</p>
@@ -176,11 +176,11 @@
 </figure>
 <ol class="passos">
   <li>O cliente clica <b>See details</b> ou <b>Buy for</b>. Abre-se um painel à direita com o nome, <b>Everything included</b>, <b>Timeline</b> e <b>Have ready after payment</b> (os documentos a preparar).</li>
-  <li>Clica <b>Confirm purchase</b> com o preço. Por baixo está a mesma linha: <b>By paying you accept the service terms and your service agreement.</b> Vai direto ao Stripe. <b>Not now</b> fecha o painel.</li>
+  <li>Clica <b>Confirm purchase</b> com o preço. Por baixo está a mesma linha: <b>By paying you accept the service terms and your service agreement.</b>, com o link <b>Privacy notice</b>. Vai direto ao Stripe. <b>Not now</b> fecha o painel.</li>
 </ol>
 <figure data-scene="purchase-drawer">
   <img src="prints/purchase-drawer.png" alt="Painel lateral de um serviço com Confirm purchase e a linha dos termos" loading="lazy">
-  <figcaption>O painel de um serviço. <span class="circulo-vermelho">2</span> <b>Confirm purchase</b>, com a linha dos termos por baixo, também marcada a vermelho.</figcaption>
+  <figcaption>O painel de um serviço. <span class="circulo-vermelho">2</span> <b>Confirm purchase</b>, com a linha dos termos e o link <b>Privacy notice</b> por baixo, também marcados a vermelho.</figcaption>
 </figure>
 <p>Um serviço que o cliente já tem em curso pode ser comprado de novo, de propósito: é assim que se compra o NIF do parceiro.</p>
 

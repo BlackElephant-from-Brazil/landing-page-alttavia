@@ -21,9 +21,11 @@
                                           data-scene é o id da cena em scripts/guide/scenes.mjs
                                           que tira o print; o mesmo id dá o nome ao PNG
     <figure class="telemovel">...</figure> prints de telemóvel, mais estreitos
+    <figure class="estreita">...</figure>  um print recortado com pouco conteúdo (um formulário), a 120 mm
+    <table class="larga"><colgroup>...</colgroup>  uma tabela com muitas colunas: larguras fixas, letra menor
     <figure class="telemovel lado-a-lado" data-scene="<id> <id>">
-                                          vários prints de telemóvel lado a lado,
-                                          com os ids separados por espaço
+                                          vários prints de telemóvel lado a lado (até três
+                                          numa linha), com os ids separados por espaço
     <strong>Não se desfaz.</strong>       ênfase em português, só em avisos (sai a vermelho)
     <aside class="dica"><p class="caixa-titulo">Dica</p><p>...</p></aside>
     <aside class="atencao"><p class="caixa-titulo">Atenção</p><p>...</p></aside>
@@ -65,8 +67,19 @@
     --sans: "Inter", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
   }
 
-  @page { size: A4; margin: 18mm; }
-  @page capa { size: A4; margin: 0; }
+  /* O número da página, ao pé de cada página menos a capa. O índice ganha os números de cada capítulo
+     na segunda impressão de scripts/guide/pdf.mjs. As variáveis de :root não chegam às margens: cores à mão. */
+  @page {
+    size: A4;
+    margin: 18mm;
+    @bottom-center {
+      content: counter(page);
+      font-family: "Inter", "Segoe UI", Arial, sans-serif;
+      font-size: 8pt;
+      color: #5B7199;
+    }
+  }
+  @page capa { size: A4; margin: 0; @bottom-center { content: none; } }
 
   * { box-sizing: border-box; }
   html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -164,7 +177,7 @@
   .indice li { border-bottom: 1px solid var(--line); }
   .indice a {
     display: grid;
-    grid-template-columns: 14mm 1fr;
+    grid-template-columns: 14mm 1fr auto;
     align-items: baseline;
     padding: 3.2mm 0;
     color: var(--navy);
@@ -172,6 +185,7 @@
   }
   .indice .n { font-family: var(--serif); font-size: 13pt; color: var(--gold-text); }
   .indice .t { font-family: var(--serif); font-size: 13pt; }
+  .indice .p { font-size: 9.5pt; color: var(--navy-muted); font-variant-numeric: tabular-nums; padding-left: 4mm; }
   .indice .vazio { color: var(--navy-muted); font-style: italic; }
 
   /* ---------- Capítulos ---------- */
@@ -252,10 +266,15 @@
     border-radius: 2mm;
   }
   figure.telemovel img { max-width: 62mm; border-radius: 4mm; }
-  figure.lado-a-lado { display: flex; flex-wrap: wrap; gap: 6mm; justify-content: center; align-items: flex-start; }
-  figure.lado-a-lado img { max-width: 62mm; margin: 0; }
+  /* Um print recortado com pouco conteúdo (um formulário): mais estreito, para não ocupar meia página. */
+  figure.estreita img { max-width: 120mm; }
+  figure.email img { max-width: 125mm; }
+  figure.lado-a-lado { display: flex; flex-wrap: wrap; gap: 5mm; justify-content: center; align-items: flex-start; }
+  /* Três prints de 52 mm e dois intervalos de 5 mm cabem numa linha da coluna de 174 mm; a 62 mm o terceiro
+     passava para uma segunda linha e a figura partia-se entre duas páginas. */
+  figure.lado-a-lado img { max-width: 52mm; margin: 0; }
   figure.lado-a-lado figcaption { flex-basis: 100%; margin-top: 0; }
-  figure.lado-a-lado .print-em-falta { width: 55mm; }
+  figure.lado-a-lado .print-em-falta { width: 52mm; }
   figcaption {
     margin-top: 2.2mm;
     font-size: 8.8pt;
@@ -334,6 +353,14 @@
   table { width: 100%; border-collapse: collapse; margin: 4mm 0 6mm; font-size: 9.5pt; break-inside: avoid; }
   th, td { text-align: left; vertical-align: top; padding: 2mm 2.5mm; border-bottom: 1px solid var(--line); }
   th { font-size: 7.5pt; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--navy-soft); }
+  /* Os rótulos (cabeçalhos e primeira coluna) partem-se só entre palavras: com "anywhere", herdado do body,
+     o Chrome estreitava essa coluna até partir "Client" em "Cli-ent". As outras colunas guardam o "anywhere",
+     para um endereço comprido nunca alargar a página. */
+  th, td:first-child { overflow-wrap: break-word; }
+  /* Uma tabela com muitas colunas: larguras fixas (um <colgroup> no capítulo), letra menor, sem partir palavras. */
+  table.larga { table-layout: fixed; font-size: 8.5pt; }
+  table.larga th { letter-spacing: 0.06em; }
+  table.larga td { hyphens: manual; overflow-wrap: normal; }
 
   /* ---------- No ecrã (antes de imprimir) ---------- */
   @media screen {
@@ -355,7 +382,7 @@
   <p class="subtitulo" data-campo="subtitulo">NIF e conta bancária em Portugal: a área do cliente e o painel da equipa, passo a passo.</p>
   <dl class="ficha">
     <div><dt>Para</dt><dd data-campo="cliente">Patrícia Viana e a equipa da Alttavia</dd></div>
-    <div><dt>Versão</dt><dd data-campo="versao">1, 25 de setembro de 2026</dd></div>
+    <div><dt>Versão</dt><dd data-campo="versao">2, 30 de setembro de 2026</dd></div>
     <div><dt>Plataforma</dt><dd data-campo="endereco">bank-nif-portugal.alttavia-relocation.com</dd></div>
     <div><dt>Preparado por</dt><dd data-campo="autor">guyshore.com</dd></div>
   </dl>

@@ -155,9 +155,35 @@ function pageLibrary() {
     return { side: chosen, ...points[chosen] };
   }
 
+  /** Where a badge sits on a mark with no arrow: a corner or the middle of a side of its box. */
+  function badgePoint(box, where) {
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const left = box.x - 2;
+    const right = box.x + box.width + 2;
+    const top = box.y - 2;
+    const bottom = box.y + box.height + 2;
+    const points = {
+      "top-left": [left, top],
+      top: [cx, top],
+      "top-right": [right, top],
+      left: [box.x - 18, cy],
+      right: [box.x + box.width + 18, cy],
+      "bottom-left": [left, bottom],
+      bottom: [cx, bottom],
+      "bottom-right": [right, bottom],
+    };
+    return points[where] ?? points["top-left"];
+  }
+
   /**
-   * items: [{ target, arrow?: "left"|"right"|"top"|"bottom", label?: "1", pad? }]
+   * items: [{ target, arrow?: "left"|"right"|"top"|"bottom", label?: "1", pad?, arrowLength?,
+   *           badge?: "top-left"|"top"|"top-right"|"left"|"right"|"bottom-left"|"bottom"|"bottom-right" }]
+   *   badge places the numbered circle on a mark with no arrow (default top-left);
+   *   with an arrow the circle always sits at the arrow's tail.
    * options: { pad = 6, arrowLength = 80, mode = "viewport" | "document", color, halo = true }
+   * A mark whose box or numbered circle falls outside the drawn area is
+   * answered in `missing` as off screen: it would not be in the print.
    */
   function annotate(items, options = {}) {
     clear();
@@ -209,13 +235,18 @@ function pageLibrary() {
       const r = el.getBoundingClientRect();
       const box = { x: r.left - pad + offsetX, y: r.top - pad + offsetY, width: r.width + pad * 2, height: r.height + pad * 2 };
       const radius = Math.min(10, box.height / 2);
+      const onScreen = box.x < width && box.y < height && box.x + box.width > 0 && box.y + box.height > 0;
+      if (!onScreen) {
+        missing.push(`${describe(spec)} (off screen)`);
+        continue;
+      }
       if (halo) {
         svg.appendChild(svgEl("rect", { ...rectAttrs(box), rx: radius, fill: "none", stroke: "#FFFFFF", "stroke-width": 5, "stroke-opacity": 0.85 }));
       }
       svg.appendChild(svgEl("rect", { ...rectAttrs(box), rx: radius, fill: "none", stroke: color, "stroke-width": 2 }));
       drawn += 1;
 
-      let badgeAt = [box.x - 2, box.y - 2];
+      let badgeAt = badgePoint(box, item.badge);
       if (item.arrow) {
         const length = item.arrowLength ?? options.arrowLength ?? 80;
         const { start, end } = arrowPoints(box, item.arrow, length, viewport);
@@ -238,6 +269,7 @@ function pageLibrary() {
 
       if (item.label != null && item.label !== "") {
         const [bx, by] = badgeAt;
+        if (bx < 0 || by < 0 || bx > width || by > height) missing.push(`the circle ${item.label} of ${describe(spec)} (off screen)`);
         const group = svgEl("g", {});
         group.appendChild(svgEl("circle", { cx: bx, cy: by, r: 14, fill: color, stroke: "#FFFFFF", "stroke-width": 2.5 }));
         const text = svgEl("text", {
@@ -309,10 +341,12 @@ function pageLibrary() {
         : next;
     }
     if (!box) return null;
-    const left = Math.max(0, box.left - pad);
-    const top = Math.max(0, box.top - pad);
-    const right = Math.min(window.innerWidth, box.right + pad);
-    const bottom = Math.min(window.innerHeight, box.bottom + pad);
+    // pad is a number, or { top, right, bottom, left } (a side left out gets 24).
+    const side = (name) => (typeof pad === "number" ? pad : (pad?.[name] ?? 24));
+    const left = Math.max(0, box.left - side("left"));
+    const top = Math.max(0, box.top - side("top"));
+    const right = Math.min(window.innerWidth, box.right + side("right"));
+    const bottom = Math.min(window.innerHeight, box.bottom + side("bottom"));
     return {
       x: Math.round(left + window.scrollX),
       y: Math.round(top + window.scrollY),
@@ -523,8 +557,9 @@ export const scrollIntoView = (page, spec, { block = "center" } = {}) => call(pa
 
 /**
  * Draws the rectangles, arrows and badges. `items` is a list of
- * { target, arrow?, label?, pad?, arrowLength? } (a bare target works too).
- * Answers { drawn, missing, layer }.
+ * { target, arrow?, label?, pad?, arrowLength?, badge? } (a bare target works too).
+ * Answers { drawn, missing, layer }; `missing` also names a mark, or a
+ * numbered circle, that would fall outside the print.
  */
 export const annotate = (page, items, options = {}) =>
   call(page, "annotate", (Array.isArray(items) ? items : [items]).map((item) => (item && item.target !== undefined ? item : { target: item })), options);

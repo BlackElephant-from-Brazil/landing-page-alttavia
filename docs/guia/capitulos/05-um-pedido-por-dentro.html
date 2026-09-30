@@ -102,14 +102,13 @@
   <li>A cópia assinada é o arquivo da linha, com <b>View</b> e <b>Download</b>.</li>
   <li>Reveja-a como qualquer outro documento: <b>Approve</b>, ou <b>Reject</b> com um motivo.</li>
   <li>É obrigatório: o pedido não sai de <b>Documents</b> sem ele aprovado.</li>
-  <li>A primeira cópia assinada chega à equipa por e-mail, <b>Signed service agreement received</b>, em anexo quando tem até 8 MB. Acima de 8 MB, o e-mail diz para a descarregar do pedido. A seguir, só chega outra quando você rejeita a cópia e o cliente envia uma nova. Na produção, esse e-mail vai para o info@ <span class="a-confirmar">[A CONFIRMAR]</span>.</li>
+  <li>A primeira cópia assinada chega à equipa por e-mail, <b>Signed service agreement received</b>. Num pedido pago com dinheiro real, vai em anexo quando tem até 8 MB; acima disso, o e-mail diz para a descarregar do pedido. No staging e nos pedidos pagos com o cartão de teste, nunca vai em anexo: o e-mail diz <b>This order was paid in test mode, so the file is not attached.</b> e o arquivo descarrega-se do pedido. A seguir, só chega outra quando você rejeita a cópia e o cliente envia uma nova. Na produção, esse e-mail vai para o info@.</li>
 </ul>
 <figure data-scene="admin-order-signed-agreement">
-  <img src="prints/admin-order-signed-agreement.png" alt="Linha Signed service agreement na lista de documentos, com Download agreement e a cópia assinada" loading="lazy">
-  <figcaption><span class="circulo-vermelho">1</span> O contrato assinado pelo cliente, revisto como qualquer outro documento.</figcaption>
+  <img src="prints/admin-order-signed-agreement.png" alt="Linha Signed service agreement na lista de documentos, com Download agreement e a etiqueta Waiting" loading="lazy">
+  <figcaption><span class="circulo-vermelho">1</span> O documento <b>Signed service agreement</b> antes de o cliente enviar a cópia assinada: diz <b>Waiting</b>, e <b>Download agreement</b> já descarrega o contrato preparado. Quando a cópia chega, passa a <b>To review</b>, com <b>Approve</b> e <b>Reject</b>, como qualquer outro documento.</figcaption>
 </figure>
 <p>Este documento entrou a 25/09/2026. Um pedido que nessa data já tinha passado de <b>Documents</b> não o pede: o lugar fica fechado e vazio.</p>
-<!-- VERIFICAR ANTES DE ENVIAR O GUIA: a migração 0013 (o documento Signed service agreement) corrida no projeto Supabase; a 25/09 às 15:00 ainda não estava. -->
 
 <h3>Details for the deeds</h3>
 <p>Por baixo da lista de documentos, o bloco <b>Details for the deeds</b> mostra os dados que o cliente escreveu. São os dados que entram nas procurações e no contrato:</p>
@@ -164,14 +163,21 @@
   <li>A página responde <b>Prepared and emailed to the client.</b> Se disser <b>Prepared, but the email did not go out. Try again in a moment.</b>, tente de novo daí a pouco.</li>
 </ol>
 <p>Quando o cliente escreveu os dados para uma procuração mas ainda não pediu o contrato, o botão chama-se <b>Prepare and send</b> e prepara a primeira versão. A pergunta é então <b>Prepare and send the agreement?</b>, e o botão para confirmar diz <b>Yes, prepare and send</b>. No <b>Couple package</b>, o contrato só é preparado quando os dados das duas pessoas estão no pedido.</p>
-<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Se o cliente já tinha enviado o contrato assinado, uma versão nova precisa de uma assinatura nova. Rejeite o <b>Signed service agreement</b> com um motivo que peça a assinatura da versão nova. <span class="a-confirmar">[A CONFIRMAR]</span> Falta confirmar: é este o procedimento que a firma quer?</p></aside>
+<aside class="atencao"><p class="caixa-titulo">Atenção</p><p>Uma versão nova não pede outra assinatura ao cliente: a cópia assinada da versão anterior continua no documento <b>Signed service agreement</b>. <span class="a-confirmar">[A CONFIRMAR]</span> Falta confirmar: a firma quer a assinatura da versão nova sempre que prepara outra versão? Se quiser, siga os passos abaixo.</p></aside>
+<h4>Pedir a assinatura da versão nova</h4>
+<ol class="passos">
+  <li>Se o pedido já saiu de <b>Documents</b>, volte-o a <b>Documents</b> com <b>Back</b> ou <b>Jump to</b>. O cliente só envia arquivos com o pedido nessa etapa.</li>
+  <li>Se a cópia assinada já está <b>Approved</b>, escreva ao Guilherme para a reabrir, como em "Aprovei um documento por engano" (capítulo 11). <b>Reject</b> só aparece num arquivo <b>To review</b>.</li>
+  <li>Com a cópia em <b>To review</b>, clique <b>Reject</b> e escreva um motivo que peça a assinatura da versão nova, por exemplo <em>We prepared a new version of your agreement. Please sign the new version and upload it here.</em> O cliente recebe o motivo por e-mail.</li>
+  <li>Quando a cópia nova chegar, aprove-a. O pedido pode então sair de <b>Documents</b>.</li>
+</ol>
 
 <h3>Os arquivos para o cliente: Deliverables</h3>
 <p>Aqui você devolve ao cliente o que a firma obteve: o NIF, o acesso às Finanças, o IBAN. À direita do título, a contagem, por exemplo <b>1 of 2 from the list</b>, e por baixo da lista a frase <b>Still to send:</b> com o que falta.</p>
 <ol class="passos">
   <li>Na caixa <b>Upload a file for the client</b>, escolha o item em <b>Deliverable</b>, por exemplo <b>Your Portuguese NIF</b>, ou <b>Other file</b> para outra coisa. Esta escolha só aparece se o serviço tiver itens na lista.</li>
   <li>O campo <b>Label the client sees</b> preenche-se com o nome do item. É o nome que o cliente lê: mude-o se quiser.</li>
-  <li>Clique <b>Choose file</b> e escolha o arquivo: PDF, JPG, PNG, WebP, DOC ou DOCX, até 20 MB.</li>
+  <li>Clique <b>Choose file</b> e escolha o arquivo: PDF, JPG, PNG ou DOCX, até 20 MB.</li>
   <li>Clique <b>Upload</b>. Por baixo aparece a percentagem e uma barra dourada. No fim aparece o nome do arquivo seguido de <b>received.</b>, e o arquivo entra na lista com <b>Download</b> e <b>Remove</b>.</li>
 </ol>
 <figure data-scene="admin-order-deliverables">
@@ -230,8 +236,8 @@
 <h3>Um pedido de duas pessoas</h3>
 <p>No <b>Couple package</b>, cada documento pessoal aparece duas vezes, uma por pessoa (<b>Applicant 1</b> e <b>Applicant 2</b>). A procuração do banco e o contrato assinado aparecem uma vez só, porque os dois assinam o mesmo papel. <b>Details for the deeds</b> mostra as duas pessoas.</p>
 <figure data-scene="admin-order-couple">
-  <img src="prints/admin-order-couple.png" alt="Documentos de um pedido Couple package, com Applicant 1 e Applicant 2" loading="lazy">
-  <figcaption>Um pedido de casal. <span class="circulo-vermelho">1</span> Os documentos, uma vez por pessoa. <span class="circulo-vermelho">2</span> Os dados das duas pessoas.</figcaption>
+  <img src="prints/admin-order-couple.png" alt="Documentos de um pedido Couple package: a procuração do NIF de Applicant 1 e de Applicant 2, e uma só procuração do banco" loading="lazy">
+  <figcaption>Um pedido de casal. <span class="circulo-vermelho">1</span> A procuração do NIF aparece uma vez por pessoa, com <b>Applicant 1</b> e <b>Applicant 2</b> (os dois quadros de cima). <span class="circulo-vermelho">2</span> A procuração do banco aparece uma só vez, porque os dois assinam o mesmo papel.</figcaption>
 </figure>
 <p>Uma conta conjunta pedida no formulário como <b>Bank Account only</b> ou <b>NIF + Bank Account</b> também junta duas pessoas num só pedido, com <b>Applicant 1</b> e <b>Applicant 2</b> e dois blocos em <b>Details for the deeds</b>. Há duas diferenças para o <b>Couple package</b>:</p>
 <ul>

@@ -28,13 +28,20 @@
  * move, send or delete anything. Sessions are made server side
  * (session.mjs), no email goes out, and each one is signed out at the end.
  *
- * The second factor needs two runs, because its scenes want the support
- * admin in opposite states. First, with no factor on that account:
- *   node scripts/guide/capture.mjs --only admin-settings-second-factor
- * Then enrol it (node scripts/admin-totp.mjs, which writes
- * ADMIN_SUPPORT_TOTP_SECRET into .env.local) and run everything else, which
- * takes admin-login-code and admin-settings-second-factor-on too. A full run
- * after the enrolment skips admin-settings-second-factor, since Set up is gone.
+ * The second factor. There is none at launch (decision of 2026-09-30): the
+ * firm signs in with the password only, and the guide shows the optional
+ * Settings card in its "Set up" state, the one the firm's account sees. The
+ * support admin keeps a factor of its own for scripts, so take the prints
+ * with that factor removed and put it back afterwards:
+ *   node scripts/admin-totp.mjs --unenrol     (the .env.local line goes too)
+ *   node scripts/guide/capture.mjs
+ *   node scripts/admin-totp.mjs               (enrols again, new secret in .env.local)
+ * With the factor in place every other print still works (the session is
+ * made at aal2), but the Settings card reads "On since" instead of "Set up".
+ *
+ * Opening a dialog. `ready` is waited for BEFORE the `before` steps run, so a
+ * scene whose dialog opens with a click names the button as `ready` (and the
+ * dialog as the click's `expect`), never the dialog itself.
  *
  * A scene marked `pending` (a screen being built) is looked for briefly: when
  * it is there, it is taken and the table says the flag can go; when it is

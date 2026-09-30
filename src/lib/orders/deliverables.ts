@@ -1,5 +1,5 @@
 import { deleteObject, headObjectSize, presignUpload } from "@/lib/r2/client";
-import { acceptedTypesMessage, extensionFor, sanitizeFileName, sizeLimitMessage } from "@/lib/r2/keys";
+import { DELIVERABLE_ACCEPTED_MIME, acceptedTypesMessage, extensionFor, sanitizeFileName, sizeLimitMessage } from "@/lib/r2/keys";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServiceDeliverableRow, UserServiceDeliverableRow, UserServiceRow } from "@/lib/db/types";
 
@@ -21,12 +21,7 @@ import type { ServiceDeliverableRow, UserServiceDeliverableRow, UserServiceRow }
  * object in the bucket, then the row.
  */
 
-export const DELIVERABLE_ACCEPTED_MIME: readonly string[] = [
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-];
+export { DELIVERABLE_ACCEPTED_MIME } from "@/lib/r2/keys";
 
 export const DELIVERABLE_MAX_BYTES = 20 * 1024 * 1024;
 

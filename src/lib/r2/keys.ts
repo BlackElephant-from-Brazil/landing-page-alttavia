@@ -126,6 +126,28 @@ export function formatBytes(bytes: number): string {
  * The two one line messages the route answers with and the slot shows before
  * it ever calls the route, so a visitor reads the same words either way.
  */
+/**
+ * The types the admin may return to a client as a deliverable: PDF, JPG, PNG
+ * and DOCX (src/lib/orders/deliverables.ts refuses anything else with 415).
+ * Here, in the pure module, so the upload form in the browser offers and
+ * checks exactly the same list (2026-09-30: the form used to offer WebP and
+ * DOC, which the server then refused).
+ */
+export const DELIVERABLE_ACCEPTED_MIME: readonly string[] = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
+/** The file picker's accept attribute for a list of mime types: ".pdf,.jpg,.jpeg,.png". */
+export function acceptAttribute(acceptedMime: readonly string[]): string {
+  const extensions = Object.entries(MIME_BY_EXTENSION)
+    .filter(([, mime]) => acceptedMime.includes(mime))
+    .map(([extension]) => `.${extension}`);
+  return extensions.join(",");
+}
+
 export function acceptedTypesMessage(acceptedMime: readonly string[]): string {
   const labels = Array.from(new Set(acceptedMime.map(labelForMime)));
   return `This file type is not accepted. Use ${listWords(labels)}.`;
