@@ -109,7 +109,9 @@ export const applyCopy = {
     passport: {
       heading: "Which passport will you apply with?",
       headingCouple: "Which passports will you apply with?",
-      help: "The bank assesses each case by tax residence, not by nationality. We tell you now if yours is one we cannot serve.",
+      // The live row gets this line from supabase/migrations/0020_passport_help.sql,
+      // which a test pins to it.
+      help: "The service is not available to holders of some passports, and we tell you as soon as you choose one. For the account, the bank assesses each case by tax residence.",
       person: ["Your passport", "Your partner's passport"],
       placeholder: "Choose a country",
     },
@@ -132,6 +134,26 @@ export const applyCopy = {
         none: "Not applying for a visa",
       } satisfies Record<Visa, string>,
     },
+  },
+
+  /**
+   * The owner's country block list (BLOCKED_COUNTRIES in
+   * src/lib/apply/rules.ts). The field messages take the name from
+   * countries.ts through `countryInSentence()`; `server` is what
+   * POST /api/apply/submit answers when forged answers get past the screens.
+   */
+  blocked: {
+    residence: (country: string) => `This service is not available to residents of ${country}.`,
+    passport: (country: string) => `This service is not available to holders of a passport from ${country}.`,
+    crimeaCheckbox: "My address is not in Crimea.",
+    crimea: "This service is not available for addresses in Crimea.",
+    server: "This service is not available for the countries you selected.",
+    /**
+     * POST /api/orders (the purchase drawer) for an account that never sent
+     * the application form, so no address or passport was ever checked.
+     */
+    applyFirst: "Start your application first, so we can confirm the service is available to you.",
+    applyFirstLink: "Start my application",
   },
 
   result: {
@@ -522,4 +544,24 @@ export function whatsappMessage(rec: ProductRecommendation, answers: Answers): s
 
 export function whatsappUrl(message: string): string {
   return `https://wa.me/${CONTACT.phoneDigits}?text=${encodeURIComponent(message)}`;
+}
+
+/**
+ * A country's name from countries.ts, ready to sit after "of" or "from" in a
+ * sentence: "the Central African Republic", "the United States", "Russia".
+ * Falls back to the code when the list does not know it.
+ */
+export function countryInSentence(code: string): string {
+  const name = countryByCode(code)?.name ?? code;
+  return /(Republic|Islands|Emirates|States|Kingdom)$/.test(name) ? `the ${name}` : name;
+}
+
+/**
+ * The line under a country field whose country is on the block list:
+ * residents for the address, passport holders for anything else (the
+ * passports are the only other country question the list applies to).
+ */
+export function blockedCountryMessage(answerKey: string, code: string): string {
+  const country = countryInSentence(code);
+  return answerKey === "residence" ? applyCopy.blocked.residence(country) : applyCopy.blocked.passport(country);
 }

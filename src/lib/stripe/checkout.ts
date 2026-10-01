@@ -1,5 +1,8 @@
 import "server-only";
 
+import { applyCopy } from "@/content/apply";
+import { blockedCountriesIn } from "@/lib/apply/rules";
+import { sanitizeAnswers } from "@/lib/apply/storage";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServiceRow, UserRow, UserServiceRow } from "@/lib/db/types";
 import { siteOrigin, siteOriginFrom, type RequestLike } from "@/lib/site-url";
@@ -54,9 +57,9 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 
 /** An error the route can turn into a status code and a short message. */
 export class CheckoutError extends Error {
-  readonly status: 403 | 404 | 409 | 500;
+  readonly status: 403 | 404 | 409 | 422 | 500;
 
-  constructor(status: 403 | 404 | 409 | 500, message: string) {
+  constructor(status: 403 | 404 | 409 | 422 | 500, message: string) {
     super(message);
     this.name = "CheckoutError";
     this.status = status;
@@ -126,6 +129,15 @@ export async function createCheckoutForOrder(
   if (!order) throw new CheckoutError(404, "Order not found.");
   if (order.user_id !== userId) throw new CheckoutError(403, "This order belongs to another account.");
   if (order.paid_at) throw new CheckoutError(409, "This order is already paid.");
+  // The owner's country block list (src/lib/apply/rules.ts), once more on
+  // the answers the order was made from. POST /api/apply/submit already
+  // refused them; this holds an order written before the list, or by any
+  // other path, before Stripe is touched or the terms are recorded. An order
+  // from the purchase drawer has no answers here: POST /api/orders checked
+  // the account's applications before creating it.
+  if (blockedCountriesIn(sanitizeAnswers(order.answers_snapshot)).length > 0) {
+    throw new CheckoutError(422, applyCopy.blocked.server);
+  }
 
   const { data: serviceRow, error: serviceError } = await admin
     .from("services")

@@ -502,10 +502,12 @@ function knownProbes(fx) {
     },
     "POST /api/orders": {
       // A slug no service has: past the session check, nothing is created.
-      own: () => ({ path: "/api/orders", ...json({ serviceSlug: "authz-probe-none" }), expect: [404] }),
+      // The country gate (src/lib/orders/country-gate.ts) runs first, so an
+      // account that never sent the application form answers 422 apply_first.
+      own: () => ({ path: "/api/orders", ...json({ serviceSlug: "authz-probe-none" }), expect: [404, 422] }),
       anon: () => ({ path: "/api/orders", ...json({ serviceSlug: "authz-probe-none" }), expect: [401] }),
       other: null,
-      admin: () => ({ path: "/api/orders", ...json({ serviceSlug: "authz-probe-none" }), expect: [404] }),
+      admin: () => ({ path: "/api/orders", ...json({ serviceSlug: "authz-probe-none" }), expect: [404, 422] }),
     },
     "POST /api/stripe/webhook": {
       public: true,

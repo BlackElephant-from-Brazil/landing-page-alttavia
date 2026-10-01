@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { applyCopy } from "@/content/apply";
 import { TERMS_REQUIRED, TERMS_VERSION } from "@/content/terms-version";
 import type { UserServiceRow } from "@/lib/db/types";
 
@@ -261,5 +262,32 @@ describe("POST /api/checkout input", () => {
 
     expect(response.status).toBe(404);
     expect(termsWrites).toEqual([]);
+  });
+});
+
+describe("POST /api/checkout and the country block list", () => {
+  it.each([
+    ["a blocked address", { residence: "IR", applicants: "one", hasNif: [false], bank: "none", passport: ["US"] }],
+    ["a blocked passport", { residence: "US", applicants: "one", hasNif: [false], bank: "none", passport: ["ru"] }],
+  ])("refuses an order whose answers name %s, before Stripe or the terms record", async (_label, answers) => {
+    tables.user_services = [{ ...order, submission_id: "55555555-5555-4555-8555-555555555555", answers_snapshot: answers }];
+
+    const response = await post({ userServiceId: ORDER_ID, acceptTerms: true });
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({ error: applyCopy.blocked.server });
+    expect(priceRetrieve).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(termsWrites).toEqual([]);
+  });
+
+  it("still opens checkout for allowed answers and for a drawer order with none", async () => {
+    tables.user_services = [
+      { ...order, answers_snapshot: { residence: "UA", notCrimea: true, applicants: "one", passport: ["UA"] } },
+    ];
+    expect((await post({ userServiceId: ORDER_ID, acceptTerms: true })).status).toBe(200);
+
+    tables.user_services = [{ ...order, answers_snapshot: {} }];
+    expect((await post({ userServiceId: ORDER_ID, acceptTerms: true })).status).toBe(200);
   });
 });

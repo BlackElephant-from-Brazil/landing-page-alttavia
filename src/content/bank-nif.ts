@@ -665,7 +665,7 @@ export const bankNif = {
       },
       {
         q: "Do you work with my nationality?",
-        a: "All nationalities for the NIF. The bank assesses each case by tax residence, not by nationality, and we tell you before you buy if yours is one we cannot serve.",
+        a: "The service is not available to residents or passport holders of some countries, and the form says so as soon as you choose one. For the account, the bank assesses each case by tax residence.",
       },
       {
         q: "What documents do I need to provide?",

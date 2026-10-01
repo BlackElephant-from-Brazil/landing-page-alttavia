@@ -15,6 +15,7 @@ export function sanitizeAnswers(raw: unknown): Answers {
   const a: Answers = {};
 
   if (isCountryCode(r.residence)) a.residence = r.residence.toUpperCase();
+  if (typeof r.notCrimea === "boolean") a.notCrimea = r.notCrimea;
   if (r.applicants === "one" || r.applicants === "two" || r.applicants === "more") a.applicants = r.applicants;
   if (typeof r.childrenNifs === "boolean") a.childrenNifs = r.childrenNifs;
   if (Array.isArray(r.hasNif)) {

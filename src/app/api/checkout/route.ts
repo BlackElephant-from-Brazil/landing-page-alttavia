@@ -23,8 +23,9 @@ import { getUser } from "@/lib/supabase/user";
  * webhook do not look at it.
  *
  * Statuses: 401 no session, 400 unreadable body or order id, 422 no
- * acceptance, 403 another account's order, 404 no such order, 409 already
- * paid or the price does not match, 500 anything else.
+ * acceptance or an order whose answers name a country on the owner's block
+ * list (src/lib/apply/rules.ts), 403 another account's order, 404 no such
+ * order, 409 already paid or the price does not match, 500 anything else.
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

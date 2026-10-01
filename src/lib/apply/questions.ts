@@ -8,6 +8,7 @@ import type {
   Rule,
 } from "@/lib/db/types";
 import { isCountryCode, isEea } from "./countries";
+import { countryIssue } from "./rules";
 import type { Answers } from "./types";
 
 /**
@@ -272,8 +273,14 @@ function everyPerson(a: Answers, check: (i: number) => boolean): boolean {
 function validatorFor(row: QuestionRow): (a: Answers) => boolean {
   const key = row.answer_key;
   switch (row.kind) {
+    // A country on the owner's block list (or a Ukrainian address without the
+    // Crimea confirmation) is never a valid answer, so Continue stays off and
+    // a `?step=` deep link cannot get past the screen. See ./rules.ts.
     case "country":
-      return (a) => isCountryCode(fieldValue(a, key));
+      return (a) => {
+        const value = fieldValue(a, key);
+        return isCountryCode(value) && countryIssue(key, value, a) === undefined;
+      };
     case "choice":
       return (a) => {
         const value = fieldValue(a, key);
@@ -292,7 +299,10 @@ function validatorFor(row: QuestionRow): (a: Answers) => boolean {
     case "per-person-country":
       return (a) => {
         const list = fieldValue(a, key);
-        return everyPerson(a, (i) => Array.isArray(list) && isCountryCode(list[i]));
+        return everyPerson(
+          a,
+          (i) => Array.isArray(list) && isCountryCode(list[i]) && countryIssue(key, list[i], a) === undefined,
+        );
       };
     default:
       // A kind this build does not know cannot be answered, so it never

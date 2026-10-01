@@ -1,4 +1,5 @@
 import { buildSteps, peopleCount, SEED_QUESTIONS, type QuestionStep } from "./questions";
+import { CRIMEA_COUNTRY } from "./rules";
 import type { Answers, Applicants, BankChoice, Visa } from "./types";
 
 /**
@@ -73,12 +74,17 @@ export function isComplete(a: Answers, steps: readonly Step[] = STEPS): boolean 
  * goes back and switches from "me and my partner" to "just me" does not carry
  * a partner's passport into the engine.
  *
+ * Also drops the Crimea confirmation once the address is no longer in
+ * Ukraine, so switching away and back asks for it again.
+ *
  * Knows the six seeded fields by name. A question added in the database is
  * not pruned here; see the note at the top of ./questions.ts.
  */
 export function pruneAnswers(a: Answers, steps: readonly Step[] = STEPS): Answers {
   const people = peopleCount(a);
   const next: Answers = { ...a };
+  // The Crimea confirmation only means something for an address in Ukraine.
+  if (next.notCrimea !== undefined && next.residence?.toUpperCase() !== CRIMEA_COUNTRY) delete next.notCrimea;
   if (a.applicants === "more") {
     delete next.hasNif;
     delete next.bank;

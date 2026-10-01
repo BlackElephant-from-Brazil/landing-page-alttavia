@@ -1,6 +1,7 @@
-import { alternativeFor } from "@/content/apply";
+import { alternativeFor, applyCopy } from "@/content/apply";
 import { SEED_QUESTIONS } from "@/lib/apply/questions";
 import { applicantsFor, recommend } from "@/lib/apply/recommend";
+import { blockedCountriesIn } from "@/lib/apply/rules";
 import { sanitizeAnswers } from "@/lib/apply/storage";
 import { isComplete, pruneAnswers } from "@/lib/apply/steps";
 import { isProductId, type ProductId } from "@/lib/apply/types";
@@ -18,6 +19,10 @@ import { getUser } from "@/lib/supabase/user";
  * here from the answers, by the same engine the result screen used, so an
  * alternative button can never change what is charged. Every service sells
  * one unit per purchase.
+ *
+ * An address or a passport on the owner's country block list
+ * (`BLOCKED_COUNTRIES` in src/lib/apply/rules.ts) answers 422 before
+ * anything is read or written.
  *
  * Writes, with the admin client, in this order: user_answers (one row per
  * answered seeded question, one submission_id), the user_services row at
@@ -58,6 +63,12 @@ export async function POST(request: Request) {
   const input = body && typeof body === "object" ? (body as { answers?: unknown; product?: unknown }) : {};
 
   const answers = pruneAnswers(sanitizeAnswers(input.answers));
+  // The owner's country block list (src/lib/apply/rules.ts). The wizard never
+  // lets these answers through, so this only meets a forged request; it is
+  // checked before anything else so nothing is written for it. The Crimea
+  // confirmation cannot be verified here; the completeness check below only
+  // holds a Ukrainian address to having ticked it.
+  if (blockedCountriesIn(answers).length > 0) return fail(422, applyCopy.blocked.server);
   // The engine tolerates gaps (an empty object prices as one NIF), so the
   // wizard's own completeness check gates the order: every visible question
   // answered, the way the result screen requires before it renders.

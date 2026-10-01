@@ -8,6 +8,10 @@ export type SelectOption = { value: string; label: string };
  * A native <select> dressed like the site's inputs. Native on purpose: it
  * works with the keyboard, screen readers and the iOS picker, and it never
  * opens underneath the fixed Back/Continue bar on phones.
+ *
+ * `error` prints one line under the field, the way the account screens do:
+ * `role="alert"` announces it when it appears, and `aria-describedby` reads
+ * it again whenever the select takes focus.
  */
 export function SelectField({
   label,
@@ -17,6 +21,7 @@ export function SelectField({
   placeholder,
   autoFocus,
   className,
+  error,
 }: {
   label: string;
   value: string | undefined;
@@ -25,8 +30,10 @@ export function SelectField({
   placeholder: string;
   autoFocus?: boolean;
   className?: string;
+  error?: string;
 }) {
   const id = useId();
+  const errorId = `${id}-error`;
   return (
     <div className={cn("block", className)}>
       <label htmlFor={id} className="block text-xs uppercase tracking-wider text-navy-muted">
@@ -38,10 +45,13 @@ export function SelectField({
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
           autoFocus={autoFocus}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
           className={cn(
             "block h-12 w-full appearance-none rounded-full border bg-white pl-5 pr-12 text-[0.95rem] text-navy transition-colors duration-200",
             "border-navy/15 hover:border-navy/30 focus:border-gold focus:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-paper",
-            !value && "text-navy-muted"
+            !value && "text-navy-muted",
+            error && "border-clay/60 hover:border-clay/60"
           )}
         >
           <option value="" disabled>
@@ -58,6 +68,11 @@ export function SelectField({
           aria-hidden
         />
       </div>
+      {error && (
+        <p id={errorId} role="alert" className="mt-2 px-1 text-[0.85rem] leading-relaxed text-clay">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

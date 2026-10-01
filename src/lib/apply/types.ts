@@ -52,6 +52,11 @@ export type Visa =
 export type Answers = {
   /** ISO 3166-1 alpha-2 of the country on the proof of address. */
   residence?: string;
+  /**
+   * The visitor confirmed the address is not in Crimea. Asked, and kept, only
+   * while `residence` is Ukraine; see `CRIMEA_COUNTRY` in ./rules.ts.
+   */
+  notCrimea?: boolean;
   applicants?: Applicants;
   childrenNifs?: boolean;
   hasNif?: (boolean | undefined)[];

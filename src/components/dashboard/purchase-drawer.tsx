@@ -1,11 +1,13 @@
 "use client";
 
 import { Check, FileText, Lock, X } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState, type MouseEvent, type SyntheticEvent } from "react";
 
 import { RichText } from "@/components/bank/rich-text";
 import { Button } from "@/components/ui/button";
 import { lockBodyScroll } from "@/components/ui/scroll-lock";
+import { APPLY_PATH, applyCopy } from "@/content/apply";
 import { formatEuro } from "@/content/bank-nif";
 import { cn } from "@/lib/cn";
 import type { ServiceRow } from "@/lib/db/types";
@@ -28,6 +30,11 @@ import { PayTermsNote } from "./pay-terms-note";
  * carries (pay-terms-note.tsx): the click accepts the service terms and the
  * service agreement, the checkout route records that on the order, and
  * "service terms" opens in a new tab so the drawer stays open.
+ *
+ * /api/orders answers 422 with `code: "apply_first"` for an account that
+ * never sent the application form (the owner's country block list is
+ * checked against it, src/lib/orders/country-gate.ts); the error line then
+ * ends on a link to the form.
  *
  * `showModal()` keeps focus inside natively and wires Esc, which arrives as
  * the `cancel` event and closes the same way the X and the backdrop do. The
@@ -69,6 +76,7 @@ export function PurchaseDrawer({
   const [entered, setEntered] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [applyFirst, setApplyFirst] = useState(false);
   const titleId = useId();
   const errorId = useId();
   const termsId = useId();
@@ -123,9 +131,11 @@ export function PurchaseDrawer({
   async function confirm() {
     setPending(true);
     setError(null);
+    setApplyFirst(false);
 
     let url: string | undefined;
     let message = FALLBACK_ERROR;
+    let code: string | undefined;
     try {
       const order = await postJson<{ userServiceId?: unknown }>("/api/orders", { serviceSlug: service.slug });
       if (typeof order.userServiceId === "string") {
@@ -138,10 +148,12 @@ export function PurchaseDrawer({
       }
     } catch (err) {
       if (err instanceof Error && err.message) message = err.message;
+      if (err instanceof RequestError) code = err.code;
     }
 
     if (!url) {
       setError(message);
+      setApplyFirst(code === "apply_first");
       setPending(false);
       return;
     }
@@ -250,6 +262,14 @@ export function PurchaseDrawer({
           {error && (
             <p id={errorId} role="alert" className="mt-3 text-[0.85rem] leading-relaxed text-clay">
               {error}
+              {applyFirst && (
+                <>
+                  {" "}
+                  <Link href={APPLY_PATH} className="font-medium text-navy underline underline-offset-2 hover:text-gold-dark">
+                    {applyCopy.blocked.applyFirstLink}
+                  </Link>
+                </>
+              )}
             </p>
           )}
           <PayTermsNote id={termsId} align="center" className="mt-3" />
@@ -260,6 +280,17 @@ export function PurchaseDrawer({
       </div>
     </dialog>
   );
+}
+
+/** A refusal from the server: its one line message, and its `code` when it sent one. */
+class RequestError extends Error {
+  readonly code: string | undefined;
+
+  constructor(message: string, code: string | undefined) {
+    super(message);
+    this.name = "RequestError";
+    this.code = code;
+  }
 }
 
 /** POST a JSON body and return the JSON reply, or throw with the server's one line message. */
@@ -281,11 +312,9 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
     // no body
   }
   if (!response.ok) {
-    const message =
-      data && typeof data === "object" && typeof (data as { error?: unknown }).error === "string"
-        ? (data as { error: string }).error
-        : FALLBACK_ERROR;
-    throw new Error(message);
+    const reply = data && typeof data === "object" ? (data as { error?: unknown; code?: unknown }) : {};
+    const message = typeof reply.error === "string" ? reply.error : FALLBACK_ERROR;
+    throw new RequestError(message, typeof reply.code === "string" ? reply.code : undefined);
   }
   return (data ?? {}) as T;
 }
